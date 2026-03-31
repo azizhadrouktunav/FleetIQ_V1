@@ -28,6 +28,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { TableFooter } from './TableFooter';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 // Fix Leaflet default icon issue
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -872,6 +874,148 @@ function ViewMissionModal({
 
 }: {isOpen: boolean;onClose: () => void;mission: Mission | null;}) {
   if (!isOpen || !mission) return null;
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  const mapSearchUrl = (place: string) =>
+    `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+      place || ''
+    )}`;
+
+  const mapDirectionsUrl = (origin: string, destination: string) =>
+    `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(
+      origin || ''
+    )}&destination=${encodeURIComponent(destination || '')}`;
+
+  const handleExportDetailsPdf = async () => {
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    const marginX = 14;
+    const maxW = pageW - marginX * 2;
+
+    const setText = (size: number, color: [number, number, number] = [15, 23, 42]) => {
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(size);
+      pdf.setTextColor(color[0], color[1], color[2]);
+    };
+
+    const setBold = (size: number, color: [number, number, number] = [15, 23, 42]) => {
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(size);
+      pdf.setTextColor(color[0], color[1], color[2]);
+    };
+
+    const wrap = (text: string) => pdf.splitTextToSize(text || '-', maxW);
+
+    let y = 18;
+
+    // Header
+    setBold(18);
+    pdf.text('Ordre Mission', marginX, y);
+
+    setText(10, [71, 85, 105]);
+    const generatedAt = new Date();
+    pdf.text(
+      `Généré le ${generatedAt.toLocaleDateString()} ${generatedAt.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit'
+      })}`,
+      pageW - marginX,
+      y,
+      { align: 'right' }
+    );
+
+    y += 8;
+    pdf.setDrawColor(226, 232, 240);
+    pdf.line(marginX, y, pageW - marginX, y);
+    y += 8;
+
+    // Helpers for layout
+    const ensureSpace = (needed: number) => {
+      if (y + needed > pageH - 14) {
+        pdf.addPage();
+        y = 18;
+      }
+    };
+
+    const sectionTitle = (title: string) => {
+      ensureSpace(12);
+      setBold(12, [30, 64, 175]);
+      pdf.text(title, marginX, y);
+      y += 5;
+      pdf.setDrawColor(226, 232, 240);
+      pdf.line(marginX, y, pageW - marginX, y);
+      y += 7;
+    };
+
+    const kvRow = (label: string, value: string) => {
+      ensureSpace(10);
+      setText(10, [71, 85, 105]);
+      pdf.text(`${label} :`, marginX, y);
+      setText(10, [15, 23, 42]);
+      const lines = wrap(value || '-');
+      pdf.text(lines, marginX + 32, y);
+      y += Math.max(6, lines.length * 5);
+    };
+
+    sectionTitle('Informations');
+    kvRow('N° Mission', mission.numero);
+    kvRow('Statut', mission.status);
+    kvRow('Objet', mission.objet);
+    kvRow('Responsable', mission.responsable);
+    kvRow('Véhicule', mission.vehicule);
+    kvRow('Départ prévu', `${mission.dateDepart} à ${mission.heureDepart}`);
+    kvRow('Fin', mission.dateFin || '—');
+
+    sectionTitle('Détails logistiques');
+    kvRow('Poids chargé', `${mission.poidsCharge} kg`);
+    kvRow('Valeur poids', `${mission.valeurPoids} TND`);
+    kvRow('Coût extra', `${mission.coutExtra} TND`);
+
+    sectionTitle('Trajectoire');
+    kvRow('Point de départ', mission.emplacementDepart);
+    kvRow('Point d’arrivée', mission.emplacementVisite);
+
+    ensureSpace(18);
+    setText(10, [71, 85, 105]);
+    pdf.text('Liens Maps :', marginX, y);
+    y += 6;
+
+    const departUrl = mapSearchUrl(mission.emplacementDepart);
+    const arriveeUrl = mapSearchUrl(mission.emplacementVisite);
+    const directionsUrl = mapDirectionsUrl(
+      mission.emplacementDepart,
+      mission.emplacementVisite
+    );
+
+    const linkLine = (label: string, url: string) => {
+      ensureSpace(8);
+      setText(10, [15, 23, 42]);
+      pdf.text(`${label}`, marginX, y);
+      // Clickable URL (jsPDF supports link area)
+      const urlX = marginX + 36;
+      setText(10, [2, 132, 199]);
+      const urlText = wrap(url);
+      pdf.text(urlText, urlX, y);
+      const firstLine = urlText[0] || '';
+      const linkW = Math.min(maxW - 36, pdf.getTextWidth(firstLine));
+      pdf.link(urlX, y - 4, linkW, 6, { url });
+      y += Math.max(6, urlText.length * 5);
+    };
+
+    linkLine('Départ', departUrl);
+    linkLine('Arrivée', arriveeUrl);
+    linkLine('Itinéraire', directionsUrl);
+
+    // Footer
+    pdf.setDrawColor(226, 232, 240);
+    pdf.line(marginX, pageH - 16, pageW - marginX, pageH - 16);
+    setText(9, [100, 116, 139]);
+    pdf.text(`Mission ${mission.numero}`, marginX, pageH - 10);
+    pdf.text('Ordre Mission', pageW - marginX, pageH - 10, { align: 'right' });
+
+    pdf.save(`Ordre-Mission-${mission.numero}.pdf`);
+  };
   return (
     <AnimatePresence>
       <motion.div
@@ -919,7 +1063,7 @@ function ViewMissionModal({
             </button>
           </div>
 
-          <div className="p-6 overflow-y-auto flex-1 space-y-6">
+          <div ref={contentRef} className="p-6 overflow-y-auto flex-1 space-y-6">
             <div className="flex items-center justify-between bg-slate-50 p-4 rounded-lg border border-slate-200">
               <div>
                 <p className="text-sm text-slate-500 font-medium">
@@ -1001,9 +1145,77 @@ function ViewMissionModal({
                 </div>
               </div>
             </div>
+
+            <div className="space-y-4">
+              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider border-b pb-2">
+                Trajectoire
+              </h3>
+
+              <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-3">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <span className="text-xs text-slate-500 block">Départ</span>
+                    <span className="text-sm font-medium text-slate-800 flex items-center gap-1">
+                      <MapPin className="w-3.5 h-3.5 text-rose-500" />
+                      <span className="truncate">{mission.emplacementDepart}</span>
+                    </span>
+                  </div>
+                  <a
+                    href={mapSearchUrl(mission.emplacementDepart)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs font-bold text-sky-700 hover:text-sky-800 hover:underline whitespace-nowrap"
+                    title="Ouvrir le départ dans Google Maps">
+                    Voir sur la map
+                  </a>
+                </div>
+
+                <div className="flex items-center justify-center text-slate-400">
+                  <ArrowRight className="w-4 h-4" />
+                </div>
+
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <span className="text-xs text-slate-500 block">Arrivée</span>
+                    <span className="text-sm font-medium text-slate-800 flex items-center gap-1">
+                      <MapPin className="w-3.5 h-3.5 text-emerald-500" />
+                      <span className="truncate">{mission.emplacementVisite}</span>
+                    </span>
+                  </div>
+                  <a
+                    href={mapSearchUrl(mission.emplacementVisite)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs font-bold text-sky-700 hover:text-sky-800 hover:underline whitespace-nowrap"
+                    title="Ouvrir l'arrivée dans Google Maps">
+                    Voir sur la map
+                  </a>
+                </div>
+
+                <div className="pt-3 border-t border-slate-200 flex justify-end">
+                  <a
+                    href={mapDirectionsUrl(
+                      mission.emplacementDepart,
+                      mission.emplacementVisite
+                    )}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs font-bold text-slate-700 hover:text-slate-900 hover:underline"
+                    title="Ouvrir l'itinéraire dans Google Maps">
+                    Ouvrir l’itinéraire
+                  </a>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3">
+            <button
+              onClick={handleExportDetailsPdf}
+              className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-lg text-sm font-bold transition-colors border border-slate-200">
+              <FileText className="w-4 h-4 text-red-600" />
+              Exporter PDF
+            </button>
             <button
               onClick={onClose}
               className="px-6 py-2 bg-[#0ea5e9] hover:bg-sky-600 text-white rounded-lg text-sm font-bold transition-colors shadow-sm">
