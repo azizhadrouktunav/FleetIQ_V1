@@ -44,6 +44,7 @@ import { GestionDocuments } from './GestionDocuments';
 import { GestionMaintenance } from './GestionMaintenance';
 import { GestionCoupons } from './GestionCoupons';
 import { GestionMissions } from './GestionMissions';
+import { GestionFactures } from './GestionFactures';
 import { AnimatePresence, motion } from 'framer-motion';
 function FloatingLabelInput({
   label,
@@ -275,7 +276,7 @@ export function ParcContent() {
   {
     id: 'invoices',
     icon: Package,
-    label: 'Gestion des factures'
+    label: 'Gestion Pièces commerciales'
   },
   {
     id: 'expenses',
@@ -335,6 +336,8 @@ export function ParcContent() {
         return <GestionCoupons />;
       case 'missions':
         return <GestionMissions fuelPricePerLiter={fuelPricePerLiter} />;
+      case 'invoices':
+        return <GestionFactures />;
       default:
         return (
           <PlaceholderContent
