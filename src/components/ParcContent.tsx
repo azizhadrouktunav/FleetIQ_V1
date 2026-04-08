@@ -45,6 +45,7 @@ import { GestionMaintenance } from './GestionMaintenance';
 import { GestionCoupons } from './GestionCoupons';
 import { GestionMissions } from './GestionMissions';
 import { GestionFactures } from './GestionFactures';
+import { GestionLocations } from './GestionLocations';
 import { AnimatePresence, motion } from 'framer-motion';
 function FloatingLabelInput({
   label,
@@ -338,6 +339,8 @@ export function ParcContent() {
         return <GestionMissions fuelPricePerLiter={fuelPricePerLiter} />;
       case 'invoices':
         return <GestionFactures />;
+      case 'rental':
+        return <GestionLocations />;
       default:
         return (
           <PlaceholderContent
@@ -458,7 +461,7 @@ function DriversContent() {
     departement: 'Commercial',
     codePersonnel: 'CP-003',
     email: 'pierre.durand@email.com',
-    mobile: '06 34 56 78 90',
+    mobile: '06 34 56 70 90',
     numeroCIN: '11223344',
     numeroPermis: 'B345678',
     vehiculeUtil: 'Aucun',
