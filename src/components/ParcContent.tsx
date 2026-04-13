@@ -27,7 +27,11 @@ import {
   Clock,
   Euro,
   Settings,
-  ArrowUp } from
+  ArrowUp,
+  ChevronDown,
+  ChevronRight,
+  Menu,
+  X } from
 'lucide-react';
 import { useFilterManager } from '../hooks/useFilterManager';
 import { FilterManager } from './FilterManager';
@@ -188,6 +192,10 @@ export function ParcContent() {
   const [dateFin, setDateFin] = useState('');
   const [fuelPricePerLiter, setFuelPricePerLiter] = useState(2.525);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
+    new Set(['exploitation', 'suivi', 'stocks', 'statistique'])
+  );
   const filterManager = useFilterManager(
     `parc_filters_${selectedMenu || 'default'}`
   );
@@ -213,76 +221,111 @@ export function ParcContent() {
     setDateDebut(filter.dateDebut);
     setDateFin(filter.dateFin);
   };
-  const parcMenuItems = [
+  const toggleGroup = (groupId: string) => {
+    setExpandedGroups((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(groupId)) {
+        newSet.delete(groupId);
+      } else {
+        newSet.add(groupId);
+      }
+      return newSet;
+    });
+  };
+  const parcMenuGroups = [
   {
-    id: 'drivers',
-    icon: Users,
-    label: 'Gestion de chauffeurs'
+    id: 'exploitation',
+    label: 'Exploitation du parc',
+    items: [
+    {
+      id: 'clients',
+      icon: CreditCard,
+      label: 'Gestion des clients'
+    },
+    {
+      id: 'drivers',
+      icon: Users,
+      label: 'Gestion de chauffeurs'
+    },
+    {
+      id: 'vehicles',
+      icon: Car,
+      label: 'Gestion de véhicules'
+    },
+    {
+      id: 'rental',
+      icon: MapPin,
+      label: 'Emprunt et location'
+    }]
+
   },
   {
-    id: 'vehicles',
-    icon: Car,
-    label: 'Gestion de véhicules'
+    id: 'suivi',
+    label: 'Suivi opérationnel',
+    items: [
+    {
+      id: 'maintenance',
+      icon: Wrench,
+      label: 'Gestion de maintenance'
+    },
+    {
+      id: 'tires',
+      icon: Gauge,
+      label: 'Gestion des pneus'
+    },
+    {
+      id: 'incidents',
+      icon: AlertCircle,
+      label: 'Gestion des sinistres'
+    },
+    {
+      id: 'missions',
+      icon: Calendar,
+      label: 'Gestion des visites/missions'
+    },
+    {
+      id: 'coupons',
+      icon: Ticket,
+      label: 'Gestion des coupons'
+    },
+    {
+      id: 'documents',
+      icon: FileText,
+      label: 'Gestion de documents'
+    }]
+
   },
   {
-    id: 'maintenance',
-    icon: Wrench,
-    label: 'Gestion de maintenance'
+    id: 'stocks',
+    label: 'Stocks Achats',
+    items: [
+    {
+      id: 'suppliers',
+      icon: ShoppingCart,
+      label: 'Gestion des fournisseurs'
+    },
+    {
+      id: 'inventory',
+      icon: Server,
+      label: 'Gestion des articles et du stock'
+    },
+    {
+      id: 'invoices',
+      icon: Package,
+      label: 'Gestion Pièces commerciales'
+    }]
+
   },
   {
-    id: 'documents',
-    icon: FileText,
-    label: 'Gestion de documents'
-  },
-  {
-    id: 'incidents',
-    icon: AlertCircle,
-    label: 'Gestion des sinistres'
-  },
-  {
-    id: 'rental',
-    icon: MapPin,
-    label: 'Emprunt et location'
-  },
-  {
-    id: 'missions',
-    icon: Calendar,
-    label: 'Gestion des visites/missions'
-  },
-  {
-    id: 'coupons',
-    icon: Ticket,
-    label: 'Gestion des coupons'
-  },
-  {
-    id: 'tires',
-    icon: Gauge,
-    label: 'Gestion des pneus'
-  },
-  {
-    id: 'suppliers',
-    icon: ShoppingCart,
-    label: 'Gestion des fournisseurs'
-  },
-  {
-    id: 'clients',
-    icon: CreditCard,
-    label: 'Gestion des clients'
-  },
-  {
-    id: 'inventory',
-    icon: Server,
-    label: 'Gestion des articles et du stock'
-  },
-  {
-    id: 'invoices',
-    icon: Package,
-    label: 'Gestion Pièces commerciales'
-  },
-  {
-    id: 'expenses',
-    icon: Receipt,
-    label: 'Dépenses générales'
+    id: 'statistique',
+    label: 'Statistique',
+    items: [
+    {
+      id: 'expenses',
+      icon: Receipt,
+      label: 'Dépenses générales'
+    }]
+
   }];
 
   const renderContent = () => {
@@ -344,9 +387,15 @@ export function ParcContent() {
       default:
         return (
           <PlaceholderContent
-            icon={parcMenuItems.find((item) => item.id === menuId)?.icon || Car}
+            icon={
+            parcMenuGroups.
+            find((group) => group.items.find((item) => item.id === menuId))?.
+            items.find((item) => item.id === menuId)?.icon || Car
+            }
             title={
-            parcMenuItems.find((item) => item.id === menuId)?.label || ''
+            parcMenuGroups.
+            find((group) => group.items.find((item) => item.id === menuId))?.
+            items.find((item) => item.id === menuId)?.label || ''
             }
             description="Contenu à venir" />);
 
@@ -354,51 +403,175 @@ export function ParcContent() {
     }
   };
   return (
-    <div className="flex h-full">
-      <div className="w-64 bg-slate-800 flex flex-col flex-shrink-0 text-slate-200 font-sans">
-        <div className="p-4 pt-6 border-b border-slate-700">
-          <div className="flex items-center gap-2">
-            <Car className="w-5 h-5 text-slate-300" />
-            <h2 className="text-sm font-bold text-slate-200 uppercase tracking-wider">
-              Gestion du Parc
-            </h2>
-          </div>
-        </div>
-        <div className="flex-1 overflow-y-auto py-2">
-          {parcMenuItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = selectedMenu === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => setSelectedMenu(item.id)}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 transition-colors text-left group ${isActive ? 'bg-blue-600 text-white' : 'hover:bg-slate-700 text-slate-300'}`}>
-                
-                <Icon
-                  className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'}`} />
-                
-                <span
-                  className={`text-sm ${isActive ? 'text-white font-medium' : 'group-hover:text-white'}`}>
-                  
-                  {item.label}
-                </span>
-              </button>);
+    <div className="flex h-full relative">
+      {/* Mobile Overlay */}
+      <AnimatePresence>
+        {isSidebarOpen &&
+        <motion.div
+          initial={{
+            opacity: 0
+          }}
+          animate={{
+            opacity: 1
+          }}
+          exit={{
+            opacity: 0
+          }}
+          onClick={() => setIsSidebarOpen(false)}
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden" />
 
-          })}
-        </div>
-        <div className="p-4 border-t border-slate-700">
-          <button
-            onClick={() => setIsSettingsModalOpen(true)}
-            className="w-full flex items-center gap-3 px-4 py-2.5 transition-colors text-left group hover:bg-slate-700 text-slate-300 rounded-lg">
-            
-            <Settings className="w-4 h-4 flex-shrink-0 text-slate-400 group-hover:text-slate-200" />
-            <span className="text-sm group-hover:text-white">Paramètres</span>
-          </button>
-        </div>
-      </div>
+        }
+      </AnimatePresence>
+
+      {/* Sidebar */}
+      <AnimatePresence>
+        {isSidebarOpen &&
+        <motion.div
+          initial={{
+            x: -256
+          }}
+          animate={{
+            x: 0
+          }}
+          exit={{
+            x: -256
+          }}
+          transition={{
+            type: 'spring',
+            damping: 25,
+            stiffness: 200
+          }}
+          className="w-64 bg-slate-800 flex flex-col flex-shrink-0 text-slate-200 font-sans fixed lg:relative h-full z-50 lg:z-auto">
+          
+            <div className="p-4 pt-6 border-b border-slate-700 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Car className="w-5 h-5 text-slate-300" />
+                <h2 className="text-sm font-bold text-slate-200 uppercase tracking-wider">
+                  Gestion du Parc
+                </h2>
+              </div>
+              <button
+              onClick={() => setIsSidebarOpen(false)}
+              className="lg:hidden p-1 hover:bg-slate-700 rounded transition-colors">
+              
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto py-2">
+              {parcMenuGroups.map((group) => {
+              const isExpanded = expandedGroups.has(group.id);
+              return (
+                <div key={group.id}>
+                    <button
+                    onClick={() => toggleGroup(group.id)}
+                    className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-slate-700/50 transition-colors text-left group">
+                    
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                        {group.label}
+                      </span>
+                      <motion.div
+                      animate={{
+                        rotate: isExpanded ? 180 : 0
+                      }}
+                      transition={{
+                        duration: 0.2
+                      }}>
+                      
+                        <ChevronDown className="w-4 h-4 text-slate-400" />
+                      </motion.div>
+                    </button>
+
+                    <AnimatePresence>
+                      {isExpanded &&
+                    <motion.div
+                      initial={{
+                        height: 0,
+                        opacity: 0
+                      }}
+                      animate={{
+                        height: 'auto',
+                        opacity: 1
+                      }}
+                      exit={{
+                        height: 0,
+                        opacity: 0
+                      }}
+                      transition={{
+                        duration: 0.2
+                      }}
+                      className="overflow-hidden">
+                      
+                          {group.items.map((item) => {
+                        const Icon = item.icon;
+                        const isActive = selectedMenu === item.id;
+                        return (
+                          <button
+                            key={item.id}
+                            onClick={() => {
+                              setSelectedMenu(item.id);
+                              if (window.innerWidth < 1024) {
+                                setIsSidebarOpen(false);
+                              }
+                            }}
+                            className={`w-full flex items-center gap-3 px-4 py-2.5 transition-colors text-left group ${isActive ? 'bg-blue-600 text-white' : 'hover:bg-slate-700 text-slate-300'}`}>
+                            
+                                <Icon
+                              className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'}`} />
+                            
+                                <span
+                              className={`text-sm ${isActive ? 'text-white font-medium' : 'group-hover:text-white'}`}>
+                              
+                                  {item.label}
+                                </span>
+                              </button>);
+
+                      })}
+                        </motion.div>
+                    }
+                    </AnimatePresence>
+                  </div>);
+
+            })}
+            </div>
+
+            <div className="p-4 border-t border-slate-700">
+              <button
+              onClick={() => setIsSettingsModalOpen(true)}
+              className="w-full flex items-center gap-3 px-4 py-2.5 transition-colors text-left group hover:bg-slate-700 text-slate-300 rounded-lg">
+              
+                <Settings className="w-4 h-4 flex-shrink-0 text-slate-400 group-hover:text-slate-200" />
+                <span className="text-sm group-hover:text-white">
+                  Paramètres
+                </span>
+              </button>
+            </div>
+          </motion.div>
+        }
+      </AnimatePresence>
+
+      {/* Toggle Button */}
+      {!isSidebarOpen &&
+      <motion.button
+        initial={{
+          x: -50,
+          opacity: 0
+        }}
+        animate={{
+          x: 0,
+          opacity: 1
+        }}
+        onClick={() => setIsSidebarOpen(true)}
+        className="fixed lg:absolute left-4 top-4 z-30 p-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg shadow-lg transition-colors">
+        
+          <Menu className="w-5 h-5" />
+        </motion.button>
+      }
+
       <div className="flex-1 bg-slate-50 overflow-hidden">
         {renderContent()}
       </div>
+
       <FuelPriceSettingsModal
         isOpen={isSettingsModalOpen}
         onClose={() => setIsSettingsModalOpen(false)}
@@ -539,7 +712,7 @@ function DriversContent() {
   };
   return (
     <div className="h-full overflow-y-auto p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-slate-800">
@@ -810,7 +983,7 @@ function VehiclesContent() {
   );
   return (
     <div className="h-full overflow-y-auto p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-slate-800">
@@ -1000,7 +1173,7 @@ function MaintenanceContent() {
   );
   return (
     <div className="h-full overflow-y-auto p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-slate-800">

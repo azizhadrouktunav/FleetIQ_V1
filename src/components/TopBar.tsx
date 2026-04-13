@@ -12,8 +12,12 @@ import {
   Users,
   Bell as BellIcon,
   Mail,
-  AlertTriangle } from
+  AlertTriangle,
+  Menu,
+  X,
+  Settings } from
 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 interface TopBarProps {
   activeSection: string;
   onSectionChange: (section: string) => void;
@@ -30,8 +34,10 @@ export function TopBar({
 }: TopBarProps) {
   const [showAdminMenu, setShowAdminMenu] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
   const adminMenuRef = useRef<HTMLDivElement>(null);
   const navRef = useRef<HTMLNavElement>(null);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
   // Close menus when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -43,6 +49,12 @@ export function TopBar({
       }
       if (navRef.current && !navRef.current.contains(event.target as Node)) {
         setActiveDropdown(null);
+      }
+      if (
+      mobileMenuRef.current &&
+      !mobileMenuRef.current.contains(event.target as Node))
+      {
+        setShowMobileMenu(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -127,17 +139,21 @@ export function TopBar({
     onSectionChange(itemId);
     setActiveDropdown(null);
   };
+  const handleMobileNavClick = (itemId: string) => {
+    onSectionChange(itemId);
+    setShowMobileMenu(false);
+  };
   return (
     <header className="h-[72px] bg-gradient-to-r from-blue-800 to-blue-500 flex items-center justify-between px-4 shadow-md z-50 flex-shrink-0">
       {/* Left: Logo */}
-      <div className="flex items-center gap-6">
-        <div className="bg-white rounded-full px-4 py-2 flex items-center gap-2 shadow-sm">
+      <div className="flex items-center gap-3 lg:gap-6">
+        <div className="bg-white rounded-full px-3 lg:px-4 py-1.5 lg:py-2 flex items-center gap-2 shadow-sm">
           <img
             src="/tunav_logo.png"
             alt="Tunav"
-            className="h-8 w-auto object-contain" />
+            className="h-6 lg:h-8 w-auto object-contain" />
           
-          <div className="flex flex-col leading-none">
+          <div className="hidden sm:flex flex-col leading-none">
             <span className="text-blue-700 font-bold text-sm">TUNAV</span>
             <span className="text-[8px] text-slate-500 font-medium">
               GPS trackers, IT experts
@@ -145,8 +161,20 @@ export function TopBar({
           </div>
         </div>
 
-        {/* Navigation */}
-        <nav className="flex items-center gap-2" ref={navRef}>
+        {/* Mobile Menu Button */}
+        <button
+          onClick={() => setShowMobileMenu(!showMobileMenu)}
+          className="lg:hidden p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors">
+          
+          {showMobileMenu ?
+          <X className="w-5 h-5 text-white" /> :
+
+          <Menu className="w-5 h-5 text-white" />
+          }
+        </button>
+
+        {/* Desktop Navigation */}
+        <nav className="hidden lg:flex items-center gap-2" ref={navRef}>
           {menuItems.map((item) =>
           <div key={item.id} className="relative">
               <button
@@ -197,14 +225,56 @@ export function TopBar({
         </nav>
       </div>
 
+      {/* Mobile Navigation Dropdown */}
+      <AnimatePresence>
+        {showMobileMenu &&
+        <motion.div
+          ref={mobileMenuRef}
+          initial={{
+            opacity: 0,
+            y: -10
+          }}
+          animate={{
+            opacity: 1,
+            y: 0
+          }}
+          exit={{
+            opacity: 0,
+            y: -10
+          }}
+          className="lg:hidden absolute top-full left-0 right-0 mt-2 mx-4 bg-white rounded-lg shadow-2xl border border-slate-200 overflow-hidden z-[100]">
+          
+            <div className="py-2">
+              {menuItems.map((item) =>
+            <button
+              key={item.id}
+              onClick={() => handleMobileNavClick(item.id)}
+              className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${activeSection === item.id ? 'bg-blue-50 text-blue-600 font-medium' : 'text-slate-700 hover:bg-slate-50'}`}>
+              
+                  <item.icon className="w-5 h-5" />
+                  <span className="text-sm">{item.label}</span>
+                  {item.badge !== undefined &&
+              item.badge > 0 &&
+              !hideBadges &&
+              <span className="ml-auto w-5 h-5 bg-rose-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                        {item.badge}
+                      </span>
+              }
+                </button>
+            )}
+            </div>
+          </motion.div>
+        }
+      </AnimatePresence>
+
       {/* Right: Admin Actions */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 lg:gap-3">
         {/* Toggle Badge Visibility Button */}
         {onToggleHideBadges &&
         <button
           onClick={onToggleHideBadges}
           className={`
-              relative flex items-center justify-center w-10 h-10 rounded-lg transition-all
+              relative flex items-center justify-center w-9 lg:w-10 h-9 lg:h-10 rounded-lg transition-all
               ${hideBadges ? 'bg-rose-500/20 text-rose-200 hover:bg-rose-500/30 border border-rose-400/30' : 'bg-blue-400/30 text-white hover:bg-blue-400/40 border border-white/10'}
             `}
           title={
@@ -214,9 +284,9 @@ export function TopBar({
           }>
           
             {hideBadges ?
-          <BellOff className="w-5 h-5" /> :
+          <BellOff className="w-4 lg:w-5 h-4 lg:h-5" /> :
 
-          <Bell className="w-5 h-5" />
+          <Bell className="w-4 lg:w-5 h-4 lg:h-5" />
           }
             {!hideBadges && unreadAlertsCount > 0 &&
           <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
@@ -226,20 +296,21 @@ export function TopBar({
           </button>
         }
 
-        <button className="flex items-center gap-2 px-4 py-2 bg-blue-400/30 hover:bg-blue-400/40 text-white rounded-lg text-sm font-medium transition-colors border border-white/10">
+        <button className="hidden md:flex items-center gap-2 px-3 lg:px-4 py-2 bg-blue-400/30 hover:bg-blue-400/40 text-white rounded-lg text-sm font-medium transition-colors border border-white/10">
           <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-xs font-bold">
             A
           </div>
-          <span>Admin</span>
+          <span className="hidden lg:inline">Admin</span>
         </button>
 
         {/* Administration Button with Dropdown */}
         <div className="relative" ref={adminMenuRef}>
           <button
             onClick={() => setShowAdminMenu(!showAdminMenu)}
-            className="flex items-center gap-2 px-6 py-2 bg-blue-400 hover:bg-blue-300 text-white rounded-lg text-sm font-bold shadow-sm transition-colors uppercase tracking-wide">
+            className="flex items-center gap-1 lg:gap-2 px-3 lg:px-6 py-2 bg-blue-400 hover:bg-blue-300 text-white rounded-lg text-sm font-bold shadow-sm transition-colors uppercase tracking-wide">
             
-            <span>Administration</span>
+            <Settings className="w-4 h-4 lg:hidden" />
+            <span className="hidden lg:inline">Administration</span>
             <ChevronDown
               className={`w-4 h-4 transition-transform ${showAdminMenu ? 'rotate-180' : ''}`} />
             

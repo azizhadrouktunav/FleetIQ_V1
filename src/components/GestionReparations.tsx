@@ -54,7 +54,7 @@ export function GestionReparations({
   };
   return (
     <div className="h-full flex flex-col bg-slate-50 overflow-hidden">
-      <div className="p-6 space-y-6 max-w-7xl mx-auto w-full flex-1 flex flex-col overflow-hidden">
+      <div className="p-6 space-y-6 w-full flex-1 flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-4">

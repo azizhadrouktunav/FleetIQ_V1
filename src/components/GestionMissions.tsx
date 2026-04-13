@@ -1835,7 +1835,7 @@ export function GestionMissions({
   };
   return (
     <div className="h-full overflow-y-auto p-6 bg-slate-50">
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>

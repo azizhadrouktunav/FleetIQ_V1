@@ -276,7 +276,7 @@ export function GestionSinistresContent() {
   }
   return (
     <div className="h-full flex flex-col bg-slate-50 overflow-y-auto">
-      <div className="p-6 space-y-5 max-w-7xl mx-auto w-full">
+      <div className="p-6 space-y-5 w-full">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">

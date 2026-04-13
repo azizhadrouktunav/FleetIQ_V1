@@ -553,13 +553,37 @@ export function GestionArticlesStock() {
 
             <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
               <div className="grid grid-cols-2 gap-4">
+                {/* Catégorie - Select dropdown */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
+                    Catégorie
+                  </label>
+                  <div className="relative">
+                    <select
+                    value={formData.categorie}
+                    onChange={(e) => updateForm('categorie', e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white text-slate-700">
+                    
+                      <option value="">Sélectionner une catégorie</option>
+                      {Array.from(
+                      new Set(
+                        articles.map((a) => a.categorie).filter(Boolean)
+                      )
+                    ).
+                    sort().
+                    map((cat) =>
+                    <option key={cat} value={cat}>
+                            {cat}
+                          </option>
+                    )}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                  </div>
+                </div>
+
+                {/* Other fields */}
                 {(
               [
-              {
-                field: 'categorie',
-                label: 'Catégorie',
-                type: 'text'
-              },
               {
                 field: 'modele',
                 label: 'Modèle',

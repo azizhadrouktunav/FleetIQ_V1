@@ -489,7 +489,7 @@ export function SuppliersContent() {
   ).length;
   return (
     <div className="h-full overflow-y-auto p-6">
-      <div className="max-w-[1400px] mx-auto space-y-6">
+      <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>

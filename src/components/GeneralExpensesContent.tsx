@@ -889,7 +889,7 @@ export function GeneralExpensesContent() {
   );
   return (
     <div className="h-full flex flex-col bg-slate-50 overflow-y-auto">
-      <div className="p-6 max-w-7xl mx-auto w-full space-y-8">
+      <div className="p-6 w-full space-y-8">
         {/* Filter Section */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
