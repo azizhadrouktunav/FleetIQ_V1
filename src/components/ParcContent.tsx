@@ -450,15 +450,30 @@ export function ParcContent() {
                   Gestion du Parc
                 </h2>
               </div>
-              <button
-              onClick={() => setIsSidebarOpen(false)}
-              className="lg:hidden p-1 hover:bg-slate-700 rounded transition-colors">
-              
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                onClick={() => setIsSettingsModalOpen(true)}
+                className="p-1.5 hover:bg-slate-700 rounded transition-colors"
+                title="Paramètres">
+                
+                  <Settings className="w-4 h-4 text-slate-400 hover:text-slate-200" />
+                </button>
+                <button
+                onClick={() => setIsSidebarOpen(false)}
+                className="lg:hidden p-1.5 hover:bg-slate-700 rounded transition-colors">
+                
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto py-2">
+            <div
+            className="flex-1 overflow-y-auto py-2 scrollbar-hide"
+            style={{
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none'
+            }}>
+            
               {parcMenuGroups.map((group) => {
               const isExpanded = expandedGroups.has(group.id);
               return (
@@ -533,18 +548,6 @@ export function ParcContent() {
                   </div>);
 
             })}
-            </div>
-
-            <div className="p-4 border-t border-slate-700">
-              <button
-              onClick={() => setIsSettingsModalOpen(true)}
-              className="w-full flex items-center gap-3 px-4 py-2.5 transition-colors text-left group hover:bg-slate-700 text-slate-300 rounded-lg">
-              
-                <Settings className="w-4 h-4 flex-shrink-0 text-slate-400 group-hover:text-slate-200" />
-                <span className="text-sm group-hover:text-white">
-                  Paramètres
-                </span>
-              </button>
             </div>
           </motion.div>
         }
