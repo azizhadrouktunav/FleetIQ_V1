@@ -249,7 +249,7 @@ export function Dashboard({ vehicles, onNavigateToVehicle }: DashboardProps) {
   const [speedChartPage, setSpeedChartPage] = useState(0);
   // New state for PredictionSection filters
   const [predictionVehicles, setPredictionVehicles] = useState<string[]>([]);
-  const sections = [
+  const [sections, setSections] = useState([
   {
     key: 'alerts',
     label: 'Alertes Récentes',
@@ -303,8 +303,8 @@ export function Dashboard({ vehicles, onNavigateToVehicle }: DashboardProps) {
     label: 'Documents à Traiter',
     icon: FileText,
     visible: true
-  }];
-
+  }]
+  );
   const filterManager = useFilterManager('dashboard_filters');
   const [activeIndicatorModal, setActiveIndicatorModal] = useState<{
     isOpen: boolean;
