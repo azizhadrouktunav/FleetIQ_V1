@@ -1,0 +1,176 @@
+import type {
+  AlertNotificationContact,
+  AlertScopeConfig,
+  AlertScopeRef,
+  BuiltinSeverityOverride,
+  GeofenceAlertRule,
+  OrgStructure,
+  SeverityNotificationPolicy,
+} from '@/types/alert-config';
+import { INITIAL_ALERT_CONTACTS } from '../mocks/mockAlertContacts';
+import { INITIAL_GEOFENCE_RULES } from '../mocks/mockGeofenceRules';
+import { INITIAL_SCOPE_CONFIGS } from '../mocks/mockAlertScopeConfigs';
+import { INITIAL_SEVERITY_POLICIES } from '../mocks/mockSeverityPolicies';
+import { MOCK_ORG_STRUCTURE } from '../mocks/mockOrgStructure';
+import { MOCK_NAMED_USERS } from '../mocks/mockNamedUsers';
+import {
+  INITIAL_BUILTIN_SEVERITY_OVERRIDES,
+} from '../mocks/mockCustomSeverities';
+
+const delay = (ms = 300) => new Promise((r) => setTimeout(r, ms));
+
+let scopeConfigsStore: AlertScopeConfig[] = [...INITIAL_SCOPE_CONFIGS];
+let geofenceRulesStore: GeofenceAlertRule[] = [...INITIAL_GEOFENCE_RULES];
+let severityPoliciesStore: SeverityNotificationPolicy[] = [...INITIAL_SEVERITY_POLICIES];
+let contactsStore: AlertNotificationContact[] = [...INITIAL_ALERT_CONTACTS];
+let builtinOverridesStore: BuiltinSeverityOverride[] = [...INITIAL_BUILTIN_SEVERITY_OVERRIDES];
+
+export async function fetchOrgStructure(): Promise<OrgStructure> {
+  await delay(200);
+  return MOCK_ORG_STRUCTURE;
+}
+
+export async function fetchNamedUsers() {
+  await delay(150);
+  return MOCK_NAMED_USERS;
+}
+
+export async function fetchScopeConfigs(): Promise<AlertScopeConfig[]> {
+  await delay(300);
+  return scopeConfigsStore;
+}
+
+export async function fetchScopeConfigsForScopes(
+  scopes: AlertScopeRef[]
+): Promise<AlertScopeConfig[]> {
+  await delay(250);
+  return scopeConfigsStore.filter((c) =>
+    scopes.some((s) => s.scopeType === c.scopeType && s.scopeId === c.scopeId)
+  );
+}
+
+export async function batchUpsertScopeConfigs(
+  scopes: AlertScopeRef[],
+  updates: Omit<AlertScopeConfig, 'id' | 'scopeType' | 'scopeId'>[]
+): Promise<AlertScopeConfig[]> {
+  await delay(350);
+  const results: AlertScopeConfig[] = [];
+
+  for (const scope of scopes) {
+    for (const update of updates) {
+      const existing = scopeConfigsStore.find(
+        (c) =>
+          c.scopeType === scope.scopeType &&
+          c.scopeId === scope.scopeId &&
+          c.alertType === update.alertType
+      );
+
+      if (existing) {
+        const merged = { ...existing, ...update };
+        scopeConfigsStore = scopeConfigsStore.map((c) =>
+          c.id === existing.id ? merged : c
+        );
+        results.push(merged);
+      } else {
+        const created: AlertScopeConfig = {
+          id: `cfg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          scopeType: scope.scopeType,
+          scopeId: scope.scopeId,
+          ...update,
+        };
+        scopeConfigsStore = [...scopeConfigsStore, created];
+        results.push(created);
+      }
+    }
+  }
+
+  return results;
+}
+
+export async function fetchGeofenceRules(): Promise<GeofenceAlertRule[]> {
+  await delay(300);
+  return geofenceRulesStore;
+}
+
+export async function saveGeofenceRule(
+  rule: Omit<GeofenceAlertRule, 'id'> & { id?: string }
+): Promise<GeofenceAlertRule> {
+  await delay(300);
+  if (rule.id) {
+    const updated = { ...rule, id: rule.id } as GeofenceAlertRule;
+    geofenceRulesStore = geofenceRulesStore.map((r) => (r.id === rule.id ? updated : r));
+    return updated;
+  }
+  const created: GeofenceAlertRule = {
+    ...rule,
+    id: `geo-${Date.now()}`,
+  };
+  geofenceRulesStore = [...geofenceRulesStore, created];
+  return created;
+}
+
+export async function deleteGeofenceRule(id: string): Promise<void> {
+  await delay(200);
+  geofenceRulesStore = geofenceRulesStore.filter((r) => r.id !== id);
+}
+
+export async function fetchSeverityPolicies(): Promise<SeverityNotificationPolicy[]> {
+  await delay(250);
+  return severityPoliciesStore;
+}
+
+export async function saveSeverityPolicies(
+  policies: SeverityNotificationPolicy[]
+): Promise<SeverityNotificationPolicy[]> {
+  await delay(300);
+  severityPoliciesStore = policies;
+  return severityPoliciesStore;
+}
+
+export async function fetchAlertContacts(): Promise<AlertNotificationContact[]> {
+  await delay(300);
+  return contactsStore;
+}
+
+export async function saveAlertContact(
+  contact: Omit<AlertNotificationContact, 'id'> & { id?: string }
+): Promise<AlertNotificationContact> {
+  await delay(300);
+  if (contact.id) {
+    const updated = contact as AlertNotificationContact;
+    contactsStore = contactsStore.map((c) => (c.id === contact.id ? updated : c));
+    return updated;
+  }
+  const created: AlertNotificationContact = {
+    ...contact,
+    id: `contact-${Date.now()}`,
+  };
+  contactsStore = [...contactsStore, created];
+  return created;
+}
+
+export async function deleteAlertContact(id: string): Promise<void> {
+  await delay(200);
+  contactsStore = contactsStore.filter((c) => c.id !== id);
+}
+
+export async function fetchBuiltinSeverityOverrides(): Promise<BuiltinSeverityOverride[]> {
+  await delay(200);
+  return builtinOverridesStore;
+}
+
+export async function saveBuiltinSeverityOverrides(
+  overrides: BuiltinSeverityOverride[]
+): Promise<BuiltinSeverityOverride[]> {
+  await delay(300);
+  builtinOverridesStore = overrides;
+  return builtinOverridesStore;
+}
+
+export function resetAlertConfigStores() {
+  scopeConfigsStore = [...INITIAL_SCOPE_CONFIGS];
+  geofenceRulesStore = [...INITIAL_GEOFENCE_RULES];
+  severityPoliciesStore = [...INITIAL_SEVERITY_POLICIES];
+  contactsStore = [...INITIAL_ALERT_CONTACTS];
+  builtinOverridesStore = [...INITIAL_BUILTIN_SEVERITY_OVERRIDES];
+}

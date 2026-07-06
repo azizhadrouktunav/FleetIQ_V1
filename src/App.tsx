@@ -143,13 +143,14 @@ const recentAlerts = [
   isRead: true
 }];
 
-// Calculate unread alerts count
-const unreadAlertsCount = recentAlerts.filter((a) => !a.isRead).length;
+// Calculate unread alerts count (fallback for non-alert sections)
+const defaultUnreadAlertsCount = recentAlerts.filter((a) => !a.isRead).length;
 export function App() {
   // Auth States
   const [isAuthenticated, setIsAuthenticated] = useState(true);
   const [authPage, setAuthPage] = useState<'login' | 'signup'>('login');
   const [activeSection, setActiveSection] = useState('404');
+  const [alertUnreadCount, setAlertUnreadCount] = useState(defaultUnreadAlertsCount);
   const [activeTab, setActiveTab] = useState('suivie');
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(
     null
@@ -249,7 +250,7 @@ export function App() {
       <TopBar
         activeSection={activeSection}
         onSectionChange={handleSectionChange}
-        unreadAlertsCount={unreadAlertsCount}
+        unreadAlertsCount={activeSection === 'alertes' ? alertUnreadCount : defaultUnreadAlertsCount}
         hideBadges={hideBadges}
         onToggleHideBadges={() => setHideBadges(!hideBadges)} />
       
@@ -272,7 +273,9 @@ export function App() {
         <AlertsContent
           vehicles={MOCK_VEHICLES}
           onNavigateToVehicle={handleNavigateToVehicle}
-          hideBadges={hideBadges} /> :
+          hideBadges={hideBadges}
+          onOpenSettings={() => setActiveSection('alert_configuration')}
+          onUnreadCountChange={setAlertUnreadCount} /> :
 
         activeSection === 'administration' ?
         // Administration View
@@ -282,7 +285,9 @@ export function App() {
         <DepartmentsManagement /> :
         activeSection === 'alert_configuration' ?
         // Alert Configuration View
-        <AlertConfigurationPage /> :
+        <AlertConfigurationPage
+          vehicles={MOCK_VEHICLES}
+          onBack={() => setActiveSection('alertes')} /> :
         activeSection === 'notifications' ?
         // Alert Mail/SMS Notifications View
         <AlertMailSmsContent /> :

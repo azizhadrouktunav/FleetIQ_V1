@@ -1,0 +1,71 @@
+import type { AlertCategory, AlertType } from '@/types/alerts';
+import { ALERT_TAXONOMY } from './alert-taxonomy';
+import { getFleetParcAlertTypes } from './fleet-parc-alert-modules';
+import { getSecurityAlertTypes } from './security-alert-types';
+
+export type AlertConfigSectionId =
+  | 'dashboard'
+  | 'vehicle_management'
+  | 'geolocation'
+  | 'security';
+
+export interface AlertConfigSection {
+  id: AlertConfigSectionId;
+  label: string;
+  description: string;
+  categories: AlertCategory[];
+}
+
+export const ALERT_CONFIG_SECTIONS: AlertConfigSection[] = [
+  {
+    id: 'dashboard',
+    label: 'Alerte tableau de bord',
+    description: 'Indicateurs véhicule sans seuil — activation, ordre et niveau',
+    categories: ['dashboard'],
+  },
+  {
+    id: 'vehicle_management',
+    label: 'Alerte Gestion de parc',
+    description: 'Modules Parc — maintenance, documents, location, sinistres',
+    categories: ['vehicle_management'],
+  },
+  {
+    id: 'geolocation',
+    label: 'Alerte Geofencing',
+    description: 'Zones, itinéraires et règles geofence configurables',
+    categories: ['geolocation'],
+  },
+  {
+    id: 'security',
+    label: 'Alerte Sécurité',
+    description: 'Connectivité, protection, conduite GPS et urgences',
+    categories: ['security', 'driving_quality'],
+  },
+];
+
+export function getAlertTypesForSection(sectionId: AlertConfigSectionId): AlertType[] {
+  if (sectionId === 'vehicle_management') {
+    return getFleetParcAlertTypes();
+  }
+  if (sectionId === 'security') {
+    return getSecurityAlertTypes();
+  }
+  const section = ALERT_CONFIG_SECTIONS.find((s) => s.id === sectionId);
+  if (!section) return [];
+  return Object.values(ALERT_TAXONOMY)
+    .filter(
+      (e) =>
+        e.id !== 'all' &&
+        e.id !== 'unknown' &&
+        e.configurableInParametrage &&
+        section.categories.includes(e.category)
+    )
+    .map((e) => e.id);
+}
+
+export function getSectionForCategory(category: AlertCategory): AlertConfigSectionId {
+  if (category === 'dashboard') return 'dashboard';
+  if (category === 'vehicle_management') return 'vehicle_management';
+  if (category === 'geolocation') return 'geolocation';
+  return 'security';
+}

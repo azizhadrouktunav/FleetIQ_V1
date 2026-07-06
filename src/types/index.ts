@@ -10,6 +10,8 @@ export interface Vehicle {
   lastUpdate: string;
   driver: string;
   batteryLevel: number;
+  departmentId?: string;
+  groupIds?: string[];
 }
 
 export type DurationUnit = 'days' | 'weeks' | 'months';
@@ -38,3 +40,4 @@ export interface SavedFilter {
 }
 
 export * from './alerts';
+export * from './alert-config';
