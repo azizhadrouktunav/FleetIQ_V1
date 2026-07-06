@@ -10,7 +10,7 @@ interface ContextualRightPanelProps {
   onBack: () => void;
   onSelectVehicle?: (vehicleId: string) => void;
   onNavigateToVehicle?: (vehicleId: string, coordinates: [number, number]) => void;
-  onOpenSettings?: () => void;
+  onOpenHistory?: (vehicleIds?: string[]) => void;
 }
 
 export function ContextualRightPanel({
@@ -19,7 +19,7 @@ export function ContextualRightPanel({
   onBack,
   onSelectVehicle,
   onNavigateToVehicle,
-  onOpenSettings,
+  onOpenHistory,
 }: ContextualRightPanelProps) {
   const { data: overview, isLoading: overviewLoading } = useFleetOverview();
 
@@ -43,7 +43,9 @@ export function ContextualRightPanel({
               vehicleId={selectedVehicleId}
               onBack={onBack}
               onNavigateToVehicle={onNavigateToVehicle}
-              onOpenSettings={onOpenSettings}
+              onOpenHistory={
+                onOpenHistory ? () => onOpenHistory([selectedVehicleId]) : undefined
+              }
             />
           </motion.div>
         ) : (

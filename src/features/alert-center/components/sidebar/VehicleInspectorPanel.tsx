@@ -2,8 +2,8 @@ import {
   ArrowLeft,
   Clock,
   Download,
+  History,
   MapPin,
-  Settings,
   Truck,
   User,
   Radio,
@@ -28,14 +28,14 @@ interface VehicleInspectorPanelProps {
   vehicleId: string;
   onBack: () => void;
   onNavigateToVehicle?: (vehicleId: string, coordinates: [number, number]) => void;
-  onOpenSettings?: () => void;
+  onOpenHistory?: () => void;
 }
 
 export function VehicleInspectorPanel({
   vehicleId,
   onBack,
   onNavigateToVehicle,
-  onOpenSettings,
+  onOpenHistory,
 }: VehicleInspectorPanelProps) {
   const vehicle = getVehicleById(vehicleId);
   const { data: timeline, isLoading: timelineLoading } = useVehicleTimeline(vehicleId);
@@ -146,8 +146,8 @@ export function VehicleInspectorPanel({
       <div className="shrink-0 p-4 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 space-y-2">
         <p className="text-xs font-semibold text-slate-500 uppercase mb-2">Actions rapides</p>
         <div className="grid grid-cols-2 gap-2">
-          <Button variant="outline" size="sm" onClick={onOpenSettings}>
-            <Settings className="w-3.5 h-3.5 mr-1" /> Configurer
+          <Button variant="outline" size="sm" onClick={onOpenHistory}>
+            <History className="w-3.5 h-3.5 mr-1" /> Historique
           </Button>
           <Button
             variant="outline"

@@ -21,7 +21,7 @@ import { LoginPage } from './pages/LoginPage';
 import { SignUpPage } from './pages/SignUpPage';
 import { AccountsManagement } from './components/AccountsManagement';
 import { DepartmentsManagement } from './components/DepartmentsManagement';
-import { AlertConfigurationPage } from './pages/AlertConfigurationPage';
+import { AlertHistoryPage } from './pages/AlertHistoryPage';
 import { GestionSinistres } from './components/GestionSinistres';
 import { AlertMailSmsContent } from './components/AlertMailSmsContent';
 import { NotFoundPage } from './pages/NotFoundPage';
@@ -151,6 +151,7 @@ export function App() {
   const [authPage, setAuthPage] = useState<'login' | 'signup'>('login');
   const [activeSection, setActiveSection] = useState('404');
   const [alertUnreadCount, setAlertUnreadCount] = useState(defaultUnreadAlertsCount);
+  const [historyVehicleIds, setHistoryVehicleIds] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState('suivie');
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(
     null
@@ -190,6 +191,9 @@ export function App() {
   };
   const handleSectionChange = (section: string) => {
     setActiveSection(section);
+    if (section === 'alert_history') {
+      setHistoryVehicleIds([]);
+    }
     // Reset activeTab when switching to rapports section
     if (section === 'rapports') {
       setActiveTab('rapports');
@@ -274,7 +278,10 @@ export function App() {
           vehicles={MOCK_VEHICLES}
           onNavigateToVehicle={handleNavigateToVehicle}
           hideBadges={hideBadges}
-          onOpenSettings={() => setActiveSection('alert_configuration')}
+          onOpenHistory={(vehicleIds) => {
+            setHistoryVehicleIds(vehicleIds ?? []);
+            setActiveSection('alert_history');
+          }}
           onUnreadCountChange={setAlertUnreadCount} /> :
 
         activeSection === 'administration' ?
@@ -283,10 +290,10 @@ export function App() {
         activeSection === 'departments' ?
         // Departments Management View
         <DepartmentsManagement /> :
-        activeSection === 'alert_configuration' ?
-        // Alert Configuration View
-        <AlertConfigurationPage
+        activeSection === 'alert_history' ?
+        <AlertHistoryPage
           vehicles={MOCK_VEHICLES}
+          initialVehicleIds={historyVehicleIds}
           onBack={() => setActiveSection('alertes')} /> :
         activeSection === 'notifications' ?
         // Alert Mail/SMS Notifications View

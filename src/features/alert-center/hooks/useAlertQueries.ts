@@ -18,6 +18,8 @@ import {
   fetchAlertRules,
   fetchAlertTypeVehicleCounts,
   fetchVehiclesForAlertType,
+  fetchAlertHistory,
+  type AlertHistoryFilters,
   saveAlertRule,
   resolveAlert,
   markAllAlertsRead,
@@ -77,6 +79,7 @@ export const alertKeys = {
   alertTypeCounts: (types: AlertType[]) => [...alertKeys.all, 'alertTypeCounts', types] as const,
   vehiclesForAlertType: (type: AlertType | null, sectionId: AlertCenterSectionId | null) =>
     [...alertKeys.all, 'vehiclesForAlertType', type, sectionId] as const,
+  history: (filters: AlertHistoryFilters) => [...alertKeys.all, 'history', filters] as const,
 };
 
 export function useAlertKpis() {
@@ -126,6 +129,13 @@ export function useVehiclesForAlertType(
     queryKey: alertKeys.vehiclesForAlertType(alertType, sectionId),
     queryFn: () => fetchVehiclesForAlertType(alertType as AlertType, sectionId as AlertCenterSectionId),
     enabled: alertType != null && sectionId != null,
+  });
+}
+
+export function useAlertHistory(filters: AlertHistoryFilters) {
+  return useQuery({
+    queryKey: alertKeys.history(filters),
+    queryFn: () => fetchAlertHistory(filters),
   });
 }
 

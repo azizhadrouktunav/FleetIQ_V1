@@ -2,6 +2,7 @@ import type { Vehicle } from '@/types';
 import type { FleetAlert, AlertType } from '@/types/alerts';
 import { getAlertTypeConfig } from '../constants/alert-type-registry';
 import { getGeolocationAlertTypes } from '../constants/geolocation-alert-groups';
+import { getAlertTypesForCenterSection } from '../constants/alert-config-sections';
 import { MOCK_GEOFENCE_ZONES } from './mockGeofenceRules';
 import { EXCLUDED_SECURITY_ALERT_TYPES } from '../constants/security-alert-types';
 
@@ -58,6 +59,12 @@ const MESSAGES: Partial<Record<AlertType, string[]>> = {
   trunk: ['Coffre ouvert'],
   gps_signal: ['Signal GNSS perdu depuis 3 min'],
   driving_time_exceeded: ['Temps de conduite réglementaire dépassé'],
+  harsh_brake: ['Freinage brusque détecté — décélération -0.8g'],
+  harsh_accel: ['Accélération brusque — +0.7g'],
+  harsh_turn: ['Virage agressif — force latérale 0.6g'],
+  hard_deceleration: ['Décélération brusque — -0.9g'],
+  excessive_idle: ['Ralenti moteur excessif : 22 min'],
+  aggressive_driving: ['Score conduite agressive : 3 événements / 10 min'],
   battery_disconnected: ['Batterie traceur GPS déconnectée'],
   handbrake: ['Frein à main engagé en circulation'],
   seatbelt: ['Ceinture conducteur non attachée'],
@@ -174,6 +181,50 @@ export function generateGeolocationDemoAlerts(vehicles: Vehicle[]): FleetAlert[]
       businessImpact: config.businessImpact,
       notifiedUser: NOTIFIED_USERS[index % NOTIFIED_USERS.length],
       isActive: true,
+    });
+  });
+
+  return alerts;
+}
+
+/** One active demo alert per driving quality type for dashboard examples */
+export function generateDrivingQualityDemoAlerts(vehicles: Vehicle[]): FleetAlert[] {
+  if (!vehicles.length) return [];
+
+  const types = getAlertTypesForCenterSection('driving_quality');
+  const alerts: FleetAlert[] = [];
+  let id = 6000;
+
+  types.forEach((type, index) => {
+    const vehicle = vehicles[index % vehicles.length];
+    const config = getAlertTypeConfig(type);
+    const createdAt = minutesAgo(10 + index * 3);
+    const defaultMessage = MESSAGES[type]?.[0];
+
+    alerts.push({
+      id: `dq-demo-${id++}`,
+      type,
+      vehicleId: vehicle.id,
+      vehicleName: vehicle.name,
+      severity: config.defaultSeverity,
+      message: defaultMessage ?? `Alerte ${config.label}`,
+      timestamp: formatRelative(createdAt),
+      createdAt,
+      location: LOCATIONS[index % LOCATIONS.length],
+      isRead: false,
+      category: 'driving_quality',
+      status: 'active',
+      priority: config.defaultPriority,
+      driverName: vehicle.driver,
+      fleetName: FLEETS[index % FLEETS.length],
+      speed: vehicle.status === 'active' ? vehicle.speed : 0,
+      coordinates: vehicle.coordinates,
+      recommendedAction: config.recommendedAction,
+      autoResolvable: config.autoResolvable,
+      businessImpact: config.businessImpact,
+      notifiedUser: NOTIFIED_USERS[index % NOTIFIED_USERS.length],
+      isActive: true,
+      details: type === 'speeding' ? { detected: '142 km/h', limit: '90 km/h' } : undefined,
     });
   });
 

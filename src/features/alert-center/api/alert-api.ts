@@ -1,8 +1,8 @@
 import type { Vehicle } from '@/types';
-import type { AlertFilters, AlertRule, AlertSeverity, AlertType, FleetAlert, TimelineEvent, VehicleAlertItem } from '@/types/alerts';
+import type { AlertFilters, AlertRule, AlertSeverity, AlertType, AlertCategory, FleetAlert, TimelineEvent, VehicleAlertItem } from '@/types/alerts';
 import { CARD_DASHBOARD_INDICATORS } from '@/design-system/dashboard-indicators';
 import { delay } from '@/lib/utils';
-import { generateMockAlerts, generateGeolocationDemoAlerts } from '../mocks/mockAlerts';
+import { generateMockAlerts, generateGeolocationDemoAlerts, generateDrivingQualityDemoAlerts } from '../mocks/mockAlerts';
 import { computeKpisFromAlerts } from '../mocks/mockKpis';
 import {
   buildVehicleSummaries,
@@ -31,11 +31,16 @@ export function initAlertStore(vehicles: Vehicle[]) {
   vehiclesRef = vehicles;
   const base = generateMockAlerts(vehicles);
   const geoDemos = generateGeolocationDemoAlerts(vehicles);
+  const dqDemos = generateDrivingQualityDemoAlerts(vehicles);
   const existingKeys = new Set(base.map((a) => `${a.vehicleId}:${a.type}`));
-  const merged = [
-    ...base,
-    ...geoDemos.filter((a) => !existingKeys.has(`${a.vehicleId}:${a.type}`)),
-  ];
+  const merged = [...base];
+  for (const alert of [...geoDemos, ...dqDemos]) {
+    const key = `${alert.vehicleId}:${alert.type}`;
+    if (!existingKeys.has(key)) {
+      existingKeys.add(key);
+      merged.push(alert);
+    }
+  }
   alertStore = merged.sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
@@ -441,6 +446,115 @@ export function getVehicleById(vehicleId: string): Vehicle | undefined {
 }
 
 export type { SectionAlertVehicleRow } from '../constants/alert-section-vehicle-rows';
+
+export interface AlertHistoryFilters {
+  search?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  categories?: AlertCategory[];
+  alertTypes?: AlertType[];
+  vehicleIds?: string[];
+}
+
+export interface AlertHistoryRow {
+  id: string;
+  vehicleName: string;
+  driverName: string;
+  locationOrZone: string;
+  alertType: AlertType;
+  alertTypeLabel: string;
+  createdAt: string;
+}
+
+function toIsoDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function getHistoryDateBounds(dateFrom?: string, dateTo?: string): { from: Date; to: Date } {
+  const now = new Date();
+  const defaultFrom = new Date(now);
+  defaultFrom.setDate(defaultFrom.getDate() - 7);
+
+  const fromIso = dateFrom ?? toIsoDate(defaultFrom);
+  const toIso = dateTo ?? toIsoDate(now);
+
+  const [fy, fm, fd] = fromIso.split('-').map(Number);
+  const [ty, tm, td] = toIso.split('-').map(Number);
+  return {
+    from: new Date(fy, fm - 1, fd, 0, 0, 0, 0),
+    to: new Date(ty, tm - 1, td, 23, 59, 59, 999),
+  };
+}
+
+function getLocationOrZone(alert: FleetAlert): string {
+  if (alert.category === 'geolocation') {
+    const zone = parseZoneFromMessage(alert.message ?? '');
+    return zone !== '—' ? zone : alert.location ?? '—';
+  }
+  return alert.location ?? '—';
+}
+
+export async function fetchAlertHistory(
+  filters?: AlertHistoryFilters
+): Promise<AlertHistoryRow[]> {
+  await delay(300);
+  let result = [...alertStore];
+
+  const { from, to } = getHistoryDateBounds(filters?.dateFrom, filters?.dateTo);
+  result = result.filter((a) => {
+    const created = new Date(a.createdAt);
+    return created >= from && created <= to;
+  });
+
+  if (filters?.vehicleIds?.length) {
+    result = result.filter((a) => filters.vehicleIds!.includes(a.vehicleId));
+  }
+
+  if (filters?.categories?.length) {
+    result = result.filter((a) => filters.categories!.includes(a.category));
+  }
+
+  if (filters?.alertTypes?.length) {
+    result = result.filter((a) => filters.alertTypes!.includes(a.type));
+  }
+
+  const search = filters?.search?.trim().toLowerCase();
+  if (search) {
+    result = result.filter((a) => {
+      const label = getTaxonomyEntry(a.type).label.toLowerCase();
+      const vehicle = vehiclesRef.find((v) => v.id === a.vehicleId);
+      const haystack = [
+        a.vehicleName,
+        a.driverName,
+        vehicle?.name,
+        vehicle?.driver,
+        a.location,
+        a.message,
+        label,
+        getLocationOrZone(a),
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(search);
+    });
+  }
+
+  return result
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .map((alert) => ({
+      id: alert.id,
+      vehicleName: alert.vehicleName,
+      driverName: alert.driverName ?? '—',
+      locationOrZone: getLocationOrZone(alert),
+      alertType: alert.type,
+      alertTypeLabel: getTaxonomyEntry(alert.type).label,
+      createdAt: alert.createdAt,
+    }));
+}
 
 function getLatestActiveAlert(alertType: AlertType, vehicleId: string): FleetAlert | undefined {
   return alertStore

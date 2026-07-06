@@ -6,14 +6,14 @@ interface AlertsContentProps {
   vehicles: Vehicle[];
   onNavigateToVehicle?: (vehicleId: string, coordinates: [number, number]) => void;
   hideBadges?: boolean;
-  onOpenSettings?: () => void;
+  onOpenHistory?: (vehicleIds?: string[]) => void;
   onUnreadCountChange?: (count: number) => void;
 }
 
 export function AlertsContent({
   vehicles,
   onNavigateToVehicle,
-  onOpenSettings,
+  onOpenHistory,
   onUnreadCountChange,
 }: AlertsContentProps) {
   return (
@@ -23,7 +23,7 @@ export function AlertsContent({
           <AlertCenterPage
             vehicles={vehicles}
             onNavigateToVehicle={onNavigateToVehicle}
-            onOpenSettings={onOpenSettings}
+            onOpenHistory={onOpenHistory}
             onUnreadCountChange={onUnreadCountChange}
           />
         </TooltipProvider>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Settings, PanelRight } from 'lucide-react';
+import { PanelRight, History } from 'lucide-react';
 import type { Vehicle } from '@/types';
 import { initAlertStore, getUnreadCount } from '../../api/alert-api';
 import { useAlertCenterContext } from '../../context/AlertCenterContext';
@@ -11,14 +11,14 @@ import { cn } from '@/lib/utils';
 interface AlertCenterPageProps {
   vehicles: Vehicle[];
   onNavigateToVehicle?: (vehicleId: string, coordinates: [number, number]) => void;
-  onOpenSettings?: () => void;
+  onOpenHistory?: (vehicleIds?: string[]) => void;
   onUnreadCountChange?: (count: number) => void;
 }
 
 export function AlertCenterPage({
   vehicles,
   onNavigateToVehicle,
-  onOpenSettings,
+  onOpenHistory,
   onUnreadCountChange,
 }: AlertCenterPageProps) {
   const { selectedVehicleId, setSelectedVehicleId, refreshUnreadCount } = useAlertCenterContext();
@@ -55,7 +55,7 @@ export function AlertCenterPage({
       }}
       onSelectVehicle={(id) => handleSelectVehicle(id)}
       onNavigateToVehicle={onNavigateToVehicle}
-      onOpenSettings={onOpenSettings}
+      onOpenHistory={onOpenHistory}
     />
   );
 
@@ -81,10 +81,10 @@ export function AlertCenterPage({
             >
               <PanelRight className="w-4 h-4" />
             </Button>
-            {onOpenSettings && (
-              <Button variant="outline" size="sm" onClick={onOpenSettings}>
-                <Settings className="w-4 h-4 mr-1" />
-                <span className="hidden sm:inline">Configuration</span>
+            {onOpenHistory && (
+              <Button variant="outline" size="sm" onClick={() => onOpenHistory()}>
+                <History className="w-4 h-4 mr-1" />
+                <span className="hidden sm:inline">Historique</span>
               </Button>
             )}
           </div>
