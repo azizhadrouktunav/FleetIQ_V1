@@ -58,8 +58,6 @@ export function getColumnsForSection(sectionId: AlertCenterSectionId): SectionAl
         { id: 'licensePlate', label: 'Matricule' },
         { id: 'driverName', label: 'Chauffeur' },
         { id: 'alertLabel', label: 'Alerte' },
-        { id: 'location', label: 'Lieu' },
-        { id: 'action', label: 'Action' },
       ];
     case 'geolocation':
       return [
