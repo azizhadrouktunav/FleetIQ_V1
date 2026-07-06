@@ -2,7 +2,6 @@ import {
   PauseCircle,
   Radio,
   Satellite,
-  Signal,
   WifiOff,
   type LucideIcon,
 } from 'lucide-react';
@@ -39,21 +38,15 @@ export const VEHICLE_STATUS_DEFINITIONS: Record<VehicleStatus, StatusDefinition>
 
 export const GPS_STATUS_DEFINITIONS: Record<GpsFilterStatus, StatusDefinition> = {
   online: {
-    label: 'GPS OK',
+    label: 'En ligne',
     description: 'Position GPS valide reçue du traceur',
     icon: Satellite,
     badgeVariant: 'info',
   },
   offline: {
-    label: 'GPS hors ligne',
+    label: 'Hors ligne',
     description: 'Traceur ne communique plus',
     icon: WifiOff,
-    badgeVariant: 'critical',
-  },
-  lost: {
-    label: 'GPS perdu',
-    description: 'Communication partielle, pas de fix satellite fiable',
-    icon: Signal,
     badgeVariant: 'critical',
   },
 };

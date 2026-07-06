@@ -1,13 +1,13 @@
 import { z } from 'zod';
 
 export const alertFiltersSchema = z.object({
-  search: z.string(),
+  vehicleIds: z.array(z.string()),
   categories: z.array(z.string()),
   severities: z.array(z.string()),
   vehicleStates: z.array(z.string()),
   dashboardIndicatorIds: z.array(z.string()),
   departmentIds: z.array(z.string()),
-  gpsStatuses: z.array(z.enum(['online', 'offline', 'lost'])),
+  gpsStatuses: z.array(z.enum(['online', 'offline'])),
   movementStates: z.array(z.enum(['moving', 'stopped'])),
   datePreset: z.enum(['today', '24h', '7d']).optional(),
   selectedDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),

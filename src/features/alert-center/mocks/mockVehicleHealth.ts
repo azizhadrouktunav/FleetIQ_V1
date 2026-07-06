@@ -105,7 +105,7 @@ export function generateVehicleHealth(vehicles: Vehicle[], alertStore?: FleetAle
       lastCommunication: v.lastUpdate,
       location: v.location,
       coordinates: v.coordinates,
-      gpsStatus: offline ? 'offline' : v.status === 'idle' && idx % 7 === 0 ? 'lost' : 'online',
+      gpsStatus: offline ? 'offline' : 'online',
     };
   });
 }

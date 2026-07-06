@@ -14,7 +14,7 @@ interface AlertCenterContextValue {
 const AlertCenterContext = createContext<AlertCenterContextValue | null>(null);
 
 const defaultFilters: AlertFilters = {
-  search: '',
+  vehicleIds: [],
   categories: [],
   severities: [],
   vehicleStates: [],

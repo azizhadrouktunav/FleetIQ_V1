@@ -1,4 +1,4 @@
-import { Filter, RotateCcw, Search } from 'lucide-react';
+import { Filter, RotateCcw } from 'lucide-react';
 import type { Vehicle } from '@/types';
 import type {
   AlertFilters,
@@ -11,12 +11,12 @@ import type {
 import { MOCK_ORG_STRUCTURE } from '../../mocks/mockOrgStructure';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { DashboardIndicatorFilter } from './DashboardIndicatorFilter';
 import { AlertDayPickerButton, formatSelectedDateLabel } from './AlertDayPickerButton';
+import { VehicleSearchMultiSelect } from './VehicleSearchMultiSelect';
 import { cn } from '@/lib/utils';
 
 const SEVERITIES: { id: AlertSeverity; label: string }[] = [
@@ -33,7 +33,6 @@ const VEHICLE_STATES: { id: VehicleFilterState; label: string }[] = [
 const GPS_STATUSES: { id: GpsFilterStatus; label: string }[] = [
   { id: 'online', label: 'En ligne' },
   { id: 'offline', label: 'Hors ligne' },
-  { id: 'lost', label: 'Signal perdu' },
 ];
 
 const MOVEMENT_STATES: { id: MovementFilterState; label: string }[] = [
@@ -57,7 +56,7 @@ function toggleArrayItem<T>(arr: T[], item: T): T[] {
   return arr.includes(item) ? arr.filter((i) => i !== item) : [...arr, item];
 }
 
-export function AlertFiltersPanel({ filters, onUpdate, onReset }: AlertFiltersPanelProps) {
+export function AlertFiltersPanel({ filters, vehicles, onUpdate, onReset }: AlertFiltersPanelProps) {
   return (
     <div className="flex flex-col h-full min-h-0 bg-slate-900 text-slate-200 w-full">
       <div className="shrink-0 p-4 border-b border-slate-700 flex items-center justify-between">
@@ -75,15 +74,11 @@ export function AlertFiltersPanel({ filters, onUpdate, onReset }: AlertFiltersPa
           <div>
             <p className="text-xs font-semibold text-slate-400 uppercase mb-2">Recherche</p>
             <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-500" />
-                <Input
-                  placeholder="Véhicule, immatriculation, conducteur..."
-                  value={filters.search}
-                  onChange={(e) => onUpdate('search', e.target.value)}
-                  className="pl-8 bg-slate-800 border-slate-600 text-slate-200 placeholder:text-slate-500 h-9"
-                />
-              </div>
+              <VehicleSearchMultiSelect
+                vehicles={vehicles}
+                value={filters.vehicleIds}
+                onChange={(ids) => onUpdate('vehicleIds', ids)}
+              />
               <AlertDayPickerButton
                 value={filters.selectedDate}
                 onChange={(date) => {

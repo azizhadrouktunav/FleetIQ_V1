@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo } from 'react';
 import type { AlertFilters } from '@/types/alerts';
 
 const DEFAULT_FILTERS: AlertFilters = {
-  search: '',
+  vehicleIds: [],
   categories: [],
   severities: [],
   vehicleStates: [],
@@ -25,7 +25,7 @@ export function useAlertFilters() {
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
-    if (filters.search) count++;
+    if (filters.vehicleIds.length) count++;
     if (filters.severities.length) count++;
     if (filters.vehicleStates.length) count++;
     if (filters.dashboardIndicatorIds.length) count++;

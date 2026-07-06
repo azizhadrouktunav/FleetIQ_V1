@@ -75,13 +75,8 @@ function applyFilters(alerts: FleetAlert[], filters?: AlertFilters): FleetAlert[
   if (!filters) return alerts;
   let result = [...alerts];
 
-  if (filters.search) {
-    const q = filters.search.toLowerCase();
-    result = result.filter(
-      (a) =>
-        a.vehicleName.toLowerCase().includes(q) ||
-        (a.driverName?.toLowerCase().includes(q) ?? false)
-    );
+  if (filters.vehicleIds.length) {
+    result = result.filter((a) => filters.vehicleIds.includes(a.vehicleId));
   }
   if (filters.categories.length) {
     result = result.filter((a) => filters.categories.includes(a.category));
@@ -166,17 +161,19 @@ export async function fetchVehicleSummaries(filters?: AlertFilters) {
 
   let summaries = buildVehicleSummaries(vehiclesRef, alertStore);
 
-  if (filters?.search) {
-    const q = filters.search.toLowerCase();
-    summaries = summaries.filter(
-      (s) =>
-        s.vehicleName.toLowerCase().includes(q) ||
-        s.licensePlate.toLowerCase().includes(q) ||
-        s.driverName.toLowerCase().includes(q)
-    );
+  if (filters?.vehicleIds.length) {
+    summaries = summaries.filter((s) => filters.vehicleIds.includes(s.vehicleId));
   }
 
-  if (filters && (filters.categories.length || filters.severities.length || filters.datePreset || filters.selectedDate || filters.dashboardIndicatorIds.length)) {
+  if (
+    filters &&
+    (filters.categories.length ||
+      filters.severities.length ||
+      filters.datePreset ||
+      filters.selectedDate ||
+      filters.dashboardIndicatorIds.length ||
+      filters.vehicleIds.length)
+  ) {
     summaries = summaries.filter((s) => vehicleIdsWithAlerts.has(s.vehicleId));
   }
 

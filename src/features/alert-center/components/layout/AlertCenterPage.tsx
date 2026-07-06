@@ -6,7 +6,6 @@ import { useAlertFilters } from '../../hooks/useAlertFilters';
 import {
   useVehicleSummaries,
   useAlertKpis,
-  useMarkAllRead,
 } from '../../hooks/useAlertQueries';
 import { useAlertCenterContext } from '../../context/AlertCenterContext';
 import { AlertFiltersPanel } from '../filters/AlertFiltersPanel';
@@ -41,7 +40,6 @@ export function AlertCenterPage({
 
   const { data: summaries, isLoading, isError, refetch } = useVehicleSummaries(filters);
   const { data: kpis, isLoading: kpisLoading } = useAlertKpis();
-  const markAllRead = useMarkAllRead();
 
   const unreadCount = getUnreadCount();
 
@@ -144,13 +142,6 @@ export function AlertCenterPage({
                 <span className="hidden sm:inline">Configuration</span>
               </Button>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => markAllRead.mutate(undefined, { onSuccess: refreshUnreadCount })}
-            >
-              Tout marquer lu
-            </Button>
           </div>
         </div>
 

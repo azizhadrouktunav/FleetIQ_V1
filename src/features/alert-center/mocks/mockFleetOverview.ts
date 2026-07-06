@@ -54,7 +54,9 @@ export function generateFleetOverview(
     .map((h) => ({
       vehicleId: h.vehicleId,
       vehicleName: h.vehicleName,
-      alertCount: h.alertCount,
+      criticalCount: h.criticalCount,
+      warningCount: h.warningCount,
+      infoCount: h.infoCount,
     }));
 
   return {
@@ -65,9 +67,13 @@ export function generateFleetOverview(
     offlineVehicles,
     sosVehicles,
     upcomingMaintenance: [
-      { vehicleName: vehicles[0]?.name ?? 'Fleet-001', dueIn: '3 jours', type: 'Révision' },
-      { vehicleName: vehicles[2]?.name ?? 'Fleet-003', dueIn: '1 semaine', type: 'Pneus' },
-      { vehicleName: vehicles[5]?.name ?? 'Fleet-006', dueIn: '12 jours', type: 'Vidange' },
+      { id: 'maint-1', vehicleName: vehicles[0]?.name ?? 'Fleet-001', dueIn: '3 jours', type: 'Révision' },
+      { id: 'maint-2', vehicleName: vehicles[2]?.name ?? 'Fleet-003', dueIn: '1 semaine', type: 'Pneus' },
+      { id: 'maint-3', vehicleName: vehicles[5]?.name ?? 'Fleet-006', dueIn: '12 jours', type: 'Vidange' },
+      { id: 'maint-4', vehicleName: vehicles[1]?.name ?? 'Fleet-002', dueIn: '18 jours', type: 'Freins' },
+      { id: 'maint-5', vehicleName: vehicles[3]?.name ?? 'Fleet-004', dueIn: '3 semaines', type: 'Contrôle technique' },
+      { id: 'maint-6', vehicleName: vehicles[4]?.name ?? 'Fleet-005', dueIn: '1 mois', type: 'Courroie' },
+      { id: 'maint-7', vehicleName: vehicles[7]?.name ?? 'Fleet-008', dueIn: '6 semaines', type: 'Filtres' },
     ],
     topRiskVehicles: topRisk,
   };

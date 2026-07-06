@@ -141,7 +141,7 @@ export type AlertType =
 
 export type VehicleFilterState = 'with_alerts' | 'without_alerts';
 
-export type GpsFilterStatus = 'online' | 'offline' | 'lost';
+export type GpsFilterStatus = 'online' | 'offline';
 
 export type MovementFilterState = 'moving' | 'stopped';
 
@@ -228,7 +228,7 @@ export interface VehicleHealthSnapshot {
   lastCommunication: string;
   location: string;
   coordinates: [number, number];
-  gpsStatus: 'online' | 'offline' | 'lost';
+  gpsStatus: 'online' | 'offline';
 }
 
 export interface VehicleAlertSummary {
@@ -238,7 +238,7 @@ export interface VehicleAlertSummary {
   driverName: string;
   fleetName: string;
   status: 'active' | 'idle' | 'offline';
-  gpsStatus: 'online' | 'offline' | 'lost';
+  gpsStatus: 'online' | 'offline';
   lastCommunication: string;
   location: string;
   coordinates: [number, number];
@@ -311,8 +311,14 @@ export interface FleetOverviewData {
   onlineVehicles: FleetStatusVehicleItem[];
   offlineVehicles: FleetStatusVehicleItem[];
   sosVehicles: FleetStatusVehicleItem[];
-  upcomingMaintenance: { vehicleName: string; dueIn: string; type: string }[];
-  topRiskVehicles: { vehicleId: string; vehicleName: string; alertCount: number }[];
+  upcomingMaintenance: { id: string; vehicleName: string; dueIn: string; type: string }[];
+  topRiskVehicles: {
+    vehicleId: string;
+    vehicleName: string;
+    criticalCount: number;
+    warningCount: number;
+    infoCount: number;
+  }[];
 }
 
 export interface AlertAnalyticsData {
@@ -325,7 +331,7 @@ export interface AlertAnalyticsData {
 }
 
 export interface AlertFilters {
-  search: string;
+  vehicleIds: string[];
   categories: AlertCategory[];
   severities: AlertSeverity[];
   vehicleStates: VehicleFilterState[];

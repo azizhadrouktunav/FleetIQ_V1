@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Wrench, AlertTriangle } from 'lucide-react';
+import { Wrench, AlertTriangle, ChevronDown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { FleetOverviewData } from '@/types/alerts';
 import {
@@ -16,6 +17,8 @@ import {
 } from './FleetStatusListDialog';
 import { RecentAlertsTimelineSection } from './RecentAlertsTimelineSection';
 
+const MAINTENANCE_INITIAL_LIMIT = 3;
+
 interface FleetOverviewPanelProps {
   data?: FleetOverviewData;
   isLoading?: boolean;
@@ -26,6 +29,7 @@ interface FleetOverviewPanelProps {
 export function FleetOverviewPanel({ data, isLoading, selectedDate, onVehicleClick }: FleetOverviewPanelProps) {
   const [dialogVariant, setDialogVariant] = useState<FleetStatusDialogVariant | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [maintenanceExpanded, setMaintenanceExpanded] = useState(false);
 
   const openDialog = (variant: FleetStatusDialogVariant) => {
     setDialogVariant(variant);
@@ -38,6 +42,15 @@ export function FleetOverviewPanel({ data, isLoading, selectedDate, onVehicleCli
       : dialogVariant === 'offline'
         ? data?.offlineVehicles ?? []
         : data?.sosVehicles ?? [];
+
+  const maintenanceItems = data?.upcomingMaintenance ?? [];
+  const canExpandMaintenance = maintenanceItems.length > MAINTENANCE_INITIAL_LIMIT;
+  const visibleMaintenance = maintenanceExpanded || !canExpandMaintenance
+    ? maintenanceItems
+    : maintenanceItems.slice(0, MAINTENANCE_INITIAL_LIMIT);
+  const hiddenMaintenanceCount = canExpandMaintenance
+    ? maintenanceItems.length - MAINTENANCE_INITIAL_LIMIT
+    : 0;
 
   if (isLoading || !data) {
     return (
@@ -119,12 +132,30 @@ export function FleetOverviewPanel({ data, isLoading, selectedDate, onVehicleCli
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {data.upcomingMaintenance.map((m) => (
-              <div key={m.vehicleName} className="flex justify-between text-sm">
+            {visibleMaintenance.map((m) => (
+              <div key={m.id} className="flex justify-between text-sm">
                 <span className="font-medium">{m.vehicleName}</span>
                 <span className="text-muted-foreground">{m.type} · {m.dueIn}</span>
               </div>
             ))}
+            {canExpandMaintenance && (
+              <div className="flex justify-center pt-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setMaintenanceExpanded((v) => !v)}
+                  className="text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                >
+                  <ChevronDown
+                    className={cn(
+                      'w-3.5 h-3.5 mr-1 transition-transform',
+                      maintenanceExpanded && 'rotate-180'
+                    )}
+                  />
+                  {maintenanceExpanded ? 'Voir moins' : `Voir plus (${hiddenMaintenanceCount})`}
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -141,8 +172,24 @@ export function FleetOverviewPanel({ data, isLoading, selectedDate, onVehicleCli
                 className="w-full flex items-center justify-between text-sm p-2 rounded-lg hover:bg-slate-50 transition-colors text-left"
                 onClick={() => onVehicleClick?.(v.vehicleId)}
               >
-                <span className="font-medium">{v.vehicleName}</span>
-                <Badge variant="critical">{v.alertCount}</Badge>
+                <span className="font-medium truncate">{v.vehicleName}</span>
+                <div className="flex items-center gap-1 shrink-0 ml-2">
+                  {v.criticalCount > 0 && (
+                    <Badge variant="critical" className="text-[10px] h-5 px-1.5">
+                      {v.criticalCount}
+                    </Badge>
+                  )}
+                  {v.warningCount > 0 && (
+                    <Badge variant="high" className="text-[10px] h-5 px-1.5">
+                      {v.warningCount}
+                    </Badge>
+                  )}
+                  {v.infoCount > 0 && (
+                    <Badge variant="info" className="text-[10px] h-5 px-1.5">
+                      {v.infoCount}
+                    </Badge>
+                  )}
+                </div>
               </button>
             ))}
           </CardContent>
