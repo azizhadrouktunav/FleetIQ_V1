@@ -7,6 +7,7 @@ import {
   fetchVehicleHealth,
   fetchFleetOverview,
   fetchRecentAlerts,
+  syncActiveAlertsForScopes,
   type RecentAlertsFilters,
   fetchVehicleTimeline,
   fetchVehicleDocumentAlerts,
@@ -225,7 +226,14 @@ export function useBatchUpsertScopeConfigs() {
       scopes: AlertScopeRef[];
       updates: Omit<AlertScopeConfig, 'id' | 'scopeType' | 'scopeId'>[];
     }) => batchUpsertScopeConfigs(scopes, updates),
-    onSuccess: () => qc.invalidateQueries({ queryKey: alertKeys.scopeConfigs() }),
+    onSuccess: (_data, variables) => {
+      syncActiveAlertsForScopes(
+        variables.scopes,
+        variables.updates.map((u) => ({ alertType: u.alertType, enabled: u.enabled }))
+      );
+      qc.invalidateQueries({ queryKey: alertKeys.scopeConfigs() });
+      qc.invalidateQueries({ queryKey: alertKeys.all });
+    },
   });
 }
 

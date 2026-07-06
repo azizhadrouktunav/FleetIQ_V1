@@ -2,6 +2,7 @@ import type { AlertScopeConfig } from '@/types/alert-config';
 import type { AlertType } from '@/types/alerts';
 import { getTaxonomyEntry } from '../constants/alert-taxonomy';
 import { getAlertTypesForSection } from '../constants/alert-config-sections';
+import { getGeolocationAlertTypes } from '../constants/geolocation-alert-groups';
 import { MOCK_ORG_STRUCTURE } from './mockOrgStructure';
 import { DASHBOARD_INDICATORS } from '@/design-system/dashboard-indicators';
 
@@ -54,6 +55,14 @@ function seedScopeConfigs(
 
   getAlertTypesForSection('vehicle_management').forEach((alertType) => {
     configs.push(createConfig(scopeType, scopeId, alertType));
+  });
+
+  getGeolocationAlertTypes().forEach((alertType) => {
+    configs.push(
+      createConfig(scopeType, scopeId, alertType, {
+        enabled: alertType === 'geofence' || alertType === 'geofence_exit' || alertType === 'route',
+      })
+    );
   });
 
   getAlertTypesForSection('security').forEach((alertType) => {

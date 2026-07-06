@@ -53,6 +53,16 @@ export function AlertConfigSectionsPanel({ selectedScopes, vehicles }: AlertConf
     [selectedScopes, configs]
   );
 
+  const geolocationResolved = useMemo(
+    () =>
+      resolveConfigsForSection(
+        selectedScopes,
+        configs,
+        getAlertTypesForSection('geolocation') as AlertType[]
+      ),
+    [selectedScopes, configs]
+  );
+
   const toggleSection = (id: string) => {
     setOpenSections((prev) => {
       const next = new Set(prev);
@@ -112,7 +122,11 @@ export function AlertConfigSectionsPanel({ selectedScopes, vehicles }: AlertConf
                       />
                     )}
                     {section.id === 'geolocation' && (
-                      <GeofencingAlertsSection selectedScopes={selectedScopes} vehicles={vehicles} />
+                      <GeofencingAlertsSection
+                        selectedScopes={selectedScopes}
+                        resolved={geolocationResolved}
+                        vehicles={vehicles}
+                      />
                     )}
                     {section.id === 'security' && (
                       <SecurityAlertsSection

@@ -47,6 +47,28 @@ export const INITIAL_GEOFENCE_RULES: GeofenceAlertRule[] = [
     scopeIds: ['dept-direction'],
     activationType: 'permanent',
   },
+  {
+    id: 'geo-5',
+    name: 'Entrée Port Radès',
+    zoneLabel: 'Port de Radès',
+    eventType: 'entry',
+    severity: 'info',
+    enabled: true,
+    scopeType: 'vehicle',
+    scopeIds: ['1', '2', '3'],
+    activationType: 'permanent',
+  },
+  {
+    id: 'geo-6',
+    name: 'Sortie zone véhicule 4',
+    zoneLabel: 'Aéroport Tunis-Carthage',
+    eventType: 'exit',
+    severity: 'warning',
+    enabled: true,
+    scopeType: 'vehicle',
+    scopeIds: ['4', '5'],
+    activationType: 'permanent',
+  },
 ];
 
 export const MOCK_GEOFENCE_ZONES = [

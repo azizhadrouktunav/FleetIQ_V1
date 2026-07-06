@@ -2,7 +2,7 @@ import type { Vehicle } from '@/types';
 import type { AlertFilters, AlertRule, AlertSeverity, AlertType, FleetAlert, TimelineEvent, VehicleAlertItem } from '@/types/alerts';
 import { CARD_DASHBOARD_INDICATORS } from '@/design-system/dashboard-indicators';
 import { delay } from '@/lib/utils';
-import { generateMockAlerts } from '../mocks/mockAlerts';
+import { generateMockAlerts, generateGeolocationDemoAlerts } from '../mocks/mockAlerts';
 import { computeKpisFromAlerts } from '../mocks/mockKpis';
 import {
   buildVehicleSummaries,
@@ -12,7 +12,8 @@ import {
 import { generateTimelineForVehicle, alertsToTimelineEvents } from '../mocks/mockTimeline';
 import { generateFleetOverview } from '../mocks/mockFleetOverview';
 import { computeAnalytics } from '../mocks/mockAnalytics';
-import { getVehicleDepartmentId } from '../mocks/mockOrgStructure';
+import type { AlertScopeRef } from '@/types/alert-config';
+import { getVehicleDepartmentId, MOCK_ORG_STRUCTURE } from '../mocks/mockOrgStructure';
 import { isDocumentAlert } from '../constants/vehicle-inspector-sections';
 import { resolveCategoriesFromSections, resolveCategoriesFromCenterSections, type AlertConfigSectionId, type AlertCenterSectionId } from '../constants/alert-config-sections';
 import { getTaxonomyEntry } from '../constants/alert-taxonomy';
@@ -28,7 +29,93 @@ let alertRulesStore: AlertRule[] = [];
 
 export function initAlertStore(vehicles: Vehicle[]) {
   vehiclesRef = vehicles;
-  alertStore = generateMockAlerts(vehicles);
+  const base = generateMockAlerts(vehicles);
+  const geoDemos = generateGeolocationDemoAlerts(vehicles);
+  const existingKeys = new Set(base.map((a) => `${a.vehicleId}:${a.type}`));
+  const merged = [
+    ...base,
+    ...geoDemos.filter((a) => !existingKeys.has(`${a.vehicleId}:${a.type}`)),
+  ];
+  alertStore = merged.sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+}
+
+function resolveVehicleIdsFromScopes(scopes: AlertScopeRef[]): string[] {
+  const ids = new Set<string>();
+  for (const scope of scopes) {
+    if (scope.scopeType === 'vehicle') {
+      ids.add(scope.scopeId);
+      continue;
+    }
+    if (scope.scopeType === 'department') {
+      const dept = MOCK_ORG_STRUCTURE.departments.find((d) => d.id === scope.scopeId);
+      dept?.vehicleIds.forEach((id) => ids.add(id));
+    }
+  }
+  return [...ids];
+}
+
+function createActiveAlertForVehicle(vehicleId: string, alertType: AlertType): FleetAlert {
+  const vehicle = vehiclesRef.find((v) => v.id === vehicleId);
+  const entry = getTaxonomyEntry(alertType);
+  const createdAt = new Date().toISOString();
+  return {
+    id: `sync-${alertType}-${vehicleId}-${Date.now()}`,
+    type: alertType,
+    vehicleId,
+    vehicleName: vehicle?.name ?? vehicleId,
+    severity: entry.defaultSeverity,
+    message: `Alerte ${entry.label} activée`,
+    timestamp: "À l'instant",
+    createdAt,
+    location: vehicle?.location ?? '—',
+    isRead: false,
+    category: entry.category,
+    status: 'active',
+    priority: entry.defaultPriority,
+    driverName: vehicle?.driver,
+    fleetName: 'Flotte',
+    coordinates: vehicle?.coordinates,
+    recommendedAction: entry.recommendedAction,
+    autoResolvable: entry.autoResolvable,
+    businessImpact: entry.businessImpact,
+    isActive: true,
+  };
+}
+
+export function syncActiveAlertsForScopes(
+  scopes: AlertScopeRef[],
+  updates: Array<{ alertType: AlertType; enabled?: boolean }>
+) {
+  const vehicleIds = resolveVehicleIdsFromScopes(scopes);
+  if (!vehicleIds.length) return;
+
+  for (const update of updates) {
+    if (update.enabled === undefined) continue;
+
+    if (update.enabled) {
+      for (const vehicleId of vehicleIds) {
+        const hasActive = alertStore.some(
+          (a) =>
+            a.vehicleId === vehicleId &&
+            a.type === update.alertType &&
+            a.status !== 'resolved'
+        );
+        if (!hasActive) {
+          alertStore = [createActiveAlertForVehicle(vehicleId, update.alertType), ...alertStore];
+        }
+      }
+    } else {
+      alertStore = alertStore.map((a) =>
+        vehicleIds.includes(a.vehicleId) &&
+        a.type === update.alertType &&
+        a.status !== 'resolved'
+          ? { ...a, status: 'resolved' as const, isActive: false }
+          : a
+      );
+    }
+  }
 }
 
 export function getAlertStore(): FleetAlert[] {

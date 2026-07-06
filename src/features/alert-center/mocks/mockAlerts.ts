@@ -1,6 +1,8 @@
 import type { Vehicle } from '@/types';
 import type { FleetAlert, AlertType } from '@/types/alerts';
 import { getAlertTypeConfig } from '../constants/alert-type-registry';
+import { getGeolocationAlertTypes } from '../constants/geolocation-alert-groups';
+import { MOCK_GEOFENCE_ZONES } from './mockGeofenceRules';
 import { EXCLUDED_SECURITY_ALERT_TYPES } from '../constants/security-alert-types';
 
 const EXCLUDED_SET = new Set<AlertType>(EXCLUDED_SECURITY_ALERT_TYPES);
@@ -38,14 +40,23 @@ const MESSAGES: Partial<Record<AlertType, string[]>> = {
   fuel: ['Niveau carburant faible: 12%', 'Réserve carburant atteinte'],
   geofence: ['Entrée zone "Centre Paris"'],
   geofence_exit: ['Sortie de zone "Centre Paris"'],
+  polygon_exit: ['Sortie polygone "Zone A1 — Accès restreint"'],
+  city_exit: ['Sortie de ville "Périmètre Tunis"'],
+  route: ['Déviation d\'itinéraire de 2.4 km'],
+  departure_point: ['Arrivée au point de départ "Dépôt Nord"'],
+  arrival_point: ['Arrivée destination "Port de Radès"'],
+  restricted_hours: ['Circulation en horaires interdits — zone "Centre Paris"'],
+  long_stop: ['Arrêt prolongé 45 min — zone "Dépôt Nord"'],
+  abnormal_immobilization: ['Immobilisation anormale détectée'],
+  country_border: ['Approche frontière — zone "Périmètre Tunis"'],
+  stop: ['Ralenti excessif: 18 min'],
+  taxi_status: ['Début de mission — zone "Aéroport Tunis-Carthage"'],
   towing: ['Mouvement détecté — véhicule potentiellement remorqué'],
   temperature: ['Température moteur élevée: 108°C'],
   maintenance: ['Code DTC P0420 détecté'],
   driver_door: ['Porte conducteur ouverte'],
   trunk: ['Coffre ouvert'],
   gps_signal: ['Signal GNSS perdu depuis 3 min'],
-  route: ['Déviation d\'itinéraire de 2.4 km'],
-  stop: ['Ralenti excessif: 18 min'],
   driving_time_exceeded: ['Temps de conduite réglementaire dépassé'],
   battery_disconnected: ['Batterie traceur GPS déconnectée'],
   handbrake: ['Frein à main engagé en circulation'],
@@ -122,6 +133,51 @@ export function generateMockAlerts(vehicles: Vehicle[]): FleetAlert[] {
   });
 
   return alerts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+/** One active demo alert per geolocation type for dashboard examples */
+export function generateGeolocationDemoAlerts(vehicles: Vehicle[]): FleetAlert[] {
+  if (!vehicles.length) return [];
+
+  const types = getGeolocationAlertTypes();
+  const alerts: FleetAlert[] = [];
+  let id = 5000;
+
+  types.forEach((type, index) => {
+    const vehicle = vehicles[index % vehicles.length];
+    const config = getAlertTypeConfig(type);
+    const zone = MOCK_GEOFENCE_ZONES[index % MOCK_GEOFENCE_ZONES.length];
+    const createdAt = minutesAgo(10 + index * 3);
+    const defaultMessage = MESSAGES[type]?.[0];
+
+    alerts.push({
+      id: `geo-demo-${id++}`,
+      type,
+      vehicleId: vehicle.id,
+      vehicleName: vehicle.name,
+      severity: config.defaultSeverity,
+      message:
+        defaultMessage ??
+        `Alerte ${config.label} — zone "${zone}"`,
+      timestamp: formatRelative(createdAt),
+      createdAt,
+      location: LOCATIONS[index % LOCATIONS.length],
+      isRead: false,
+      category: 'geolocation',
+      status: 'active',
+      priority: config.defaultPriority,
+      driverName: vehicle.driver,
+      fleetName: FLEETS[index % FLEETS.length],
+      coordinates: vehicle.coordinates,
+      recommendedAction: config.recommendedAction,
+      autoResolvable: config.autoResolvable,
+      businessImpact: config.businessImpact,
+      notifiedUser: NOTIFIED_USERS[index % NOTIFIED_USERS.length],
+      isActive: true,
+    });
+  });
+
+  return alerts;
 }
 
 export function generateHistoricalAlerts(vehicleId: string, vehicleName: string, driverName: string): FleetAlert[] {
