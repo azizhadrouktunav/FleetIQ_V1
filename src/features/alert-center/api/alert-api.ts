@@ -1,5 +1,5 @@
 import type { Vehicle } from '@/types';
-import type { AlertFilters, AlertRule, AlertSeverity, AlertType, AlertCategory, FleetAlert, TimelineEvent, VehicleAlertItem } from '@/types/alerts';
+import type { AlertCenterSummary, AlertFilters, AlertRule, AlertSeverity, AlertType, AlertCategory, FleetAlert, TimelineEvent, VehicleAlertItem } from '@/types/alerts';
 import { CARD_DASHBOARD_INDICATORS } from '@/design-system/dashboard-indicators';
 import { delay } from '@/lib/utils';
 import { generateMockAlerts, generateGeolocationDemoAlerts, generateDrivingQualityDemoAlerts } from '../mocks/mockAlerts';
@@ -311,6 +311,35 @@ export async function fetchFleetOverview() {
   const health = generateVehicleHealth(vehiclesRef, alertStore);
   const sosCount = alertStore.filter((a) => a.type === 'sos' && a.status === 'active').length;
   return generateFleetOverview(vehiclesRef, health, alertStore, sosCount);
+}
+
+function getUniqueVehiclesWithActiveAlerts(): number {
+  const ids = new Set<string>();
+  for (const alert of alertStore) {
+    if (alert.status !== 'resolved') {
+      ids.add(alert.vehicleId);
+    }
+  }
+  return ids.size;
+}
+
+function getActiveSosVehicleCount(): number {
+  const ids = new Set<string>();
+  for (const alert of alertStore) {
+    if (alert.type === 'sos' && alert.status === 'active') {
+      ids.add(alert.vehicleId);
+    }
+  }
+  return ids.size;
+}
+
+export async function fetchAlertCenterSummary(): Promise<AlertCenterSummary> {
+  await delay(300);
+  return {
+    vehiclesInAlert: getUniqueVehiclesWithActiveAlerts(),
+    activeSosVehicles: getActiveSosVehicleCount(),
+    vehiclesOffline: vehiclesRef.filter((v) => v.status === 'offline').length,
+  };
 }
 
 export interface RecentAlertsFilters {
@@ -643,30 +672,31 @@ export async function fetchVehiclesForAlertType(
     const base = buildBaseRow(vehicleId, summaries);
     const alert = getLatestActiveAlert(alertType, vehicleId);
     const message = alert?.message ?? '';
+    const withDate = { ...base, alertAt: alert?.createdAt ?? '' };
 
     switch (sectionId) {
       case 'vehicle_management': {
         const defaultLabel = getTaxonomyEntry(alertType).label;
         return {
-          ...base,
+          ...withDate,
           alertLabel: getFleetParcAlertLabel(alertType, defaultLabel),
         };
       }
       case 'geolocation':
         return {
-          ...base,
+          ...withDate,
           zone: parseZoneFromMessage(message),
           eventLabel: getGeolocationEventLabel(alertType),
         };
       case 'security':
       case 'driving_quality':
         return {
-          ...base,
+          ...withDate,
           detail: message ? truncateDetail(message) : '—',
         };
       case 'dashboard':
       default:
-        return base;
+        return withDate;
     }
   });
 }

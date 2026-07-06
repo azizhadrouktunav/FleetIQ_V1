@@ -19,6 +19,7 @@ import {
   fetchAlertTypeVehicleCounts,
   fetchVehiclesForAlertType,
   fetchAlertHistory,
+  fetchAlertCenterSummary,
   type AlertHistoryFilters,
   saveAlertRule,
   resolveAlert,
@@ -61,6 +62,7 @@ export const alertKeys = {
   kpis: () => [...alertKeys.all, 'kpis'] as const,
   health: () => [...alertKeys.all, 'health'] as const,
   overview: () => [...alertKeys.all, 'overview'] as const,
+  centerSummary: () => [...alertKeys.all, 'centerSummary'] as const,
   recentAlerts: (filters: RecentAlertsFilters) => [...alertKeys.all, 'recentAlerts', filters] as const,
   timeline: (vehicleId: string) => [...alertKeys.all, 'timeline', vehicleId] as const,
   documentAlerts: (vehicleId: string) => [...alertKeys.all, 'documentAlerts', vehicleId] as const,
@@ -111,6 +113,10 @@ export function useVehicleHealth() {
 
 export function useFleetOverview() {
   return useQuery({ queryKey: alertKeys.overview(), queryFn: fetchFleetOverview });
+}
+
+export function useAlertCenterSummary() {
+  return useQuery({ queryKey: alertKeys.centerSummary(), queryFn: fetchAlertCenterSummary });
 }
 
 export function useAlertTypeVehicleCounts(alertTypes: AlertType[]) {

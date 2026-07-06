@@ -117,6 +117,7 @@ export type AlertType =
   | 'hard_deceleration'
   | 'excessive_idle'
   | 'aggressive_driving'
+  | 'engine_overspeed'
   | 'driving_time_exceeded'
   // Security
   | 'gps_signal'
@@ -294,6 +295,12 @@ export interface AlertKpiData {
     vehiclesInAlert: number;
     total: number;
   };
+}
+
+export interface AlertCenterSummary {
+  vehiclesInAlert: number;
+  activeSosVehicles: number;
+  vehiclesOffline: number;
 }
 
 export interface FleetStatusVehicleItem {

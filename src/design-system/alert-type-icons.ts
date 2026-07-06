@@ -50,6 +50,8 @@ const TYPE_ICON_OVERRIDES: Partial<Record<AlertType, LucideIcon>> = {
   restricted_hours: Clock,
   speed_limit: Gauge,
   speed_exceeded: Gauge,
+  speeding: Gauge,
+  engine_overspeed: Gauge,
   harsh_braking: Zap,
   harsh_acceleration: Zap,
   harsh_cornering: Zap,

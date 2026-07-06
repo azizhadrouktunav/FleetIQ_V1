@@ -36,28 +36,12 @@ export function AlertCenterPage({
     refreshUnreadCount();
   }, [unreadCount, onUnreadCountChange, refreshUnreadCount]);
 
-  const handleSelectVehicle = (vehicleId: string) => {
-    if (!vehicleId) {
-      setSelectedVehicleId(null);
-    } else {
-      setSelectedVehicleId(vehicleId);
-      setShowMobileOverview(true);
-    }
+  const handleCloseInspector = () => {
+    setSelectedVehicleId(null);
+    setShowMobileOverview(false);
   };
 
-  const rightPanel = (
-    <ContextualRightPanel
-      vehicles={vehicles}
-      selectedVehicleId={selectedVehicleId}
-      onBack={() => {
-        setSelectedVehicleId(null);
-        setShowMobileOverview(false);
-      }}
-      onSelectVehicle={(id) => handleSelectVehicle(id)}
-      onNavigateToVehicle={onNavigateToVehicle}
-      onOpenHistory={onOpenHistory}
-    />
-  );
+  const showRightPanel = Boolean(selectedVehicleId);
 
   return (
     <div className="flex h-full overflow-hidden bg-slate-50 dark:bg-slate-950 relative">
@@ -72,15 +56,17 @@ export function AlertCenterPage({
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="lg:hidden"
-              onClick={() => setShowMobileOverview((v) => !v)}
-              aria-label="Panneau flotte"
-            >
-              <PanelRight className="w-4 h-4" />
-            </Button>
+            {showRightPanel && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="lg:hidden"
+                onClick={() => setShowMobileOverview((v) => !v)}
+                aria-label="Panneau véhicule"
+              >
+                <PanelRight className="w-4 h-4" />
+              </Button>
+            )}
             {onOpenHistory && (
               <Button variant="outline" size="sm" onClick={() => onOpenHistory()}>
                 <History className="w-4 h-4 mr-1" />
@@ -91,11 +77,17 @@ export function AlertCenterPage({
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
-          <GlobalAlertSectionsDashboard onNavigateToVehicle={onNavigateToVehicle} />
+          <GlobalAlertSectionsDashboard
+            onNavigateToVehicle={onNavigateToVehicle}
+            onSelectVehicle={(vehicleId) => {
+              setSelectedVehicleId(vehicleId);
+              setShowMobileOverview(true);
+            }}
+          />
         </div>
       </div>
 
-      {showMobileOverview && (
+      {showRightPanel && showMobileOverview && (
         <div
           className="absolute inset-0 bg-black/40 z-30 lg:hidden"
           onClick={() => setShowMobileOverview(false)}
@@ -103,18 +95,32 @@ export function AlertCenterPage({
         />
       )}
 
-      <aside className="hidden lg:flex w-[320px] shrink-0 h-full overflow-hidden border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-        {rightPanel}
-      </aside>
+      {showRightPanel && selectedVehicleId && (
+        <aside className="hidden lg:flex w-[320px] shrink-0 h-full overflow-hidden border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+          <ContextualRightPanel
+            selectedVehicleId={selectedVehicleId}
+            onBack={handleCloseInspector}
+            onNavigateToVehicle={onNavigateToVehicle}
+            onOpenHistory={onOpenHistory}
+          />
+        </aside>
+      )}
 
-      <aside
-        className={cn(
-          'lg:hidden absolute inset-y-0 right-0 z-40 w-[min(320px,100vw)] border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl overflow-hidden',
-          showMobileOverview ? 'flex' : 'hidden'
-        )}
-      >
-        {rightPanel}
-      </aside>
+      {showRightPanel && selectedVehicleId && (
+        <aside
+          className={cn(
+            'lg:hidden absolute inset-y-0 right-0 z-40 w-[min(320px,100vw)] border-l border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl overflow-hidden',
+            showMobileOverview ? 'flex' : 'hidden'
+          )}
+        >
+          <ContextualRightPanel
+            selectedVehicleId={selectedVehicleId}
+            onBack={handleCloseInspector}
+            onNavigateToVehicle={onNavigateToVehicle}
+            onOpenHistory={onOpenHistory}
+          />
+        </aside>
+      )}
     </div>
   );
 }

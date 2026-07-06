@@ -6,6 +6,11 @@ import { initAlertStore } from '@/features/alert-center/api/alert-api';
 import { useAlertHistory } from '@/features/alert-center/hooks/useAlertQueries';
 import { AlertHistoryFiltersBar } from '@/features/alert-center/components/history/AlertHistoryFiltersBar';
 import { AlertHistoryTable } from '@/features/alert-center/components/history/AlertHistoryTable';
+import {
+  exportAlertHistoryCsv,
+  exportAlertHistoryPdf,
+} from '@/features/alert-center/lib/alert-history-export';
+import { TableFooter } from '@/components/TableFooter';
 import { Button } from '@/components/ui/button';
 
 interface AlertHistoryPageProps {
@@ -26,6 +31,8 @@ export function AlertHistoryPage({
   const [filters, setFilters] = useState<AlertHistoryFilters>({
     vehicleIds: initialVehicleIds.length ? initialVehicleIds : undefined,
   });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const queryFilters = useMemo(
     () => ({
@@ -38,6 +45,15 @@ export function AlertHistoryPage({
   );
 
   const { data: rows = [], isLoading } = useAlertHistory(queryFilters);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [queryFilters]);
+
+  const paginatedRows = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return rows.slice(start, start + itemsPerPage);
+  }, [rows, currentPage, itemsPerPage]);
 
   const handleFilterChange = (patch: Partial<AlertHistoryFilters>) => {
     setFilters((prev) => ({ ...prev, ...patch }));
@@ -71,7 +87,23 @@ export function AlertHistoryPage({
             ? ' — filtré par véhicule sélectionné'
             : ''}
         </p>
-        <AlertHistoryTable rows={rows} isLoading={isLoading} />
+        <AlertHistoryTable
+          rows={paginatedRows}
+          isLoading={isLoading}
+          footer={
+            !isLoading ? (
+              <TableFooter
+                currentPage={currentPage}
+                totalItems={rows.length}
+                itemsPerPage={itemsPerPage}
+                onPageChange={setCurrentPage}
+                onItemsPerPageChange={setItemsPerPage}
+                onExportPdf={() => exportAlertHistoryPdf(rows)}
+                onExportExcel={() => exportAlertHistoryCsv(rows)}
+              />
+            ) : undefined
+          }
+        />
       </div>
     </div>
   );

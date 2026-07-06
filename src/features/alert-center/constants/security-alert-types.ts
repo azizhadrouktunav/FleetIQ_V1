@@ -35,6 +35,7 @@ export const SECURITY_ALERT_GROUPS: SecurityAlertGroup[] = [
       'driving_time_exceeded',
       'harsh_brake',
       'harsh_accel',
+      'engine_overspeed',
       'hard_deceleration',
       'harsh_turn',
     ],

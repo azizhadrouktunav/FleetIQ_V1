@@ -15,8 +15,7 @@ import {
   AlertTriangle,
   Menu,
   X,
-  Settings,
-  History } from
+  Settings } from
 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 interface TopBarProps {
@@ -106,9 +105,9 @@ export function TopBar({
     action: 'departments'
   },
   {
-    icon: History,
-    label: "Historique d'alerte",
-    action: 'alert_history'
+    icon: Settings,
+    label: 'Paramétrage des alertes',
+    action: 'alert_configuration'
   },
   {
     icon: Mail,
@@ -122,8 +121,8 @@ export function TopBar({
       onSectionChange('administration');
     } else if (action === 'departments') {
       onSectionChange('departments');
-    } else if (action === 'alert_history') {
-      onSectionChange('alert_history');
+    } else if (action === 'alert_configuration') {
+      onSectionChange('alert_configuration');
     } else if (action === 'notifications') {
       onSectionChange('notifications');
     }

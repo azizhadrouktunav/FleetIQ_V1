@@ -1,6 +1,7 @@
 import type { AlertCenterSectionId } from './alert-config-sections';
 
 export type SectionAlertColumnId =
+  | 'alertDateTime'
   | 'licensePlate'
   | 'driverName'
   | 'location'
@@ -9,6 +10,18 @@ export type SectionAlertColumnId =
   | 'alertLabel'
   | 'detail'
   | 'action';
+
+function formatSectionAlertDateTime(iso: string): string {
+  if (!iso) return '—';
+  try {
+    return new Date(iso).toLocaleString('fr-FR', {
+      dateStyle: 'short',
+      timeStyle: 'short',
+    });
+  } catch {
+    return iso;
+  }
+}
 
 export interface SectionAlertColumn {
   id: SectionAlertColumnId;
@@ -21,6 +34,7 @@ export interface BaseSectionAlertRow {
   driverName: string;
   location: string;
   coordinates: [number, number];
+  alertAt: string;
 }
 
 export interface DashboardAlertRow extends BaseSectionAlertRow {}
@@ -48,6 +62,7 @@ export function getColumnsForSection(sectionId: AlertCenterSectionId): SectionAl
   switch (sectionId) {
     case 'dashboard':
       return [
+        { id: 'alertDateTime', label: 'Date / Heure' },
         { id: 'licensePlate', label: 'Matricule' },
         { id: 'driverName', label: 'Chauffeur' },
         { id: 'location', label: 'Lieu' },
@@ -55,12 +70,14 @@ export function getColumnsForSection(sectionId: AlertCenterSectionId): SectionAl
       ];
     case 'vehicle_management':
       return [
+        { id: 'alertDateTime', label: 'Date / Heure' },
         { id: 'licensePlate', label: 'Matricule' },
         { id: 'driverName', label: 'Chauffeur' },
         { id: 'alertLabel', label: 'Alerte' },
       ];
     case 'geolocation':
       return [
+        { id: 'alertDateTime', label: 'Date / Heure' },
         { id: 'licensePlate', label: 'Matricule' },
         { id: 'driverName', label: 'Chauffeur' },
         { id: 'zone', label: 'Zone' },
@@ -71,6 +88,7 @@ export function getColumnsForSection(sectionId: AlertCenterSectionId): SectionAl
     case 'security':
     case 'driving_quality':
       return [
+        { id: 'alertDateTime', label: 'Date / Heure' },
         { id: 'licensePlate', label: 'Matricule' },
         { id: 'driverName', label: 'Chauffeur' },
         { id: 'detail', label: 'Détail' },
@@ -79,6 +97,7 @@ export function getColumnsForSection(sectionId: AlertCenterSectionId): SectionAl
       ];
     default:
       return [
+        { id: 'alertDateTime', label: 'Date / Heure' },
         { id: 'licensePlate', label: 'Matricule' },
         { id: 'driverName', label: 'Chauffeur' },
         { id: 'location', label: 'Lieu' },
@@ -92,6 +111,7 @@ export function getCellValue(
   columnId: SectionAlertColumnId
 ): string | null {
   if (columnId === 'action') return null;
+  if (columnId === 'alertDateTime') return formatSectionAlertDateTime(row.alertAt);
   const value = row[columnId as keyof SectionAlertVehicleRow];
   if (typeof value === 'string') return value;
   return '—';

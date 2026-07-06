@@ -13,6 +13,7 @@ interface TableFooterProps {
   onItemsPerPageChange: (items: number) => void;
   onExportPdf?: () => void;
   onExportExcel?: () => void;
+  showExports?: boolean;
 }
 export function TableFooter({
   currentPage,
@@ -21,7 +22,8 @@ export function TableFooter({
   onPageChange,
   onItemsPerPageChange,
   onExportPdf,
-  onExportExcel
+  onExportExcel,
+  showExports = true
 }: TableFooterProps) {
   const totalPages = Math.ceil(totalItems / itemsPerPage);
   const startItem = (currentPage - 1) * itemsPerPage + 1;
@@ -29,6 +31,7 @@ export function TableFooter({
   return (
     <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-slate-200">
       {/* Left: Export Buttons */}
+      {showExports && (
       <div className="flex items-center gap-3">
         <button
           onClick={onExportPdf}
@@ -58,6 +61,8 @@ export function TableFooter({
           </div>
         </button>
       </div>
+      )}
+      {!showExports && <div />}
 
       {/* Right: Pagination Controls */}
       <div className="flex items-center gap-6 text-sm text-slate-600">

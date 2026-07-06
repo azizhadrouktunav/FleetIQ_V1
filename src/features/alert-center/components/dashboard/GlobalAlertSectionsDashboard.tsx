@@ -4,13 +4,16 @@ import type { AlertCenterSectionId } from '../../constants/alert-config-sections
 import { ALERT_CENTER_SECTIONS } from '../../constants/alert-config-sections';
 import { AlertSectionPanel } from './AlertSectionPanel';
 import { SectionAlertVehiclesDialog } from './SectionAlertVehiclesDialog';
+import { AlertCenterStatsPanel } from './AlertCenterStatsPanel';
 
 interface GlobalAlertSectionsDashboardProps {
   onNavigateToVehicle?: (vehicleId: string, coordinates: [number, number]) => void;
+  onSelectVehicle?: (vehicleId: string) => void;
 }
 
 export function GlobalAlertSectionsDashboard({
   onNavigateToVehicle,
+  onSelectVehicle,
 }: GlobalAlertSectionsDashboardProps) {
   const [selectedAlertType, setSelectedAlertType] = useState<AlertType | null>(null);
   const [selectedSectionId, setSelectedSectionId] = useState<AlertCenterSectionId | null>(null);
@@ -24,15 +27,18 @@ export function GlobalAlertSectionsDashboard({
 
   return (
     <>
-      <div className="p-4 lg:p-6 space-y-3">
-        {ALERT_CENTER_SECTIONS.map((section, index) => (
-          <AlertSectionPanel
-            key={section.id}
-            section={section}
-            defaultOpen={index < 2}
-            onSelectAlertType={handleSelectAlertType}
-          />
-        ))}
+      <div className="p-4 lg:p-6 space-y-4">
+        <AlertCenterStatsPanel />
+        <div className="space-y-3">
+          {ALERT_CENTER_SECTIONS.map((section, index) => (
+            <AlertSectionPanel
+              key={section.id}
+              section={section}
+              defaultOpen={index < 2}
+              onSelectAlertType={handleSelectAlertType}
+            />
+          ))}
+        </div>
       </div>
 
       <SectionAlertVehiclesDialog
@@ -41,6 +47,7 @@ export function GlobalAlertSectionsDashboard({
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         onNavigateToVehicle={onNavigateToVehicle}
+        onSelectVehicle={onSelectVehicle}
       />
     </>
   );

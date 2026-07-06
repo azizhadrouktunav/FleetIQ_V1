@@ -22,6 +22,7 @@ import { SignUpPage } from './pages/SignUpPage';
 import { AccountsManagement } from './components/AccountsManagement';
 import { DepartmentsManagement } from './components/DepartmentsManagement';
 import { AlertHistoryPage } from './pages/AlertHistoryPage';
+import { AlertConfigurationPage } from './pages/AlertConfigurationPage';
 import { GestionSinistres } from './components/GestionSinistres';
 import { AlertMailSmsContent } from './components/AlertMailSmsContent';
 import { NotFoundPage } from './pages/NotFoundPage';
@@ -294,6 +295,10 @@ export function App() {
         <AlertHistoryPage
           vehicles={MOCK_VEHICLES}
           initialVehicleIds={historyVehicleIds}
+          onBack={() => setActiveSection('alertes')} /> :
+        activeSection === 'alert_configuration' ?
+        <AlertConfigurationPage
+          vehicles={MOCK_VEHICLES}
           onBack={() => setActiveSection('alertes')} /> :
         activeSection === 'notifications' ?
         // Alert Mail/SMS Notifications View

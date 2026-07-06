@@ -65,6 +65,7 @@ const MESSAGES: Partial<Record<AlertType, string[]>> = {
   hard_deceleration: ['Décélération brusque — -0.9g'],
   excessive_idle: ['Ralenti moteur excessif : 22 min'],
   aggressive_driving: ['Score conduite agressive : 3 événements / 10 min'],
+  engine_overspeed: ['Régime moteur excessif : 4200 tr/min'],
   battery_disconnected: ['Batterie traceur GPS déconnectée'],
   handbrake: ['Frein à main engagé en circulation'],
   seatbelt: ['Ceinture conducteur non attachée'],
