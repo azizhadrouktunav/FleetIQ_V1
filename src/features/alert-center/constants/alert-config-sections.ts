@@ -2,6 +2,7 @@ import type { AlertCategory, AlertType } from '@/types/alerts';
 import { ALERT_TAXONOMY } from './alert-taxonomy';
 import { getFleetParcAlertTypes } from './fleet-parc-alert-modules';
 import { getSecurityAlertTypes, getSecurityOnlyAlertTypes } from './security-alert-types';
+import { DASHBOARD_INDICATORS } from '@/design-system/dashboard-indicators';
 
 export type AlertConfigSectionId =
   | 'dashboard'
@@ -94,7 +95,7 @@ export interface AlertCenterSection {
 }
 
 export const ALERT_CENTER_SECTIONS: AlertCenterSection[] = [
-  { id: 'dashboard', label: 'Alerte Tableau de bord' },
+  { id: 'dashboard', label: 'Défaut alerte tableau de bord' },
   { id: 'vehicle_management', label: 'Alerte Gestion de parc' },
   { id: 'geolocation', label: 'Alerte Geofencing' },
   { id: 'security', label: 'Alerte Sécurité' },
@@ -127,7 +128,7 @@ export function resolveCategoriesFromCenterSections(
 export function getAlertTypesForCenterSection(sectionId: AlertCenterSectionId): AlertType[] {
   switch (sectionId) {
     case 'dashboard':
-      return getAlertTypesForSection('dashboard');
+      return DASHBOARD_INDICATORS.map((indicator) => indicator.alertTypeId);
     case 'vehicle_management':
       return getFleetParcAlertTypes();
     case 'geolocation':

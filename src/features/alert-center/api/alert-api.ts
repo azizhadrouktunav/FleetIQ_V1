@@ -13,7 +13,6 @@ import { generateTimelineForVehicle, alertsToTimelineEvents } from '../mocks/moc
 import { generateFleetOverview } from '../mocks/mockFleetOverview';
 import { computeAnalytics } from '../mocks/mockAnalytics';
 import { getVehicleDepartmentId } from '../mocks/mockOrgStructure';
-import { MOCK_DRIVERS } from '../mocks/mockNamedUsers';
 import { isDocumentAlert } from '../constants/vehicle-inspector-sections';
 import { resolveCategoriesFromSections, resolveCategoriesFromCenterSections, type AlertConfigSectionId, type AlertCenterSectionId } from '../constants/alert-config-sections';
 import { fetchGeofenceRules } from './alert-config-api';
@@ -350,17 +349,8 @@ export interface AlertTypeVehicleRow {
   vehicleId: string;
   licensePlate: string;
   driverName: string;
-  contact: string;
+  location: string;
   coordinates: [number, number];
-}
-
-function resolveDriverContact(driverName: string): string {
-  const normalized = driverName.toLowerCase();
-  const match = MOCK_DRIVERS.find(
-    (d) =>
-      normalized.includes(d.prenom.toLowerCase()) || normalized.includes(d.nom.toLowerCase())
-  );
-  return match?.mobile ?? '—';
 }
 
 function getActiveVehicleIdsForAlertType(alertType: AlertType): string[] {
@@ -400,7 +390,7 @@ export async function fetchVehiclesForAlertType(
       vehicleId,
       licensePlate: summary?.licensePlate ?? vehicle?.name ?? vehicleId,
       driverName,
-      contact: resolveDriverContact(driverName),
+      location: summary?.location ?? vehicle?.location ?? '—',
       coordinates: summary?.coordinates ?? vehicle?.coordinates ?? [0, 0],
     };
   });

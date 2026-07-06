@@ -52,7 +52,7 @@ export function AlertVehiclesDialog({
                 <tr className="border-b text-left text-xs text-muted-foreground uppercase">
                   <th className="py-2 pr-3">Matricule</th>
                   <th className="py-2 pr-3">Chauffeur</th>
-                  <th className="py-2 pr-3">Contact</th>
+                  <th className="py-2 pr-3">Lieu</th>
                   <th className="py-2 text-right">Action</th>
                 </tr>
               </thead>
@@ -61,7 +61,7 @@ export function AlertVehiclesDialog({
                   <tr key={row.vehicleId} className="border-b border-slate-100">
                     <td className="py-2.5 pr-3 font-medium">{row.licensePlate}</td>
                     <td className="py-2.5 pr-3">{row.driverName}</td>
-                    <td className="py-2.5 pr-3 text-muted-foreground">{row.contact}</td>
+                    <td className="py-2.5 pr-3 text-muted-foreground">{row.location}</td>
                     <td className="py-2.5 text-right">
                       <Button
                         variant="outline"
