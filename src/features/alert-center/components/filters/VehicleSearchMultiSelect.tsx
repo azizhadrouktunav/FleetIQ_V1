@@ -10,9 +10,51 @@ interface VehicleSearchMultiSelectProps {
   vehicles: Vehicle[];
   value: string[];
   onChange: (ids: string[]) => void;
+  variant?: 'dark' | 'light';
 }
 
-export function VehicleSearchMultiSelect({ vehicles, value, onChange }: VehicleSearchMultiSelectProps) {
+const VARIANT_STYLES = {
+  dark: {
+    input: 'pl-8 bg-slate-800 border-slate-600 text-slate-200 placeholder:text-slate-500 h-9',
+    searchIcon: 'text-slate-500',
+    badge: 'border-slate-600 text-slate-300 bg-slate-800',
+    dropdown: 'border-slate-600 bg-slate-800',
+    dropdownHeader: 'border-slate-700',
+    dropdownMeta: 'text-slate-400',
+    link: 'text-blue-400 hover:text-blue-300',
+    clear: 'text-slate-400 hover:text-slate-300',
+    empty: 'text-slate-500',
+    itemSelected: 'bg-blue-900/40 border-blue-700/50',
+    itemHover: 'hover:bg-slate-700/50',
+    itemTitle: 'text-slate-200',
+    itemSubtitle: 'text-slate-500',
+    checkbox: 'border-slate-500 data-[state=checked]:bg-blue-600',
+  },
+  light: {
+    input: 'pl-8 bg-white border-slate-200 text-slate-900 placeholder:text-slate-400 h-8 text-xs',
+    searchIcon: 'text-slate-400',
+    badge: 'border-slate-200 text-slate-700 bg-slate-50',
+    dropdown: 'border-slate-200 bg-white',
+    dropdownHeader: 'border-slate-100',
+    dropdownMeta: 'text-slate-500',
+    link: 'text-blue-600 hover:text-blue-700',
+    clear: 'text-slate-500 hover:text-slate-700',
+    empty: 'text-slate-400',
+    itemSelected: 'bg-blue-50 border-blue-200',
+    itemHover: 'hover:bg-slate-50',
+    itemTitle: 'text-slate-800',
+    itemSubtitle: 'text-slate-500',
+    checkbox: 'border-slate-300 data-[state=checked]:bg-blue-600',
+  },
+} as const;
+
+export function VehicleSearchMultiSelect({
+  vehicles,
+  value,
+  onChange,
+  variant = 'dark',
+}: VehicleSearchMultiSelectProps) {
+  const styles = VARIANT_STYLES[variant];
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
@@ -58,14 +100,14 @@ export function VehicleSearchMultiSelect({ vehicles, value, onChange }: VehicleS
   return (
     <div ref={containerRef} className="relative flex-1 min-w-0">
       <div className="relative">
-        <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-500 pointer-events-none" />
+        <Search className={cn('absolute left-2.5 top-2.5 h-3.5 w-3.5 pointer-events-none', styles.searchIcon)} />
         <Input
           placeholder="Véhicule, immatriculation, conducteur..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => setOpen(true)}
           onClick={() => setOpen(true)}
-          className="pl-8 bg-slate-800 border-slate-600 text-slate-200 placeholder:text-slate-500 h-9"
+          className={cn('pl-8', styles.input)}
         />
       </div>
 
@@ -75,7 +117,7 @@ export function VehicleSearchMultiSelect({ vehicles, value, onChange }: VehicleS
             <Badge
               key={id}
               variant="outline"
-              className="text-[10px] h-5 gap-1 border-slate-600 text-slate-300 bg-slate-800"
+              className={cn('text-[10px] h-5 gap-1', styles.badge)}
             >
               {labelById.get(id) ?? id}
               <button
@@ -92,9 +134,9 @@ export function VehicleSearchMultiSelect({ vehicles, value, onChange }: VehicleS
       )}
 
       {open && (
-        <div className="absolute left-0 right-0 top-full z-50 mt-1 rounded-md border border-slate-600 bg-slate-800 shadow-lg">
-          <div className="flex items-center justify-between gap-2 px-2 py-1.5 border-b border-slate-700">
-            <span className="text-[10px] text-slate-400">
+        <div className={cn('absolute left-0 right-0 top-full z-50 mt-1 rounded-md border shadow-lg', styles.dropdown)}>
+          <div className={cn('flex items-center justify-between gap-2 px-2 py-1.5 border-b', styles.dropdownHeader)}>
+            <span className={cn('text-[10px]', styles.dropdownMeta)}>
               {value.length > 0
                 ? `${value.length} sélectionné${value.length > 1 ? 's' : ''}`
                 : `${filteredVehicles.length} véhicule${filteredVehicles.length > 1 ? 's' : ''}`}
@@ -103,7 +145,7 @@ export function VehicleSearchMultiSelect({ vehicles, value, onChange }: VehicleS
               <button
                 type="button"
                 onClick={selectAllVisible}
-                className="text-[10px] text-blue-400 hover:text-blue-300 hover:underline"
+                className={cn('text-[10px] hover:underline', styles.link)}
               >
                 Tout sélectionner
               </button>
@@ -111,7 +153,7 @@ export function VehicleSearchMultiSelect({ vehicles, value, onChange }: VehicleS
                 <button
                   type="button"
                   onClick={clearAll}
-                  className="text-[10px] text-slate-400 hover:text-slate-300 hover:underline"
+                  className={cn('text-[10px] hover:underline', styles.clear)}
                 >
                   Effacer
                 </button>
@@ -121,7 +163,7 @@ export function VehicleSearchMultiSelect({ vehicles, value, onChange }: VehicleS
 
           <div className="max-h-48 overflow-y-auto p-1">
             {filteredVehicles.length === 0 ? (
-              <p className="text-xs text-slate-500 text-center py-4">Aucun véhicule trouvé</p>
+              <p className={cn('text-xs text-center py-4', styles.empty)}>Aucun véhicule trouvé</p>
             ) : (
               filteredVehicles.map((vehicle) => (
                 <label
@@ -129,18 +171,18 @@ export function VehicleSearchMultiSelect({ vehicles, value, onChange }: VehicleS
                   className={cn(
                     'flex items-start gap-2 p-2 rounded-md cursor-pointer transition-colors',
                     isSelected(vehicle.id)
-                      ? 'bg-blue-900/40 border border-blue-700/50'
-                      : 'hover:bg-slate-700/50 border border-transparent'
+                      ? cn(styles.itemSelected, 'border')
+                      : cn(styles.itemHover, 'border border-transparent')
                   )}
                 >
                   <Checkbox
                     checked={isSelected(vehicle.id)}
                     onCheckedChange={() => toggle(vehicle.id)}
-                    className="mt-0.5 border-slate-500 data-[state=checked]:bg-blue-600"
+                    className={cn('mt-0.5', styles.checkbox)}
                   />
                   <div className="min-w-0">
-                    <p className="text-sm text-slate-200 truncate">{vehicle.name}</p>
-                    <p className="text-[11px] text-slate-500 truncate">{vehicle.driver}</p>
+                    <p className={cn('text-sm truncate', styles.itemTitle)}>{vehicle.name}</p>
+                    <p className={cn('text-[11px] truncate', styles.itemSubtitle)}>{vehicle.driver}</p>
                   </div>
                 </label>
               ))

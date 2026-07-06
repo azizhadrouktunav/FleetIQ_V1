@@ -47,6 +47,7 @@ export function AlertCenterPage({
 
   const rightPanel = (
     <ContextualRightPanel
+      vehicles={vehicles}
       selectedVehicleId={selectedVehicleId}
       onBack={() => {
         setSelectedVehicleId(null);

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Bell, Search } from 'lucide-react';
+import type { Vehicle } from '@/types';
 import type { AlertType } from '@/types/alerts';
 import { ALERT_TAXONOMY } from '../../constants/alert-taxonomy';
 import {
@@ -8,6 +9,7 @@ import {
   type AlertCenterSectionId,
 } from '../../constants/alert-config-sections';
 import { useRecentAlerts } from '../../hooks/useAlertQueries';
+import { VehicleSearchMultiSelect } from '../filters/VehicleSearchMultiSelect';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -16,6 +18,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { EventTimeline } from '../timeline/EventTimeline';
 
 interface RecentAlertsTimelineSectionProps {
+  vehicles: Vehicle[];
   onVehicleClick?: (vehicleId: string) => void;
 }
 
@@ -34,8 +37,12 @@ function toggleSection(
     : [...sections, sectionId];
 }
 
-export function RecentAlertsTimelineSection({ onVehicleClick }: RecentAlertsTimelineSectionProps) {
+export function RecentAlertsTimelineSection({
+  vehicles,
+  onVehicleClick,
+}: RecentAlertsTimelineSectionProps) {
   const [selectedSections, setSelectedSections] = useState<AlertCenterSectionId[]>(DEFAULT_SECTIONS);
+  const [selectedVehicleIds, setSelectedVehicleIds] = useState<string[]>([]);
   const [alertType, setAlertType] = useState<AlertType | 'all'>('all');
   const [typeSearch, setTypeSearch] = useState('');
 
@@ -43,9 +50,10 @@ export function RecentAlertsTimelineSection({ onVehicleClick }: RecentAlertsTime
     () => ({
       centerSectionIds: selectedSections,
       alertTypes: alertType === 'all' ? undefined : [alertType],
+      vehicleIds: selectedVehicleIds.length > 0 ? selectedVehicleIds : undefined,
       limit: 15,
     }),
-    [selectedSections, alertType]
+    [selectedSections, alertType, selectedVehicleIds]
   );
 
   const { data: events = [], isLoading } = useRecentAlerts(filters);
@@ -79,6 +87,16 @@ export function RecentAlertsTimelineSection({ onVehicleClick }: RecentAlertsTime
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="grid grid-cols-1 gap-3">
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Véhicule(s)</Label>
+            <VehicleSearchMultiSelect
+              vehicles={vehicles}
+              value={selectedVehicleIds}
+              onChange={setSelectedVehicleIds}
+              variant="light"
+            />
+          </div>
+
           <div className="space-y-1">
             <div className="flex items-center justify-between">
               <Label className="text-xs text-muted-foreground">Catégorie</Label>

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ChevronDown, Settings } from 'lucide-react';
 import type { AlertType } from '@/types/alerts';
-import type { AlertCenterSection } from '../../constants/alert-config-sections';
+import type { AlertCenterSection, AlertCenterSectionId } from '../../constants/alert-config-sections';
 import { getAlertTypesForCenterSection } from '../../constants/alert-config-sections';
 import { useAlertTypeVehicleCounts } from '../../hooks/useAlertQueries';
 import { useSectionDisplayConfig } from '../../hooks/useSectionDisplayConfig';
@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils';
 interface AlertSectionPanelProps {
   section: AlertCenterSection;
   defaultOpen?: boolean;
-  onSelectAlertType: (alertType: AlertType) => void;
+  onSelectAlertType: (alertType: AlertType, sectionId: AlertCenterSectionId) => void;
 }
 
 export function AlertSectionPanel({
@@ -91,7 +91,7 @@ export function AlertSectionPanel({
                     key={alertType}
                     alertType={alertType}
                     vehicleCount={counts[alertType] ?? 0}
-                    onClick={() => onSelectAlertType(alertType)}
+                    onClick={() => onSelectAlertType(alertType, section.id)}
                   />
                 ))}
               </div>

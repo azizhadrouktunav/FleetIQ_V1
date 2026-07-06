@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { AlertFilters, AlertRule, AlertType } from '@/types/alerts';
+import type { AlertCenterSectionId } from '../constants/alert-config-sections';
 import {
   fetchAlerts,
   fetchKpis,
@@ -73,8 +74,8 @@ export const alertKeys = {
   builtinSeverityOverrides: () => [...alertKeys.all, 'builtinSeverityOverrides'] as const,
   defaultTemplate: () => [...alertKeys.all, 'defaultTemplate'] as const,
   alertTypeCounts: (types: AlertType[]) => [...alertKeys.all, 'alertTypeCounts', types] as const,
-  vehiclesForAlertType: (type: AlertType | null) =>
-    [...alertKeys.all, 'vehiclesForAlertType', type] as const,
+  vehiclesForAlertType: (type: AlertType | null, sectionId: AlertCenterSectionId | null) =>
+    [...alertKeys.all, 'vehiclesForAlertType', type, sectionId] as const,
 };
 
 export function useAlertKpis() {
@@ -116,11 +117,14 @@ export function useAlertTypeVehicleCounts(alertTypes: AlertType[]) {
   });
 }
 
-export function useVehiclesForAlertType(alertType: AlertType | null) {
+export function useVehiclesForAlertType(
+  alertType: AlertType | null,
+  sectionId: AlertCenterSectionId | null
+) {
   return useQuery({
-    queryKey: alertKeys.vehiclesForAlertType(alertType),
-    queryFn: () => fetchVehiclesForAlertType(alertType as AlertType),
-    enabled: alertType != null,
+    queryKey: alertKeys.vehiclesForAlertType(alertType, sectionId),
+    queryFn: () => fetchVehiclesForAlertType(alertType as AlertType, sectionId as AlertCenterSectionId),
+    enabled: alertType != null && sectionId != null,
   });
 }
 

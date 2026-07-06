@@ -15,6 +15,10 @@ import { computeAnalytics } from '../mocks/mockAnalytics';
 import { getVehicleDepartmentId } from '../mocks/mockOrgStructure';
 import { isDocumentAlert } from '../constants/vehicle-inspector-sections';
 import { resolveCategoriesFromSections, resolveCategoriesFromCenterSections, type AlertConfigSectionId, type AlertCenterSectionId } from '../constants/alert-config-sections';
+import { getTaxonomyEntry } from '../constants/alert-taxonomy';
+import { getFleetParcAlertLabel } from '../constants/fleet-parc-alert-modules';
+import type { SectionAlertVehicleRow } from '../constants/alert-section-vehicle-rows';
+import { MOCK_GEOFENCE_ZONES } from '../mocks/mockGeofenceRules';
 import { fetchGeofenceRules } from './alert-config-api';
 import type { GeofenceAlertRule } from '@/types/alert-config';
 
@@ -222,6 +226,7 @@ export interface RecentAlertsFilters {
   alertTypes?: AlertType[];
   configSectionIds?: AlertConfigSectionId[];
   centerSectionIds?: AlertCenterSectionId[];
+  vehicleIds?: string[];
   selectedDate?: string;
   limit?: number;
 }
@@ -245,6 +250,9 @@ export async function fetchRecentAlerts(filters?: RecentAlertsFilters): Promise<
     if (filters.centerSectionIds.length === 0) return [];
     const allowedCategories = resolveCategoriesFromCenterSections(filters.centerSectionIds);
     result = result.filter((a) => allowedCategories.includes(a.category));
+  }
+  if (filters?.vehicleIds?.length) {
+    result = result.filter((a) => filters.vehicleIds!.includes(a.vehicleId));
   }
   if (filters?.selectedDate) {
     const { from, to } = getDayBounds(filters.selectedDate);
@@ -345,12 +353,60 @@ export function getVehicleById(vehicleId: string): Vehicle | undefined {
   return vehiclesRef.find((v) => v.id === vehicleId);
 }
 
-export interface AlertTypeVehicleRow {
-  vehicleId: string;
-  licensePlate: string;
-  driverName: string;
-  location: string;
-  coordinates: [number, number];
+export type { SectionAlertVehicleRow } from '../constants/alert-section-vehicle-rows';
+
+function getLatestActiveAlert(alertType: AlertType, vehicleId: string): FleetAlert | undefined {
+  return alertStore
+    .filter((a) => a.type === alertType && a.vehicleId === vehicleId && a.status !== 'resolved')
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+}
+
+function parseZoneFromMessage(message: string): string {
+  const quoted = message.match(/"([^"]+)"/);
+  if (quoted?.[1]) return quoted[1];
+  const zoneMatch = message.match(/zone\s+(.+)/i);
+  if (zoneMatch?.[1]) return zoneMatch[1].replace(/["']/g, '').trim();
+  return MOCK_GEOFENCE_ZONES[0] ?? '—';
+}
+
+function getGeolocationEventLabel(alertType: AlertType): string {
+  const entry = getTaxonomyEntry(alertType);
+  if (alertType === 'geofence' || alertType === 'departure_point' || alertType === 'arrival_point') {
+    return 'Entrée';
+  }
+  if (
+    alertType === 'geofence_exit' ||
+    alertType === 'polygon_exit' ||
+    alertType === 'city_exit'
+  ) {
+    return 'Sortie';
+  }
+  if (alertType === 'route') return 'Déviation';
+  return entry.label;
+}
+
+function truncateDetail(message: string, max = 80): string {
+  if (message.length <= max) return message;
+  return `${message.slice(0, max - 1)}…`;
+}
+
+function buildBaseRow(
+  vehicleId: string,
+  summaries: ReturnType<typeof buildVehicleSummaries>
+): Pick<
+  SectionAlertVehicleRow,
+  'vehicleId' | 'licensePlate' | 'driverName' | 'location' | 'coordinates'
+> {
+  const summaryById = new Map(summaries.map((s) => [s.vehicleId, s]));
+  const summary = summaryById.get(vehicleId);
+  const vehicle = vehiclesRef.find((v) => v.id === vehicleId);
+  return {
+    vehicleId,
+    licensePlate: summary?.licensePlate ?? vehicle?.name ?? vehicleId,
+    driverName: summary?.driverName ?? vehicle?.driver ?? '—',
+    location: summary?.location ?? vehicle?.location ?? '—',
+    coordinates: summary?.coordinates ?? vehicle?.coordinates ?? [0, 0],
+  };
 }
 
 function getActiveVehicleIdsForAlertType(alertType: AlertType): string[] {
@@ -375,23 +431,41 @@ export async function fetchAlertTypeVehicleCounts(
 }
 
 export async function fetchVehiclesForAlertType(
-  alertType: AlertType
-): Promise<AlertTypeVehicleRow[]> {
+  alertType: AlertType,
+  sectionId: AlertCenterSectionId
+): Promise<SectionAlertVehicleRow[]> {
   await delay(250);
   const vehicleIds = getActiveVehicleIdsForAlertType(alertType);
   const summaries = buildVehicleSummaries(vehiclesRef, alertStore);
-  const summaryById = new Map(summaries.map((s) => [s.vehicleId, s]));
 
   return vehicleIds.map((vehicleId) => {
-    const summary = summaryById.get(vehicleId);
-    const vehicle = vehiclesRef.find((v) => v.id === vehicleId);
-    const driverName = summary?.driverName ?? vehicle?.driver ?? '—';
-    return {
-      vehicleId,
-      licensePlate: summary?.licensePlate ?? vehicle?.name ?? vehicleId,
-      driverName,
-      location: summary?.location ?? vehicle?.location ?? '—',
-      coordinates: summary?.coordinates ?? vehicle?.coordinates ?? [0, 0],
-    };
+    const base = buildBaseRow(vehicleId, summaries);
+    const alert = getLatestActiveAlert(alertType, vehicleId);
+    const message = alert?.message ?? '';
+
+    switch (sectionId) {
+      case 'vehicle_management': {
+        const defaultLabel = getTaxonomyEntry(alertType).label;
+        return {
+          ...base,
+          alertLabel: getFleetParcAlertLabel(alertType, defaultLabel),
+        };
+      }
+      case 'geolocation':
+        return {
+          ...base,
+          zone: parseZoneFromMessage(message),
+          eventLabel: getGeolocationEventLabel(alertType),
+        };
+      case 'security':
+      case 'driving_quality':
+        return {
+          ...base,
+          detail: message ? truncateDetail(message) : '—',
+        };
+      case 'dashboard':
+      default:
+        return base;
+    }
   });
 }

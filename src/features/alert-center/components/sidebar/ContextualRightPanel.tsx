@@ -1,9 +1,11 @@
 import { motion, AnimatePresence } from 'framer-motion';
+import type { Vehicle } from '@/types';
 import { FleetOverviewPanel } from './FleetOverviewPanel';
 import { VehicleInspectorPanel } from './VehicleInspectorPanel';
 import { useFleetOverview } from '../../hooks/useAlertQueries';
 
 interface ContextualRightPanelProps {
+  vehicles: Vehicle[];
   selectedVehicleId: string | null;
   onBack: () => void;
   onSelectVehicle?: (vehicleId: string) => void;
@@ -12,6 +14,7 @@ interface ContextualRightPanelProps {
 }
 
 export function ContextualRightPanel({
+  vehicles,
   selectedVehicleId,
   onBack,
   onSelectVehicle,
@@ -53,6 +56,7 @@ export function ContextualRightPanel({
             className="flex-1 min-h-0 overflow-y-auto overscroll-contain"
           >
             <FleetOverviewPanel
+              vehicles={vehicles}
               data={overview}
               isLoading={overviewLoading}
               onVehicleClick={handleOverviewVehicleClick}

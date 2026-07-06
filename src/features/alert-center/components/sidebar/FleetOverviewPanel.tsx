@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Wrench, AlertTriangle, ChevronDown } from 'lucide-react';
+import type { Vehicle } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -20,12 +21,18 @@ import { RecentAlertsTimelineSection } from './RecentAlertsTimelineSection';
 const MAINTENANCE_INITIAL_LIMIT = 3;
 
 interface FleetOverviewPanelProps {
+  vehicles: Vehicle[];
   data?: FleetOverviewData;
   isLoading?: boolean;
   onVehicleClick?: (vehicleId: string) => void;
 }
 
-export function FleetOverviewPanel({ data, isLoading, onVehicleClick }: FleetOverviewPanelProps) {
+export function FleetOverviewPanel({
+  vehicles,
+  data,
+  isLoading,
+  onVehicleClick,
+}: FleetOverviewPanelProps) {
   const [dialogVariant, setDialogVariant] = useState<FleetStatusDialogVariant | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [maintenanceExpanded, setMaintenanceExpanded] = useState(false);
@@ -158,7 +165,7 @@ export function FleetOverviewPanel({ data, isLoading, onVehicleClick }: FleetOve
           </CardContent>
         </Card>
 
-        <RecentAlertsTimelineSection onVehicleClick={onVehicleClick} />
+        <RecentAlertsTimelineSection vehicles={vehicles} onVehicleClick={onVehicleClick} />
 
         <Card>
           <CardHeader className="pb-2">
