@@ -7,7 +7,6 @@ import { useBatchUpsertScopeConfigs } from '../../hooks/useAlertQueries';
 import { Switch } from './Switch';
 import { Badge } from '@/components/ui/badge';
 import { ActivationModeControl } from './ActivationModeControl';
-import { SeveritySelect } from './SeveritySelect';
 import { cn } from '@/lib/utils';
 
 interface DashboardAlertsSectionProps {
@@ -112,20 +111,9 @@ export function DashboardAlertsSection({
               />
             </div>
 
-            <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3 pl-8">
-              <div>
-                <label className="text-[10px] font-medium text-muted-foreground uppercase">
-                  Niveau d&apos;alerte
-                </label>
-                <SeveritySelect
-                  value={item.severity}
-                  disabled={disabled}
-                  onChange={(severity) => applyPatch(item.alertType, { severity })}
-                />
-              </div>
-
+            <div className="mt-3 pl-8">
               {entry.contactOffOnly && (
-                <div className="flex items-center gap-2 pt-4">
+                <div className="flex items-center gap-2 mb-3">
                   <Switch
                     checked={item.alertWhenContactOn ?? false}
                     disabled={disabled}
@@ -139,15 +127,13 @@ export function DashboardAlertsSection({
                 </div>
               )}
 
-              <div className="md:col-span-2">
-                <ActivationModeControl
+              <ActivationModeControl
                   compact
                   activationType={item.activationType}
                   activationStart={item.activationStart}
                   activationEnd={item.activationEnd}
                   onChange={(patch) => applyPatch(item.alertType, patch)}
-                />
-              </div>
+              />
             </div>
           </div>
         );

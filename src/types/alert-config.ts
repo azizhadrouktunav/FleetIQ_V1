@@ -129,6 +129,13 @@ export interface ResolvedAlertConfig {
   thresholdConfig?: ThresholdConfig;
 }
 
+export interface DefaultAlertConfigTemplate {
+  updatedAt: string;
+  sourceScope: AlertScopeRef;
+  scopeConfigs: Omit<AlertScopeConfig, 'id' | 'scopeType' | 'scopeId'>[];
+  geofenceRules: Omit<GeofenceAlertRule, 'id'>[];
+}
+
 export const ALERT_RECIPIENT_ROLE_LABELS: Record<AlertRecipientRole, string> = {
   administrator: 'Administrateur',
   driver: 'Chauffeur',

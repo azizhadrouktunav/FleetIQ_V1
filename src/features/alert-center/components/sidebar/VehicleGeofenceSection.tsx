@@ -51,12 +51,6 @@ export function VehicleGeofenceSection({
                     <Badge variant="outline" className="text-[10px] h-5">
                       {EVENT_LABELS[rule.eventType]}
                     </Badge>
-                    <Badge
-                      variant={rule.severity === 'critical' ? 'critical' : rule.severity === 'warning' ? 'high' : 'info'}
-                      className="text-[10px] h-5"
-                    >
-                      {String(rule.severity)}
-                    </Badge>
                   </div>
                 </div>
               </div>

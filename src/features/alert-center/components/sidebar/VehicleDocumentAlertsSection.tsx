@@ -2,7 +2,6 @@ import { Clock } from 'lucide-react';
 import type { FleetAlert } from '@/types/alerts';
 import { getAlertTypeLabel } from '../../constants/alert-type-registry';
 import { getFleetParcAlertLabel } from '../../constants/fleet-parc-alert-modules';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertTypeIcon } from '../shared/AlertTypeIcon';
 
@@ -44,12 +43,6 @@ export function VehicleDocumentAlertsSection({
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap mb-0.5">
                 <p className="text-sm font-medium text-slate-800">{label}</p>
-                <Badge
-                  variant={alert.severity === 'critical' ? 'critical' : alert.severity === 'warning' ? 'high' : 'info'}
-                  className="text-[10px] h-5"
-                >
-                  {alert.severity === 'critical' ? 'Critique' : alert.severity === 'warning' ? 'Avertissement' : 'Info'}
-                </Badge>
               </div>
               <p className="text-xs text-slate-600">{alert.message}</p>
               <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">

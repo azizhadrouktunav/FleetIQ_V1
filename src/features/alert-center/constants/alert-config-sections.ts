@@ -1,7 +1,7 @@
 import type { AlertCategory, AlertType } from '@/types/alerts';
 import { ALERT_TAXONOMY } from './alert-taxonomy';
 import { getFleetParcAlertTypes } from './fleet-parc-alert-modules';
-import { getSecurityAlertTypes } from './security-alert-types';
+import { getSecurityAlertTypes, getSecurityOnlyAlertTypes } from './security-alert-types';
 
 export type AlertConfigSectionId =
   | 'dashboard'
@@ -79,4 +79,64 @@ export function resolveCategoriesFromSections(sectionIds: AlertConfigSectionId[]
     section?.categories.forEach((category) => categories.add(category));
   }
   return [...categories];
+}
+
+export type AlertCenterSectionId =
+  | 'dashboard'
+  | 'vehicle_management'
+  | 'geolocation'
+  | 'security'
+  | 'driving_quality';
+
+export interface AlertCenterSection {
+  id: AlertCenterSectionId;
+  label: string;
+}
+
+export const ALERT_CENTER_SECTIONS: AlertCenterSection[] = [
+  { id: 'dashboard', label: 'Alerte Tableau de bord' },
+  { id: 'vehicle_management', label: 'Alerte Gestion de parc' },
+  { id: 'geolocation', label: 'Alerte Geofencing' },
+  { id: 'security', label: 'Alerte Sécurité' },
+  { id: 'driving_quality', label: 'Alerte Qualité de conduite' },
+];
+
+function getAlertTypesByCategory(category: AlertCategory): AlertType[] {
+  return Object.values(ALERT_TAXONOMY)
+    .filter((e) => e.id !== 'all' && e.id !== 'unknown' && e.category === category)
+    .map((e) => e.id);
+}
+
+export function resolveCategoriesFromCenterSections(
+  sectionIds: AlertCenterSectionId[]
+): AlertCategory[] {
+  const categories = new Set<AlertCategory>();
+  for (const sectionId of sectionIds) {
+    if (sectionId === 'driving_quality') {
+      categories.add('driving_quality');
+    } else if (sectionId === 'security') {
+      categories.add('security');
+    } else {
+      const section = ALERT_CONFIG_SECTIONS.find((s) => s.id === sectionId);
+      section?.categories.forEach((category) => categories.add(category));
+    }
+  }
+  return [...categories];
+}
+
+export function getAlertTypesForCenterSection(sectionId: AlertCenterSectionId): AlertType[] {
+  switch (sectionId) {
+    case 'dashboard':
+      return getAlertTypesForSection('dashboard');
+    case 'vehicle_management':
+      return getFleetParcAlertTypes();
+    case 'geolocation':
+      return getAlertTypesByCategory('geolocation');
+    case 'security':
+      return getSecurityOnlyAlertTypes();
+    case 'driving_quality':
+      return getAlertTypesByCategory('driving_quality');
+    default:
+      return [];
+  }
 }

@@ -9,7 +9,6 @@ import { buildBatchUpdate } from '../../lib/alert-config-resolver';
 import { useBatchUpsertScopeConfigs } from '../../hooks/useAlertQueries';
 import { Badge } from '@/components/ui/badge';
 import { ActivationModeControl } from './ActivationModeControl';
-import { SeveritySelect } from './SeveritySelect';
 import { Switch } from './Switch';
 import { cn } from '@/lib/utils';
 
@@ -86,17 +85,7 @@ export function FleetManagementAlertsSection({
                       onCheckedChange={(checked) => applyPatch(alertType, { enabled: checked })}
                     />
                   </div>
-                  <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-[10px] font-medium text-muted-foreground uppercase">
-                        Niveau d&apos;alerte
-                      </label>
-                      <SeveritySelect
-                        value={item.severity}
-                        disabled={disabled}
-                        onChange={(severity) => applyPatch(alertType, { severity })}
-                      />
-                    </div>
+                  <div className="mt-3">
                     <ActivationModeControl
                       compact
                       activationType={item.activationType}

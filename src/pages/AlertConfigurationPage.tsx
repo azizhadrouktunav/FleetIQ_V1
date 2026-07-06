@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import type { Vehicle } from '@/types';
 import type { AlertScopeRef } from '@/types/alert-config';
 import { ScopeSelectorPanel } from '@/features/alert-center/components/config/ScopeSelectorPanel';
 import { AlertConfigSectionsPanel } from '@/features/alert-center/components/config/AlertConfigSectionsPanel';
+import { SaveDefaultConfigButton } from '@/features/alert-center/components/config/SaveDefaultConfigButton';
+import { registerFleetVehiclesForConfigSync } from '@/features/alert-center/api/alert-config-api';
 import { Button } from '@/components/ui/button';
 
 interface AlertConfigurationPageProps {
@@ -13,24 +15,32 @@ interface AlertConfigurationPageProps {
 
 export function AlertConfigurationPage({ vehicles = [], onBack }: AlertConfigurationPageProps) {
   const [selectedScopes, setSelectedScopes] = useState<AlertScopeRef[]>([]);
+  const vehicleIds = useMemo(() => vehicles.map((v) => v.id), [vehicles]);
+
+  useEffect(() => {
+    registerFleetVehiclesForConfigSync(vehicleIds);
+  }, [vehicleIds]);
 
   return (
     <div className="h-full flex flex-col bg-slate-50 dark:bg-slate-950 overflow-hidden">
       <div className="shrink-0 px-6 py-4 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
-        <div className="flex items-center gap-3">
-          {onBack && (
-            <Button variant="ghost" size="sm" onClick={onBack}>
-              <ArrowLeft className="w-4 h-4 mr-1" /> Retour
-            </Button>
-          )}
-          <div>
-            <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">
-              Paramétrage des alertes
-            </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Configurez les alertes par véhicule, groupe ou département
-            </p>
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            {onBack && (
+              <Button variant="ghost" size="sm" onClick={onBack}>
+                <ArrowLeft className="w-4 h-4 mr-1" /> Retour
+              </Button>
+            )}
+            <div>
+              <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">
+                Paramétrage des alertes
+              </h1>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Configurez les alertes par véhicule, groupe ou département
+              </p>
+            </div>
           </div>
+          <SaveDefaultConfigButton selectedScopes={selectedScopes} vehicles={vehicles} />
         </div>
       </div>
 

@@ -13,8 +13,9 @@ import { generateTimelineForVehicle, alertsToTimelineEvents } from '../mocks/moc
 import { generateFleetOverview } from '../mocks/mockFleetOverview';
 import { computeAnalytics } from '../mocks/mockAnalytics';
 import { getVehicleDepartmentId } from '../mocks/mockOrgStructure';
+import { MOCK_DRIVERS } from '../mocks/mockNamedUsers';
 import { isDocumentAlert } from '../constants/vehicle-inspector-sections';
-import { resolveCategoriesFromSections, type AlertConfigSectionId } from '../constants/alert-config-sections';
+import { resolveCategoriesFromSections, resolveCategoriesFromCenterSections, type AlertConfigSectionId, type AlertCenterSectionId } from '../constants/alert-config-sections';
 import { fetchGeofenceRules } from './alert-config-api';
 import type { GeofenceAlertRule } from '@/types/alert-config';
 
@@ -221,6 +222,7 @@ export interface RecentAlertsFilters {
   severities?: AlertSeverity[];
   alertTypes?: AlertType[];
   configSectionIds?: AlertConfigSectionId[];
+  centerSectionIds?: AlertCenterSectionId[];
   selectedDate?: string;
   limit?: number;
 }
@@ -238,6 +240,11 @@ export async function fetchRecentAlerts(filters?: RecentAlertsFilters): Promise<
   if (filters?.configSectionIds) {
     if (filters.configSectionIds.length === 0) return [];
     const allowedCategories = resolveCategoriesFromSections(filters.configSectionIds);
+    result = result.filter((a) => allowedCategories.includes(a.category));
+  }
+  if (filters?.centerSectionIds) {
+    if (filters.centerSectionIds.length === 0) return [];
+    const allowedCategories = resolveCategoriesFromCenterSections(filters.centerSectionIds);
     result = result.filter((a) => allowedCategories.includes(a.category));
   }
   if (filters?.selectedDate) {
@@ -337,4 +344,64 @@ export function exportVehicleTimelineCsv(vehicleId: string): string {
 
 export function getVehicleById(vehicleId: string): Vehicle | undefined {
   return vehiclesRef.find((v) => v.id === vehicleId);
+}
+
+export interface AlertTypeVehicleRow {
+  vehicleId: string;
+  licensePlate: string;
+  driverName: string;
+  contact: string;
+  coordinates: [number, number];
+}
+
+function resolveDriverContact(driverName: string): string {
+  const normalized = driverName.toLowerCase();
+  const match = MOCK_DRIVERS.find(
+    (d) =>
+      normalized.includes(d.prenom.toLowerCase()) || normalized.includes(d.nom.toLowerCase())
+  );
+  return match?.mobile ?? '—';
+}
+
+function getActiveVehicleIdsForAlertType(alertType: AlertType): string[] {
+  const ids = new Set<string>();
+  for (const alert of alertStore) {
+    if (alert.type === alertType && alert.status !== 'resolved') {
+      ids.add(alert.vehicleId);
+    }
+  }
+  return [...ids];
+}
+
+export async function fetchAlertTypeVehicleCounts(
+  alertTypes: AlertType[]
+): Promise<Partial<Record<AlertType, number>>> {
+  await delay(200);
+  const counts: Partial<Record<AlertType, number>> = {};
+  for (const alertType of alertTypes) {
+    counts[alertType] = getActiveVehicleIdsForAlertType(alertType).length;
+  }
+  return counts;
+}
+
+export async function fetchVehiclesForAlertType(
+  alertType: AlertType
+): Promise<AlertTypeVehicleRow[]> {
+  await delay(250);
+  const vehicleIds = getActiveVehicleIdsForAlertType(alertType);
+  const summaries = buildVehicleSummaries(vehiclesRef, alertStore);
+  const summaryById = new Map(summaries.map((s) => [s.vehicleId, s]));
+
+  return vehicleIds.map((vehicleId) => {
+    const summary = summaryById.get(vehicleId);
+    const vehicle = vehiclesRef.find((v) => v.id === vehicleId);
+    const driverName = summary?.driverName ?? vehicle?.driver ?? '—';
+    return {
+      vehicleId,
+      licensePlate: summary?.licensePlate ?? vehicle?.name ?? vehicleId,
+      driverName,
+      contact: resolveDriverContact(driverName),
+      coordinates: summary?.coordinates ?? vehicle?.coordinates ?? [0, 0],
+    };
+  });
 }

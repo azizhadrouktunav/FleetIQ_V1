@@ -22,11 +22,10 @@ const MAINTENANCE_INITIAL_LIMIT = 3;
 interface FleetOverviewPanelProps {
   data?: FleetOverviewData;
   isLoading?: boolean;
-  selectedDate?: string;
   onVehicleClick?: (vehicleId: string) => void;
 }
 
-export function FleetOverviewPanel({ data, isLoading, selectedDate, onVehicleClick }: FleetOverviewPanelProps) {
+export function FleetOverviewPanel({ data, isLoading, onVehicleClick }: FleetOverviewPanelProps) {
   const [dialogVariant, setDialogVariant] = useState<FleetStatusDialogVariant | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [maintenanceExpanded, setMaintenanceExpanded] = useState(false);
@@ -159,7 +158,7 @@ export function FleetOverviewPanel({ data, isLoading, selectedDate, onVehicleCli
           </CardContent>
         </Card>
 
-        <RecentAlertsTimelineSection selectedDate={selectedDate} onVehicleClick={onVehicleClick} />
+        <RecentAlertsTimelineSection onVehicleClick={onVehicleClick} />
 
         <Card>
           <CardHeader className="pb-2">
@@ -173,23 +172,9 @@ export function FleetOverviewPanel({ data, isLoading, selectedDate, onVehicleCli
                 onClick={() => onVehicleClick?.(v.vehicleId)}
               >
                 <span className="font-medium truncate">{v.vehicleName}</span>
-                <div className="flex items-center gap-1 shrink-0 ml-2">
-                  {v.criticalCount > 0 && (
-                    <Badge variant="critical" className="text-[10px] h-5 px-1.5">
-                      {v.criticalCount}
-                    </Badge>
-                  )}
-                  {v.warningCount > 0 && (
-                    <Badge variant="high" className="text-[10px] h-5 px-1.5">
-                      {v.warningCount}
-                    </Badge>
-                  )}
-                  {v.infoCount > 0 && (
-                    <Badge variant="info" className="text-[10px] h-5 px-1.5">
-                      {v.infoCount}
-                    </Badge>
-                  )}
-                </div>
+                <Badge variant="secondary" className="text-[10px] h-5 px-1.5 shrink-0 ml-2">
+                  {v.criticalCount + v.warningCount + v.infoCount}
+                </Badge>
               </button>
             ))}
           </CardContent>

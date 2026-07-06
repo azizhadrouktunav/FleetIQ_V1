@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { AlertFilters, AlertRule } from '@/types/alerts';
+import type { AlertFilters, AlertRule, AlertType } from '@/types/alerts';
 import {
   fetchAlerts,
   fetchKpis,
@@ -14,6 +14,8 @@ import {
   fetchVehicleSummaries,
   fetchVehicleAlerts,
   fetchAlertRules,
+  fetchAlertTypeVehicleCounts,
+  fetchVehiclesForAlertType,
   saveAlertRule,
   resolveAlert,
   markAllAlertsRead,
@@ -25,6 +27,7 @@ import {
   fetchAlertContacts,
   fetchBuiltinSeverityOverrides,
   fetchCustomSeverities,
+  fetchDefaultAlertTemplate,
   fetchGeofenceRules,
   fetchNamedUsers,
   fetchOrgStructure,
@@ -33,6 +36,7 @@ import {
   saveAlertContact,
   saveBuiltinSeverityOverrides,
   saveCustomSeverities,
+  saveDefaultAlertTemplate,
   saveGeofenceRule,
   saveSeverityPolicies,
 } from '../api/alert-config-api';
@@ -67,6 +71,10 @@ export const alertKeys = {
   namedUsers: () => [...alertKeys.all, 'namedUsers'] as const,
   customSeverities: () => [...alertKeys.all, 'customSeverities'] as const,
   builtinSeverityOverrides: () => [...alertKeys.all, 'builtinSeverityOverrides'] as const,
+  defaultTemplate: () => [...alertKeys.all, 'defaultTemplate'] as const,
+  alertTypeCounts: (types: AlertType[]) => [...alertKeys.all, 'alertTypeCounts', types] as const,
+  vehiclesForAlertType: (type: AlertType | null) =>
+    [...alertKeys.all, 'vehiclesForAlertType', type] as const,
 };
 
 export function useAlertKpis() {
@@ -98,6 +106,22 @@ export function useVehicleHealth() {
 
 export function useFleetOverview() {
   return useQuery({ queryKey: alertKeys.overview(), queryFn: fetchFleetOverview });
+}
+
+export function useAlertTypeVehicleCounts(alertTypes: AlertType[]) {
+  return useQuery({
+    queryKey: alertKeys.alertTypeCounts(alertTypes),
+    queryFn: () => fetchAlertTypeVehicleCounts(alertTypes),
+    enabled: alertTypes.length > 0,
+  });
+}
+
+export function useVehiclesForAlertType(alertType: AlertType | null) {
+  return useQuery({
+    queryKey: alertKeys.vehiclesForAlertType(alertType),
+    queryFn: () => fetchVehiclesForAlertType(alertType as AlertType),
+    enabled: alertType != null,
+  });
 }
 
 export function useRecentAlerts(filters: RecentAlertsFilters) {
@@ -169,6 +193,22 @@ export function useOrgStructure() {
 
 export function useScopeConfigs() {
   return useQuery({ queryKey: alertKeys.scopeConfigs(), queryFn: fetchScopeConfigs });
+}
+
+export function useDefaultAlertTemplate() {
+  return useQuery({ queryKey: alertKeys.defaultTemplate(), queryFn: fetchDefaultAlertTemplate });
+}
+
+export function useSaveDefaultAlertTemplate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (scope: AlertScopeRef) => saveDefaultAlertTemplate(scope),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: alertKeys.defaultTemplate() });
+      qc.invalidateQueries({ queryKey: alertKeys.scopeConfigs() });
+      qc.invalidateQueries({ queryKey: alertKeys.geofenceRules() });
+    },
+  });
 }
 
 export function useBatchUpsertScopeConfigs() {

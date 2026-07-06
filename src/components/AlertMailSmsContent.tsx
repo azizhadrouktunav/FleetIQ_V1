@@ -15,8 +15,7 @@ import {
   Check,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { AlertNotificationContact, AlertRecipientRole } from '@/types/alert-config';
-import { ALERT_RECIPIENT_ROLE_LABELS } from '@/types/alert-config';
+import type { AlertNotificationContact } from '@/types/alert-config';
 import {
   useAlertContacts,
   useDeleteAlertContact,
@@ -39,8 +38,6 @@ const MOCK_VEHICLES = [
   { id: '9', matricule: 'test gps' },
   { id: '10', matricule: 'Samiha ( Test CERT)' },
 ];
-
-const ROLES: AlertRecipientRole[] = ['administrator', 'driver', 'fleet_manager', 'user'];
 
 const ALERT_TYPES = [
   ...getAlertTypesForSection('dashboard'),
@@ -69,7 +66,6 @@ export function AlertMailSmsContent() {
   const [formData, setFormData] = useState({
     contact: '',
     name: '',
-    role: 'user' as AlertRecipientRole,
     driverId: '',
   });
   const [isAlertConfigOpen, setIsAlertConfigOpen] = useState(false);
@@ -109,12 +105,11 @@ export function AlertMailSmsContent() {
       setFormData({
         contact: activeTab === 'email' ? item.email ?? '' : item.phone ?? '',
         name: item.name,
-        role: item.role,
         driverId: item.driverId ?? '',
       });
     } else {
       setEditingId(null);
-      setFormData({ contact: '', name: '', role: 'user', driverId: '' });
+      setFormData({ contact: '', name: '', driverId: '' });
     }
     setIsModalOpen(true);
   };
@@ -139,8 +134,8 @@ export function AlertMailSmsContent() {
     const payload: Omit<AlertNotificationContact, 'id'> & { id?: string } = {
       id: editingId ?? undefined,
       name: formData.name,
-      role: formData.role,
-      driverId: formData.role === 'driver' ? formData.driverId || undefined : undefined,
+      role: 'user',
+      driverId: formData.driverId || undefined,
       vehicleIds: editingId
         ? contacts.find((c) => c.id === editingId)?.vehicleIds ?? []
         : [],
@@ -257,7 +252,6 @@ export function AlertMailSmsContent() {
                     {activeTab === 'email' ? 'Adresse mail' : 'Numéro de téléphone'}
                   </th>
                   <th className="px-8 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Nom</th>
-                  <th className="px-8 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Rôle</th>
                   <th className="px-8 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Actions</th>
                 </tr>
               </thead>
@@ -268,11 +262,6 @@ export function AlertMailSmsContent() {
                       {activeTab === 'email' ? item.email : item.phone}
                     </td>
                     <td className="px-8 py-4 text-sm text-gray-700">{item.name}</td>
-                    <td className="px-8 py-4 text-sm text-gray-700">
-                      <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
-                        {ALERT_RECIPIENT_ROLE_LABELS[item.role]}
-                      </span>
-                    </td>
                     <td className="px-8 py-4 text-sm text-right space-x-4">
                       <button onClick={() => handleOpenModal('edit', item)} className="text-gray-500 hover:text-gray-800" title="Modifier">
                         <Pencil className="w-4 h-4 inline" />
@@ -288,7 +277,7 @@ export function AlertMailSmsContent() {
                 ))}
                 {paginatedData.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="px-8 py-12 text-center text-gray-400">
+                    <td colSpan={3} className="px-8 py-12 text-center text-gray-400">
                       <Car className="w-8 h-8 text-gray-300 mx-auto mb-2" />
                       <p className="font-medium text-gray-500">Aucun contact trouvé</p>
                     </td>
@@ -328,33 +317,18 @@ export function AlertMailSmsContent() {
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="text-xs font-medium text-gray-500 uppercase mb-1 block">Rôle</label>
+                <label className="text-xs font-medium text-gray-500 uppercase mb-1 block">Chauffeur (optionnel)</label>
                 <select
-                  value={formData.role}
-                  onChange={(e) => setFormData({ ...formData, role: e.target.value as AlertRecipientRole, driverId: '' })}
+                  value={formData.driverId}
+                  onChange={(e) => handleDriverSelect(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                 >
-                  {ROLES.map((role) => (
-                    <option key={role} value={role}>{ALERT_RECIPIENT_ROLE_LABELS[role]}</option>
+                  <option value="">Sélectionner un chauffeur...</option>
+                  {MOCK_DRIVERS.map((d) => (
+                    <option key={d.id} value={d.id}>{d.prenom} {d.nom}</option>
                   ))}
                 </select>
               </div>
-
-              {formData.role === 'driver' && (
-                <div>
-                  <label className="text-xs font-medium text-gray-500 uppercase mb-1 block">Chauffeur</label>
-                  <select
-                    value={formData.driverId}
-                    onChange={(e) => handleDriverSelect(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                  >
-                    <option value="">Sélectionner un chauffeur...</option>
-                    {MOCK_DRIVERS.map((d) => (
-                      <option key={d.id} value={d.id}>{d.prenom} {d.nom}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <input
@@ -402,7 +376,7 @@ export function AlertMailSmsContent() {
                 <div>
                   <h2 className="text-lg font-medium text-white">Configuration des alertes</h2>
                   <p className="text-sm text-blue-100">
-                    {selectedContactForAlerts.name} · {ALERT_RECIPIENT_ROLE_LABELS[selectedContactForAlerts.role]}
+                    {selectedContactForAlerts.name}
                   </p>
                 </div>
                 <button onClick={() => setIsAlertConfigOpen(false)} className="text-white/80 hover:text-white">

@@ -24,7 +24,7 @@ export function GeofenceRuleForm({ vehicles, initial, onSubmit, onCancel }: Geof
   const [eventType, setEventType] = useState<GeofenceAlertRule['eventType']>(
     initial?.eventType ?? 'entry'
   );
-  const [severity, setSeverity] = useState<AlertSeverity>(initial?.severity ?? 'warning');
+  const [severity] = useState<AlertSeverity>(initial?.severity ?? 'warning');
   const [enabled, setEnabled] = useState(initial?.enabled ?? true);
   const [scopeType, setScopeType] = useState<'vehicle' | 'department'>(
     initial?.scopeType === 'department' ? 'department' : 'vehicle'
@@ -95,18 +95,6 @@ export function GeofenceRuleForm({ vehicles, initial, onSubmit, onCancel }: Geof
             <option value="entry">Entrée zone</option>
             <option value="exit">Sortie zone</option>
             <option value="both">Entrée et sortie</option>
-          </select>
-        </div>
-        <div className="space-y-1">
-          <Label>Sévérité</Label>
-          <select
-            value={severity}
-            onChange={(e) => setSeverity(e.target.value as AlertSeverity)}
-            className="w-full h-9 rounded-md border border-slate-200 px-2 text-sm"
-          >
-            <option value="critical">Critique</option>
-            <option value="warning">Avertissement</option>
-            <option value="info">Informatif</option>
           </select>
         </div>
       </div>

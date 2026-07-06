@@ -10,7 +10,6 @@ import { useBatchUpsertScopeConfigs } from '../../hooks/useAlertQueries';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { ActivationModeControl } from './ActivationModeControl';
-import { SeveritySelect } from './SeveritySelect';
 import { Switch } from './Switch';
 import { cn } from '@/lib/utils';
 
@@ -90,18 +89,7 @@ export function SecurityAlertsSection({
                     />
                   </div>
 
-                  <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div>
-                      <label className="text-[10px] font-medium text-muted-foreground uppercase">
-                        Niveau
-                      </label>
-                      <SeveritySelect
-                        value={item.severity}
-                        disabled={disabled}
-                        onChange={(severity) => applyPatch(alertType, { severity })}
-                      />
-                    </div>
-
+                  <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
                     {threshold?.value != null && (
                       <div>
                         <label className="text-[10px] font-medium text-muted-foreground uppercase">

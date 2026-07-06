@@ -112,7 +112,6 @@ export function GeofencingAlertsSection({ selectedScopes, vehicles }: Geofencing
                   {rule.scopeIds.map((id) => scopeTargetLabels.get(id) ?? id).join(', ')}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Sévérité : {rule.severity} ·{' '}
                   {rule.activationType === 'permanent' ? 'Permanente' : 'Temporaire'}
                 </p>
               </div>

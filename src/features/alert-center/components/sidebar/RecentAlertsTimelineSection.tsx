@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Bell, Search } from 'lucide-react';
-import type { AlertSeverity, AlertType } from '@/types/alerts';
+import type { AlertType } from '@/types/alerts';
 import { ALERT_TAXONOMY } from '../../constants/alert-taxonomy';
 import {
-  ALERT_CONFIG_SECTIONS,
-  ALL_CONFIG_SECTION_IDS,
-  resolveCategoriesFromSections,
-  type AlertConfigSectionId,
+  ALERT_CENTER_SECTIONS,
+  resolveCategoriesFromCenterSections,
+  type AlertCenterSectionId,
 } from '../../constants/alert-config-sections';
 import { useRecentAlerts } from '../../hooks/useAlertQueries';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,51 +16,42 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { EventTimeline } from '../timeline/EventTimeline';
 
 interface RecentAlertsTimelineSectionProps {
-  selectedDate?: string;
   onVehicleClick?: (vehicleId: string) => void;
 }
-
-const SEVERITY_OPTIONS: { id: AlertSeverity | 'all'; label: string }[] = [
-  { id: 'all', label: 'Tous les niveaux' },
-  { id: 'critical', label: 'Critique' },
-  { id: 'warning', label: 'Avertissement' },
-  { id: 'info', label: 'Informatif' },
-];
 
 const ALERT_TYPE_OPTIONS = Object.values(ALERT_TAXONOMY).filter(
   (entry) => entry.id !== 'all' && entry.id !== 'unknown'
 );
 
+const DEFAULT_SECTIONS: AlertCenterSectionId[] = ALERT_CENTER_SECTIONS.map((s) => s.id);
+
 function toggleSection(
-  sections: AlertConfigSectionId[],
-  sectionId: AlertConfigSectionId
-): AlertConfigSectionId[] {
+  sections: AlertCenterSectionId[],
+  sectionId: AlertCenterSectionId
+): AlertCenterSectionId[] {
   return sections.includes(sectionId)
     ? sections.filter((id) => id !== sectionId)
     : [...sections, sectionId];
 }
 
-export function RecentAlertsTimelineSection({ selectedDate, onVehicleClick }: RecentAlertsTimelineSectionProps) {
-  const [severity, setSeverity] = useState<AlertSeverity | 'all'>('all');
-  const [selectedSections, setSelectedSections] = useState<AlertConfigSectionId[]>(ALL_CONFIG_SECTION_IDS);
+export function RecentAlertsTimelineSection({ onVehicleClick }: RecentAlertsTimelineSectionProps) {
+  const [selectedSections, setSelectedSections] = useState<AlertCenterSectionId[]>(DEFAULT_SECTIONS);
   const [alertType, setAlertType] = useState<AlertType | 'all'>('all');
   const [typeSearch, setTypeSearch] = useState('');
 
   const filters = useMemo(
     () => ({
-      severities: severity === 'all' ? undefined : [severity],
-      configSectionIds: selectedSections,
+      centerSectionIds: selectedSections,
       alertTypes: alertType === 'all' ? undefined : [alertType],
-      selectedDate,
       limit: 15,
     }),
-    [severity, selectedSections, alertType, selectedDate]
+    [selectedSections, alertType]
   );
 
   const { data: events = [], isLoading } = useRecentAlerts(filters);
 
   const typeOptionsForSections = useMemo(() => {
-    const allowedCategories = resolveCategoriesFromSections(selectedSections);
+    const allowedCategories = resolveCategoriesFromCenterSections(selectedSections);
     return ALERT_TYPE_OPTIONS.filter((entry) => allowedCategories.includes(entry.category));
   }, [selectedSections]);
 
@@ -90,21 +80,6 @@ export function RecentAlertsTimelineSection({ selectedDate, onVehicleClick }: Re
       <CardContent className="space-y-3">
         <div className="grid grid-cols-1 gap-3">
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Niveau</Label>
-            <select
-              value={severity}
-              onChange={(e) => setSeverity(e.target.value as AlertSeverity | 'all')}
-              className="w-full h-8 rounded-md border border-slate-200 px-2 text-xs"
-            >
-              {SEVERITY_OPTIONS.map((opt) => (
-                <option key={opt.id} value={opt.id}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="space-y-1">
             <div className="flex items-center justify-between">
               <Label className="text-xs text-muted-foreground">Catégorie</Label>
               {selectedSections.length > 0 && (
@@ -114,7 +89,7 @@ export function RecentAlertsTimelineSection({ selectedDate, onVehicleClick }: Re
               )}
             </div>
             <div className="space-y-1.5 rounded-md border border-slate-200 p-2">
-              {ALERT_CONFIG_SECTIONS.map((section) => (
+              {ALERT_CENTER_SECTIONS.map((section) => (
                 <div key={section.id} className="flex items-start gap-2">
                   <Checkbox
                     id={`recent-cat-${section.id}`}

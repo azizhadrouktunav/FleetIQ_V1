@@ -1,11 +1,9 @@
 import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
-import { getSeverityConfig } from '@/design-system/severity';
 import type { TimelineEvent } from '@/types/alerts';
 import { groupTimelineByDay } from '../../mocks/mockTimeline';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { AlertTypeIcon } from '../shared/AlertTypeIcon';
 
@@ -62,7 +60,6 @@ export function EventTimeline({
             <div className="relative pl-6 space-y-0">
               <div className="absolute left-2.5 top-2 bottom-2 w-px bg-slate-200" />
               {dayEvents.map((event, idx) => {
-                const config = getSeverityConfig(event.severity);
                 const isLast = idx === dayEvents.length - 1;
                 const isClickable = Boolean(onEventClick && event.vehicleId);
                 const content = (
@@ -70,9 +67,6 @@ export function EventTimeline({
                     <div className="flex items-center gap-2 flex-wrap mb-1">
                       <span className="text-xs font-mono font-semibold text-slate-700">{event.time}</span>
                       <AlertTypeIcon alertType={event.type} severity={event.severity} size="sm" />
-                      <Badge variant={event.severity === 'critical' ? 'critical' : event.severity === 'warning' ? 'high' : 'info'} className="text-[10px] h-5">
-                        {event.severity === 'critical' ? 'Critique' : event.severity === 'warning' ? 'Avertissement' : 'Info'}
-                      </Badge>
                     </div>
                     <p className="text-sm font-medium text-slate-800">{event.label}</p>
                     {event.vehicleName && (
@@ -89,8 +83,7 @@ export function EventTimeline({
                   <div key={event.id} className="relative pb-6">
                     <div
                       className={cn(
-                        'absolute -left-3.5 w-3 h-3 rounded-full ring-2 ring-white',
-                        config.dotColor
+                        'absolute -left-3.5 w-3 h-3 rounded-full ring-2 ring-white bg-slate-400'
                       )}
                     />
                     {!isLast && (

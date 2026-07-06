@@ -50,6 +50,11 @@ export function getSecurityAlertTypes(): AlertType[] {
   return SECURITY_ALERT_GROUPS.flatMap((g) => g.alertTypes);
 }
 
+/** Security center section — excludes driving behaviour types */
+export function getSecurityOnlyAlertTypes(): AlertType[] {
+  return SECURITY_ALERT_GROUPS.filter((g) => g.id !== 'driving').flatMap((g) => g.alertTypes);
+}
+
 export function getSecurityAlertGroup(alertType: AlertType): SecurityAlertGroup | undefined {
   return SECURITY_ALERT_GROUPS.find((g) => g.alertTypes.includes(alertType));
 }

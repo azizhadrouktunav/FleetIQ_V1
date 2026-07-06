@@ -4,6 +4,7 @@ import type {
   AlertScopeRef,
   BuiltinSeverityOverride,
   CustomSeverityLevel,
+  DefaultAlertConfigTemplate,
   GeofenceAlertRule,
   OrgStructure,
   SeverityNotificationPolicy,
@@ -27,6 +28,110 @@ let severityPoliciesStore: SeverityNotificationPolicy[] = [...INITIAL_SEVERITY_P
 let contactsStore: AlertNotificationContact[] = [...INITIAL_ALERT_CONTACTS];
 let customSeveritiesStore: CustomSeverityLevel[] = [...INITIAL_CUSTOM_SEVERITIES];
 let builtinOverridesStore: BuiltinSeverityOverride[] = [...INITIAL_BUILTIN_SEVERITY_OVERRIDES];
+let defaultTemplateStore: DefaultAlertConfigTemplate | null = null;
+let fleetVehicleIdsStore: string[] = [];
+
+function toTemplateScopeConfig(
+  config: AlertScopeConfig
+): Omit<AlertScopeConfig, 'id' | 'scopeType' | 'scopeId'> {
+  const { id: _id, scopeType: _scopeType, scopeId: _scopeId, ...rest } = config;
+  return rest;
+}
+
+function vehicleHasScopeConfigs(vehicleId: string): boolean {
+  return scopeConfigsStore.some((c) => c.scopeType === 'vehicle' && c.scopeId === vehicleId);
+}
+
+function geofenceRuleMatchesScope(rule: GeofenceAlertRule, scope: AlertScopeRef): boolean {
+  return rule.scopeType === scope.scopeType && rule.scopeIds.includes(scope.scopeId);
+}
+
+export function registerFleetVehiclesForConfigSync(vehicleIds: string[]): void {
+  fleetVehicleIdsStore = vehicleIds;
+}
+
+function syncDefaultConfigsForVehiclesInternal(vehicleIds: string[]): void {
+  if (!defaultTemplateStore) return;
+  for (const vehicleId of vehicleIds) {
+    if (!vehicleHasScopeConfigs(vehicleId)) {
+      applyDefaultTemplateToVehicleInternal(vehicleId);
+    }
+  }
+}
+
+function applyDefaultTemplateToVehicleInternal(vehicleId: string): void {
+  if (!defaultTemplateStore || vehicleHasScopeConfigs(vehicleId)) return;
+
+  const newConfigs: AlertScopeConfig[] = defaultTemplateStore.scopeConfigs.map((template) => ({
+    id: `cfg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    scopeType: 'vehicle' as const,
+    scopeId: vehicleId,
+    ...template,
+  }));
+  scopeConfigsStore = [...scopeConfigsStore, ...newConfigs];
+
+  const existingRuleNames = new Set(
+    geofenceRulesStore
+      .filter((r) => r.scopeType === 'vehicle' && r.scopeIds.includes(vehicleId))
+      .map((r) => r.name)
+  );
+
+  const newRules: GeofenceAlertRule[] = defaultTemplateStore.geofenceRules
+    .filter((rule) => !existingRuleNames.has(rule.name))
+    .map((rule) => ({
+      ...rule,
+      id: `geo-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      scopeType: 'vehicle' as const,
+      scopeIds: [vehicleId],
+    }));
+
+  if (newRules.length > 0) {
+    geofenceRulesStore = [...geofenceRulesStore, ...newRules];
+  }
+}
+
+export async function fetchDefaultAlertTemplate(): Promise<DefaultAlertConfigTemplate | null> {
+  await delay(200);
+  return defaultTemplateStore;
+}
+
+export async function saveDefaultAlertTemplate(
+  scope: AlertScopeRef
+): Promise<DefaultAlertConfigTemplate> {
+  await delay(350);
+
+  const scopeConfigs = scopeConfigsStore
+    .filter((c) => c.scopeType === scope.scopeType && c.scopeId === scope.scopeId)
+    .map(toTemplateScopeConfig);
+
+  const geofenceRules = geofenceRulesStore
+    .filter((r) => geofenceRuleMatchesScope(r, scope))
+    .map(({ id: _id, ...rest }) => rest);
+
+  defaultTemplateStore = {
+    updatedAt: new Date().toISOString(),
+    sourceScope: scope,
+    scopeConfigs,
+    geofenceRules,
+  };
+
+  if (fleetVehicleIdsStore.length > 0) {
+    syncDefaultConfigsForVehiclesInternal(fleetVehicleIdsStore);
+  }
+
+  return defaultTemplateStore;
+}
+
+export async function applyDefaultTemplateToVehicle(vehicleId: string): Promise<void> {
+  await delay(200);
+  applyDefaultTemplateToVehicleInternal(vehicleId);
+}
+
+export async function syncDefaultConfigsForVehicles(vehicleIds: string[]): Promise<void> {
+  await delay(200);
+  fleetVehicleIdsStore = vehicleIds;
+  syncDefaultConfigsForVehiclesInternal(vehicleIds);
+}
 
 export async function fetchOrgStructure(): Promise<OrgStructure> {
   await delay(200);
@@ -40,6 +145,9 @@ export async function fetchNamedUsers() {
 
 export async function fetchScopeConfigs(): Promise<AlertScopeConfig[]> {
   await delay(300);
+  if (defaultTemplateStore && fleetVehicleIdsStore.length > 0) {
+    syncDefaultConfigsForVehiclesInternal(fleetVehicleIdsStore);
+  }
   return scopeConfigsStore;
 }
 
@@ -190,4 +298,6 @@ export function resetAlertConfigStores() {
   contactsStore = [...INITIAL_ALERT_CONTACTS];
   customSeveritiesStore = [...INITIAL_CUSTOM_SEVERITIES];
   builtinOverridesStore = [...INITIAL_BUILTIN_SEVERITY_OVERRIDES];
+  defaultTemplateStore = null;
+  fleetVehicleIdsStore = [];
 }
