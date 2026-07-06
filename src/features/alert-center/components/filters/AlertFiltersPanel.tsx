@@ -1,7 +1,6 @@
 import { Filter, RotateCcw, Search } from 'lucide-react';
 import type { Vehicle } from '@/types';
 import type {
-  AlertCategory,
   AlertFilters,
   AlertSeverity,
   DateRangePreset,
@@ -9,7 +8,6 @@ import type {
   MovementFilterState,
   VehicleFilterState,
 } from '@/types/alerts';
-import { ALERT_CATEGORIES } from '@/design-system/alert-categories';
 import { MOCK_ORG_STRUCTURE } from '../../mocks/mockOrgStructure';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -18,6 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { DashboardIndicatorFilter } from './DashboardIndicatorFilter';
+import { AlertDayPickerButton, formatSelectedDateLabel } from './AlertDayPickerButton';
 import { cn } from '@/lib/utils';
 
 const SEVERITIES: { id: AlertSeverity; label: string }[] = [
@@ -75,15 +74,29 @@ export function AlertFiltersPanel({ filters, onUpdate, onReset }: AlertFiltersPa
         <div className="p-4 space-y-5">
           <div>
             <p className="text-xs font-semibold text-slate-400 uppercase mb-2">Recherche</p>
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-500" />
-              <Input
-                placeholder="Véhicule, immatriculation, conducteur..."
-                value={filters.search}
-                onChange={(e) => onUpdate('search', e.target.value)}
-                className="pl-8 bg-slate-800 border-slate-600 text-slate-200 placeholder:text-slate-500 h-9"
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-500" />
+                <Input
+                  placeholder="Véhicule, immatriculation, conducteur..."
+                  value={filters.search}
+                  onChange={(e) => onUpdate('search', e.target.value)}
+                  className="pl-8 bg-slate-800 border-slate-600 text-slate-200 placeholder:text-slate-500 h-9"
+                />
+              </div>
+              <AlertDayPickerButton
+                value={filters.selectedDate}
+                onChange={(date) => {
+                  onUpdate('selectedDate', date);
+                  if (date) onUpdate('datePreset', undefined);
+                }}
               />
             </div>
+            {filters.selectedDate && (
+              <p className="text-[11px] text-blue-300 mt-1.5">
+                {formatSelectedDateLabel(filters.selectedDate)}
+              </p>
+            )}
           </div>
 
           <Separator className="bg-slate-700" />
@@ -113,29 +126,6 @@ export function AlertFiltersPanel({ filters, onUpdate, onReset }: AlertFiltersPa
                   />
                   <Label htmlFor={`sev-${s.id}`} className="text-sm text-slate-300 cursor-pointer">
                     {s.label}
-                  </Label>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <Separator className="bg-slate-700" />
-
-          <div>
-            <p className="text-xs font-semibold text-slate-400 uppercase mb-3">Catégorie</p>
-            <div className="space-y-2">
-              {ALERT_CATEGORIES.map((cat) => (
-                <div key={cat.id} className="flex items-start gap-2">
-                  <Checkbox
-                    id={`cat-${cat.id}`}
-                    checked={filters.categories.includes(cat.id as AlertCategory)}
-                    onCheckedChange={() =>
-                      onUpdate('categories', toggleArrayItem(filters.categories, cat.id as AlertCategory))
-                    }
-                    className="border-slate-500 data-[state=checked]:bg-blue-600"
-                  />
-                  <Label htmlFor={`cat-${cat.id}`} className="text-sm text-slate-300 cursor-pointer leading-tight">
-                    {cat.label}
                   </Label>
                 </div>
               ))}
@@ -243,7 +233,10 @@ export function AlertFiltersPanel({ filters, onUpdate, onReset }: AlertFiltersPa
                 <button
                   key={preset.id}
                   type="button"
-                  onClick={() => onUpdate('datePreset', filters.datePreset === preset.id ? undefined : preset.id)}
+                  onClick={() => {
+                    onUpdate('datePreset', filters.datePreset === preset.id ? undefined : preset.id);
+                    onUpdate('selectedDate', undefined);
+                  }}
                   className={cn(
                     'px-2.5 py-1 rounded-full text-xs font-medium transition-colors border',
                     filters.datePreset === preset.id

@@ -71,6 +71,7 @@ export function AlertCenterPage({
   const rightPanel = (
     <ContextualRightPanel
       selectedVehicleId={selectedVehicleId}
+      selectedDate={filters.selectedDate}
       onBack={() => {
         setSelectedVehicleId(null);
         setShowMobileOverview(false);

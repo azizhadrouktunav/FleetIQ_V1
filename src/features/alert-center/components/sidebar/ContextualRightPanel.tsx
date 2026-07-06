@@ -5,6 +5,7 @@ import { useFleetOverview } from '../../hooks/useAlertQueries';
 
 interface ContextualRightPanelProps {
   selectedVehicleId: string | null;
+  selectedDate?: string;
   onBack: () => void;
   onSelectVehicle?: (vehicleId: string) => void;
   onNavigateToVehicle?: (vehicleId: string, coordinates: [number, number]) => void;
@@ -13,6 +14,7 @@ interface ContextualRightPanelProps {
 
 export function ContextualRightPanel({
   selectedVehicleId,
+  selectedDate,
   onBack,
   onSelectVehicle,
   onNavigateToVehicle,
@@ -58,6 +60,7 @@ export function ContextualRightPanel({
             <FleetOverviewPanel
               data={overview}
               isLoading={overviewLoading}
+              selectedDate={selectedDate}
               onVehicleClick={handleOverviewVehicleClick}
             />
           </motion.div>

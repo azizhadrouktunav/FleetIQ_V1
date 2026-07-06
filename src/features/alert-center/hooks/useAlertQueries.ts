@@ -5,6 +5,8 @@ import {
   fetchKpis,
   fetchVehicleHealth,
   fetchFleetOverview,
+  fetchRecentAlerts,
+  type RecentAlertsFilters,
   fetchVehicleTimeline,
   fetchVehicleDocumentAlerts,
   fetchGeofenceRulesForVehicle,
@@ -22,6 +24,7 @@ import {
   deleteGeofenceRule,
   fetchAlertContacts,
   fetchBuiltinSeverityOverrides,
+  fetchCustomSeverities,
   fetchGeofenceRules,
   fetchNamedUsers,
   fetchOrgStructure,
@@ -29,12 +32,14 @@ import {
   fetchSeverityPolicies,
   saveAlertContact,
   saveBuiltinSeverityOverrides,
+  saveCustomSeverities,
   saveGeofenceRule,
   saveSeverityPolicies,
 } from '../api/alert-config-api';
 import type {
   AlertScopeRef,
   BuiltinSeverityOverride,
+  CustomSeverityLevel,
   GeofenceAlertRule,
   SeverityNotificationPolicy,
 } from '@/types/alert-config';
@@ -48,6 +53,7 @@ export const alertKeys = {
   kpis: () => [...alertKeys.all, 'kpis'] as const,
   health: () => [...alertKeys.all, 'health'] as const,
   overview: () => [...alertKeys.all, 'overview'] as const,
+  recentAlerts: (filters: RecentAlertsFilters) => [...alertKeys.all, 'recentAlerts', filters] as const,
   timeline: (vehicleId: string) => [...alertKeys.all, 'timeline', vehicleId] as const,
   documentAlerts: (vehicleId: string) => [...alertKeys.all, 'documentAlerts', vehicleId] as const,
   vehicleGeofenceRules: (vehicleId: string) => [...alertKeys.all, 'vehicleGeofenceRules', vehicleId] as const,
@@ -59,6 +65,7 @@ export const alertKeys = {
   severityPolicies: () => [...alertKeys.all, 'severityPolicies'] as const,
   alertContacts: () => [...alertKeys.all, 'alertContacts'] as const,
   namedUsers: () => [...alertKeys.all, 'namedUsers'] as const,
+  customSeverities: () => [...alertKeys.all, 'customSeverities'] as const,
   builtinSeverityOverrides: () => [...alertKeys.all, 'builtinSeverityOverrides'] as const,
 };
 
@@ -91,6 +98,13 @@ export function useVehicleHealth() {
 
 export function useFleetOverview() {
   return useQuery({ queryKey: alertKeys.overview(), queryFn: fetchFleetOverview });
+}
+
+export function useRecentAlerts(filters: RecentAlertsFilters) {
+  return useQuery({
+    queryKey: alertKeys.recentAlerts(filters),
+    queryFn: () => fetchRecentAlerts(filters),
+  });
 }
 
 export function useVehicleTimeline(vehicleId: string | null) {
@@ -226,6 +240,21 @@ export function useDeleteAlertContact() {
 
 export function useNamedUsers() {
   return useQuery({ queryKey: alertKeys.namedUsers(), queryFn: fetchNamedUsers });
+}
+
+export function useCustomSeverities() {
+  return useQuery({ queryKey: alertKeys.customSeverities(), queryFn: fetchCustomSeverities });
+}
+
+export function useSaveCustomSeverities() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (levels: CustomSeverityLevel[]) => saveCustomSeverities(levels),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: alertKeys.customSeverities() });
+      qc.invalidateQueries({ queryKey: alertKeys.severityPolicies() });
+    },
+  });
 }
 
 export function useBuiltinSeverityOverrides() {

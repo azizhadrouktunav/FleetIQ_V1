@@ -1,42 +1,43 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type {
-  AlertConfigChannel,
-  AlertRecipientRole,
   BuiltinSeverityOverride,
+  CustomSeverityLevel,
   SeverityLevelId,
   SeverityNotificationPolicy,
 } from '@/types/alert-config';
-import { ALERT_RECIPIENT_ROLE_LABELS } from '@/types/alert-config';
 import {
   useNamedUsers,
   useSaveBuiltinSeverityOverrides,
+  useSaveCustomSeverities,
   useSaveSeverityPolicies,
   useSeverityPolicies,
   useBuiltinSeverityOverrides,
+  useCustomSeverities,
 } from '../../hooks/useAlertQueries';
-import { useSeverityOptions } from '../../hooks/useSeverityOptions';
-import { BuiltinSeverityList } from './BuiltinSeverityList';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { buildSeverityOptionsFromLocal } from '../../hooks/useSeverityOptions';
+import { SeverityLevelsManager } from './SeverityLevelsManager';
+import type { SeverityLevelSavePayload } from './SeverityLevelEditorDialog';
 import type { AlertSeverity } from '@/types/alerts';
+import { SEVERITY_CONFIG } from '@/design-system/severity';
 
-const ROLES: AlertRecipientRole[] = ['administrator', 'driver', 'fleet_manager', 'user'];
-const CHANNELS: { id: AlertConfigChannel; label: string }[] = [
-  { id: 'sms', label: 'SMS' },
-  { id: 'email', label: 'Email' },
-  { id: 'push', label: 'Push Notification' },
-];
+const BUILTIN_IDS: AlertSeverity[] = ['critical', 'warning', 'info'];
+
+function isBuiltinSeverity(id: string): id is AlertSeverity {
+  return BUILTIN_IDS.includes(id as AlertSeverity);
+}
 
 export function SeverityNotificationPanel() {
-  const { data: policies = [], isLoading } = useSeverityPolicies();
-  const { data: overrides = [] } = useBuiltinSeverityOverrides();
+  const { data: policies = [], isLoading: policiesLoading } = useSeverityPolicies();
+  const { data: overrides = [], isLoading: overridesLoading } = useBuiltinSeverityOverrides();
+  const { data: customLevels = [], isLoading: customLoading } = useCustomSeverities();
   const { data: namedUsers = [] } = useNamedUsers();
-  const { options } = useSeverityOptions();
   const savePolicies = useSaveSeverityPolicies();
   const saveOverrides = useSaveBuiltinSeverityOverrides();
+  const saveCustom = useSaveCustomSeverities();
+
   const [localPolicies, setLocalPolicies] = useState<SeverityNotificationPolicy[]>([]);
   const [localOverrides, setLocalOverrides] = useState<BuiltinSeverityOverride[]>([]);
+  const [localCustomLevels, setLocalCustomLevels] = useState<CustomSeverityLevel[]>([]);
 
   useEffect(() => {
     if (policies.length) setLocalPolicies(policies);
@@ -46,18 +47,14 @@ export function SeverityNotificationPanel() {
     setLocalOverrides(overrides);
   }, [overrides]);
 
-  const getOverride = (severity: AlertSeverity) =>
-    localOverrides.find((o) => o.severity === severity) ?? { severity };
+  useEffect(() => {
+    setLocalCustomLevels(customLevels);
+  }, [customLevels]);
 
-  const updateOverride = (severity: AlertSeverity, patch: Partial<BuiltinSeverityOverride>) => {
-    setLocalOverrides((prev) => {
-      const existing = prev.find((o) => o.severity === severity);
-      if (existing) {
-        return prev.map((o) => (o.severity === severity ? { ...o, ...patch } : o));
-      }
-      return [...prev, { severity, ...patch }];
-    });
-  };
+  const displayOptions = useMemo(
+    () => buildSeverityOptionsFromLocal(localOverrides, localCustomLevels),
+    [localOverrides, localCustomLevels]
+  );
 
   const getPolicy = (severity: SeverityLevelId) =>
     localPolicies.find((p) => p.severity === severity) ?? {
@@ -67,143 +64,118 @@ export function SeverityNotificationPanel() {
       channels: [],
     };
 
-  const updatePolicy = (severity: SeverityLevelId, patch: Partial<SeverityNotificationPolicy>) => {
-    setLocalPolicies((prev) => {
-      const existing = prev.find((p) => p.severity === severity);
-      if (existing) {
-        return prev.map((p) => (p.severity === severity ? { ...p, ...patch } : p));
-      }
-      return [...prev, { severity, roles: [], userIds: [], channels: [], ...patch }];
+  const persistAll = async (
+    nextOverrides: BuiltinSeverityOverride[],
+    nextCustom: CustomSeverityLevel[],
+    nextPolicies: SeverityNotificationPolicy[]
+  ) => {
+    const allLevelIds = [
+      ...BUILTIN_IDS,
+      ...nextCustom.map((c) => c.id),
+    ];
+    const policiesToSave = allLevelIds.map((id) => {
+      const found = nextPolicies.find((p) => p.severity === id);
+      return found ?? { severity: id, roles: [], userIds: [], channels: [] };
     });
+
+    await Promise.all([
+      saveOverrides.mutateAsync(nextOverrides),
+      saveCustom.mutateAsync(nextCustom),
+      savePolicies.mutateAsync(policiesToSave),
+    ]);
   };
 
-  const toggleRole = (severity: SeverityLevelId, role: AlertRecipientRole) => {
-    const policy = getPolicy(severity);
-    const roles = policy.roles.includes(role)
-      ? policy.roles.filter((r) => r !== role)
-      : [...policy.roles, role];
-    updatePolicy(severity, { roles });
+  const handleSaveLevel = async (
+    levelId: SeverityLevelId | null,
+    isCustom: boolean,
+    isCreate: boolean,
+    payload: SeverityLevelSavePayload
+  ) => {
+    let nextOverrides = [...localOverrides];
+    let nextCustom = [...localCustomLevels];
+    let nextPolicies = [...localPolicies];
+    let targetId = levelId;
+
+    if (isCreate) {
+      const id = `custom-${Date.now()}`;
+      targetId = id;
+      nextCustom = [
+        ...nextCustom,
+        {
+          id,
+          label: payload.label,
+          color: payload.color,
+          order: nextCustom.length + 1,
+        },
+      ];
+    } else if (targetId) {
+      if (isCustom) {
+        nextCustom = nextCustom.map((l) =>
+          l.id === targetId ? { ...l, label: payload.label, color: payload.color } : l
+        );
+      } else if (isBuiltinSeverity(targetId)) {
+        const defaultLabel = SEVERITY_CONFIG[targetId].label;
+        const overridePatch: BuiltinSeverityOverride = {
+          severity: targetId,
+          label: payload.label === defaultLabel ? undefined : payload.label,
+          color: payload.color,
+        };
+        const existing = nextOverrides.find((o) => o.severity === targetId);
+        nextOverrides = existing
+          ? nextOverrides.map((o) => (o.severity === targetId ? { ...o, ...overridePatch } : o))
+          : [...nextOverrides, overridePatch];
+      }
+    }
+
+    if (targetId) {
+      const policyPatch = {
+        severity: targetId,
+        roles: payload.roles,
+        userIds: payload.userIds,
+        channels: payload.channels,
+      };
+      const existingPolicy = nextPolicies.find((p) => p.severity === targetId);
+      nextPolicies = existingPolicy
+        ? nextPolicies.map((p) => (p.severity === targetId ? { ...p, ...policyPatch } : p))
+        : [...nextPolicies, policyPatch];
+    }
+
+    setLocalOverrides(nextOverrides);
+    setLocalCustomLevels(nextCustom);
+    setLocalPolicies(nextPolicies);
+
+    await persistAll(nextOverrides, nextCustom, nextPolicies);
   };
 
-  const toggleChannel = (severity: SeverityLevelId, channel: AlertConfigChannel) => {
-    const policy = getPolicy(severity);
-    const channels = policy.channels.includes(channel)
-      ? policy.channels.filter((c) => c !== channel)
-      : [...policy.channels, channel];
-    updatePolicy(severity, { channels });
+  const handleDeleteLevel = async (levelId: SeverityLevelId) => {
+    const nextCustom = localCustomLevels
+      .filter((l) => l.id !== levelId)
+      .map((l, i) => ({ ...l, order: i + 1 }));
+    const nextPolicies = localPolicies.filter((p) => p.severity !== levelId);
+
+    setLocalCustomLevels(nextCustom);
+    setLocalPolicies(nextPolicies);
+
+    await persistAll(localOverrides, nextCustom, nextPolicies);
   };
 
-  const toggleUser = (severity: SeverityLevelId, userId: string) => {
-    const policy = getPolicy(severity);
-    const userIds = policy.userIds.includes(userId)
-      ? policy.userIds.filter((id) => id !== userId)
-      : [...policy.userIds, userId];
-    updatePolicy(severity, { userIds });
-  };
+  const isSaving =
+    savePolicies.isPending || saveOverrides.isPending || saveCustom.isPending;
 
-  const handleSaveAll = () => {
-    const allPolicies = options.map((opt) => getPolicy(opt.id));
-    saveOverrides.mutate(localOverrides);
-    savePolicies.mutate(allPolicies);
-  };
-
-  if (isLoading) {
+  if (policiesLoading || overridesLoading || customLoading) {
     return <p className="text-sm text-muted-foreground">Chargement des niveaux d&apos;alerte...</p>;
   }
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-3 p-4 border border-slate-200 rounded-xl bg-slate-50/50">
-        <div>
-          <h3 className="text-sm font-semibold text-slate-900">Niveaux système</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Cliquez sur modifier pour renommer ou changer la couleur d&apos;un niveau.
-          </p>
-        </div>
-        <BuiltinSeverityList getOverride={getOverride} onUpdate={updateOverride} />
-      </div>
-
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          Politiques de notification par niveau.
-        </p>
-        <Button
-          size="sm"
-          disabled={savePolicies.isPending || saveOverrides.isPending}
-          onClick={handleSaveAll}
-        >
-          Enregistrer tout
-        </Button>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-        {options.map((opt) => {
-          const policy = getPolicy(opt.id);
-          return (
-            <Card key={opt.id}>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <span
-                    className="w-2.5 h-2.5 rounded-full shrink-0"
-                    style={{ backgroundColor: opt.color }}
-                  />
-                  {opt.label}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <p className="text-[10px] font-medium text-muted-foreground uppercase mb-2">
-                    Qui — Rôles
-                  </p>
-                  <div className="space-y-2">
-                    {ROLES.map((role) => (
-                      <label key={role} className="flex items-center gap-2 text-sm cursor-pointer">
-                        <Checkbox
-                          checked={policy.roles.includes(role)}
-                          onCheckedChange={() => toggleRole(opt.id, role)}
-                        />
-                        {ALERT_RECIPIENT_ROLE_LABELS[role]}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <p className="text-[10px] font-medium text-muted-foreground uppercase mb-2">
-                    Qui — Utilisateurs
-                  </p>
-                  <div className="space-y-2 max-h-24 overflow-y-auto">
-                    {namedUsers.map((user) => (
-                      <label key={user.id} className="flex items-center gap-2 text-sm cursor-pointer">
-                        <Checkbox
-                          checked={policy.userIds.includes(user.id)}
-                          onCheckedChange={() => toggleUser(opt.id, user.id)}
-                        />
-                        <span className="truncate">{user.name}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <p className="text-[10px] font-medium text-muted-foreground uppercase mb-2">
-                    Comment
-                  </p>
-                  <div className="space-y-2">
-                    {CHANNELS.map(({ id, label }) => (
-                      <label key={id} className="flex items-center gap-2 text-sm cursor-pointer">
-                        <Checkbox
-                          checked={policy.channels.includes(id)}
-                          onCheckedChange={() => toggleChannel(opt.id, id)}
-                        />
-                        {label}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+    <div className="p-4 border border-slate-200 rounded-xl bg-slate-50/50">
+      <SeverityLevelsManager
+        options={displayOptions}
+        getPolicy={getPolicy}
+        namedUsers={namedUsers}
+        isSaving={isSaving}
+        onSaveLevel={handleSaveLevel}
+        onDeleteLevel={handleDeleteLevel}
+      />
     </div>
   );
 }

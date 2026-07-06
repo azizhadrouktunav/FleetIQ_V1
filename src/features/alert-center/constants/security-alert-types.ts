@@ -8,14 +8,11 @@ export interface SecurityAlertGroup {
 
 /** Types excluded from security config — non-GPS or redundant behavior alerts */
 export const EXCLUDED_SECURITY_ALERT_TYPES: AlertType[] = [
-  'hard_deceleration',
   'aggressive_driving',
-  'harsh_brake',
-  'harsh_accel',
-  'harsh_turn',
   'gps_battery_low',
   'gps_jamming',
   'power_cut',
+  'removal',
 ];
 
 export const SECURITY_ALERT_GROUPS: SecurityAlertGroup[] = [
@@ -27,12 +24,20 @@ export const SECURITY_ALERT_GROUPS: SecurityAlertGroup[] = [
   {
     id: 'protection',
     label: 'Protection',
-    alertTypes: ['battery_disconnected', 'towing', 'unauthorized_start', 'fuel_theft', 'removal'],
+    alertTypes: ['battery_disconnected', 'towing', 'unauthorized_start', 'fuel_theft'],
   },
   {
     id: 'driving',
     label: 'Conduite',
-    alertTypes: ['speeding', 'excessive_idle', 'driving_time_exceeded'],
+    alertTypes: [
+      'speeding',
+      'excessive_idle',
+      'driving_time_exceeded',
+      'harsh_brake',
+      'harsh_accel',
+      'hard_deceleration',
+      'harsh_turn',
+    ],
   },
   {
     id: 'emergency',

@@ -275,6 +275,8 @@ export interface TimelineEvent {
   category: AlertCategory;
   notifiedUser?: string;
   coordinates?: [number, number];
+  vehicleId?: string;
+  vehicleName?: string;
 }
 
 export interface AlertKpiData {
@@ -310,7 +312,6 @@ export interface FleetOverviewData {
   offlineVehicles: FleetStatusVehicleItem[];
   sosVehicles: FleetStatusVehicleItem[];
   upcomingMaintenance: { vehicleName: string; dueIn: string; type: string }[];
-  recentNotifications: { id: string; message: string; time: string }[];
   topRiskVehicles: { vehicleId: string; vehicleName: string; alertCount: number }[];
 }
 
@@ -333,6 +334,7 @@ export interface AlertFilters {
   gpsStatuses: GpsFilterStatus[];
   movementStates: MovementFilterState[];
   datePreset?: DateRangePreset;
+  selectedDate?: string;
 }
 
 export interface AlertRule {

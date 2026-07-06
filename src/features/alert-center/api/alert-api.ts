@@ -1,5 +1,5 @@
 import type { Vehicle } from '@/types';
-import type { AlertFilters, AlertRule, FleetAlert, VehicleAlertItem } from '@/types/alerts';
+import type { AlertFilters, AlertRule, AlertSeverity, AlertType, FleetAlert, TimelineEvent, VehicleAlertItem } from '@/types/alerts';
 import { CARD_DASHBOARD_INDICATORS } from '@/design-system/dashboard-indicators';
 import { delay } from '@/lib/utils';
 import { generateMockAlerts } from '../mocks/mockAlerts';
@@ -9,11 +9,12 @@ import {
   generateVehicleHealth,
   getAllVehicleAlertItemsByCategory,
 } from '../mocks/mockVehicleHealth';
-import { generateTimelineForVehicle } from '../mocks/mockTimeline';
+import { generateTimelineForVehicle, alertsToTimelineEvents } from '../mocks/mockTimeline';
 import { generateFleetOverview } from '../mocks/mockFleetOverview';
 import { computeAnalytics } from '../mocks/mockAnalytics';
 import { getVehicleDepartmentId } from '../mocks/mockOrgStructure';
 import { isDocumentAlert } from '../constants/vehicle-inspector-sections';
+import { resolveCategoriesFromSections, type AlertConfigSectionId } from '../constants/alert-config-sections';
 import { fetchGeofenceRules } from './alert-config-api';
 import type { GeofenceAlertRule } from '@/types/alert-config';
 
@@ -28,6 +29,20 @@ export function initAlertStore(vehicles: Vehicle[]) {
 
 export function getAlertStore(): FleetAlert[] {
   return alertStore;
+}
+
+function getDayBounds(isoDate: string): { from: Date; to: Date } {
+  const [year, month, day] = isoDate.split('-').map(Number);
+  const from = new Date(year, month - 1, day, 0, 0, 0, 0);
+  const to = new Date(year, month - 1, day, 23, 59, 59, 999);
+  return { from, to };
+}
+
+function getDateRangeFromFilters(filters: AlertFilters): { from?: Date; to?: Date } {
+  if (filters.selectedDate) {
+    return getDayBounds(filters.selectedDate);
+  }
+  return getDateRangeFromPreset(filters);
 }
 
 function getDateRangeFromPreset(filters: AlertFilters): { from?: Date; to?: Date } {
@@ -79,7 +94,7 @@ function applyFilters(alerts: FleetAlert[], filters?: AlertFilters): FleetAlert[
     result = result.filter((a) => types.has(a.type));
   }
 
-  const { from, to } = getDateRangeFromPreset(filters);
+  const { from, to } = getDateRangeFromFilters(filters);
   if (from) {
     result = result.filter((a) => new Date(a.createdAt) >= from);
   }
@@ -161,7 +176,7 @@ export async function fetchVehicleSummaries(filters?: AlertFilters) {
     );
   }
 
-  if (filters && (filters.categories.length || filters.severities.length || filters.datePreset || filters.dashboardIndicatorIds.length)) {
+  if (filters && (filters.categories.length || filters.severities.length || filters.datePreset || filters.selectedDate || filters.dashboardIndicatorIds.length)) {
     summaries = summaries.filter((s) => vehicleIdsWithAlerts.has(s.vehicleId));
   }
 
@@ -203,6 +218,45 @@ export async function fetchFleetOverview() {
   const health = generateVehicleHealth(vehiclesRef, alertStore);
   const sosCount = alertStore.filter((a) => a.type === 'sos' && a.status === 'active').length;
   return generateFleetOverview(vehiclesRef, health, alertStore, sosCount);
+}
+
+export interface RecentAlertsFilters {
+  severities?: AlertSeverity[];
+  alertTypes?: AlertType[];
+  configSectionIds?: AlertConfigSectionId[];
+  selectedDate?: string;
+  limit?: number;
+}
+
+export async function fetchRecentAlerts(filters?: RecentAlertsFilters): Promise<TimelineEvent[]> {
+  await delay(300);
+  let result = [...alertStore];
+
+  if (filters?.severities?.length) {
+    result = result.filter((a) => filters.severities!.includes(a.severity));
+  }
+  if (filters?.alertTypes?.length) {
+    result = result.filter((a) => filters.alertTypes!.includes(a.type));
+  }
+  if (filters?.configSectionIds) {
+    if (filters.configSectionIds.length === 0) return [];
+    const allowedCategories = resolveCategoriesFromSections(filters.configSectionIds);
+    result = result.filter((a) => allowedCategories.includes(a.category));
+  }
+  if (filters?.selectedDate) {
+    const { from, to } = getDayBounds(filters.selectedDate);
+    result = result.filter((a) => {
+      const created = new Date(a.createdAt);
+      return created >= from && created <= to;
+    });
+  }
+
+  const limit = filters?.limit ?? 15;
+  result = result
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, limit);
+
+  return alertsToTimelineEvents(result);
 }
 
 export async function fetchVehicleTimeline(vehicleId: string) {

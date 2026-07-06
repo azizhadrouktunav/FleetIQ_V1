@@ -43,7 +43,7 @@ export function AlertConfigurationPage({ vehicles = [], onBack }: AlertConfigura
           />
         </aside>
         <main className="flex-1 min-w-0 min-h-0 bg-slate-50 dark:bg-slate-950">
-          <AlertConfigSectionsPanel selectedScopes={selectedScopes} />
+          <AlertConfigSectionsPanel selectedScopes={selectedScopes} vehicles={vehicles} />
         </main>
       </div>
     </div>

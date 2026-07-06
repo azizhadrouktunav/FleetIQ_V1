@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
-import type { AlertScopeRef } from '@/types/alert-config';
-import type { GeofenceAlertRule } from '@/types/alert-config';
+import type { Vehicle } from '@/types';
+import type { AlertScopeRef, GeofenceAlertRule } from '@/types/alert-config';
 import { ALERT_SCOPE_TYPE_LABELS } from '@/types/alert-config';
 import {
   useDeleteGeofenceRule,
   useGeofenceRules,
+  useOrgStructure,
   useSaveGeofenceRule,
 } from '../../hooks/useAlertQueries';
 import { Badge } from '@/components/ui/badge';
@@ -21,9 +22,22 @@ import { Switch } from './Switch';
 
 interface GeofencingAlertsSectionProps {
   selectedScopes: AlertScopeRef[];
+  vehicles: Vehicle[];
 }
 
-export function GeofencingAlertsSection({ selectedScopes }: GeofencingAlertsSectionProps) {
+function useScopeTargetLabels(vehicles: Vehicle[]) {
+  const { data: org } = useOrgStructure();
+
+  return useMemo(() => {
+    const labels = new Map<string, string>();
+    vehicles.forEach((v) => labels.set(v.id, v.name));
+    (org?.departments ?? []).forEach((d) => labels.set(d.id, d.name));
+    return labels;
+  }, [org, vehicles]);
+}
+
+export function GeofencingAlertsSection({ selectedScopes, vehicles }: GeofencingAlertsSectionProps) {
+  const scopeTargetLabels = useScopeTargetLabels(vehicles);
   const { data: rules = [], isLoading } = useGeofenceRules();
   const saveRule = useSaveGeofenceRule();
   const deleteRule = useDeleteGeofenceRule();
@@ -95,7 +109,7 @@ export function GeofencingAlertsSection({ selectedScopes }: GeofencingAlertsSect
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   Zone : {rule.zoneLabel} · {ALERT_SCOPE_TYPE_LABELS[rule.scopeType]} ·{' '}
-                  {rule.scopeIds.join(', ')}
+                  {rule.scopeIds.map((id) => scopeTargetLabels.get(id) ?? id).join(', ')}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   Sévérité : {rule.severity} ·{' '}
@@ -131,6 +145,7 @@ export function GeofencingAlertsSection({ selectedScopes }: GeofencingAlertsSect
             </DialogTitle>
           </DialogHeader>
           <GeofenceRuleForm
+            vehicles={vehicles}
             initial={editing}
             onSubmit={handleSave}
             onCancel={() => setDialogOpen(false)}

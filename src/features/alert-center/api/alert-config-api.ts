@@ -3,6 +3,7 @@ import type {
   AlertScopeConfig,
   AlertScopeRef,
   BuiltinSeverityOverride,
+  CustomSeverityLevel,
   GeofenceAlertRule,
   OrgStructure,
   SeverityNotificationPolicy,
@@ -15,6 +16,7 @@ import { MOCK_ORG_STRUCTURE } from '../mocks/mockOrgStructure';
 import { MOCK_NAMED_USERS } from '../mocks/mockNamedUsers';
 import {
   INITIAL_BUILTIN_SEVERITY_OVERRIDES,
+  INITIAL_CUSTOM_SEVERITIES,
 } from '../mocks/mockCustomSeverities';
 
 const delay = (ms = 300) => new Promise((r) => setTimeout(r, ms));
@@ -23,6 +25,7 @@ let scopeConfigsStore: AlertScopeConfig[] = [...INITIAL_SCOPE_CONFIGS];
 let geofenceRulesStore: GeofenceAlertRule[] = [...INITIAL_GEOFENCE_RULES];
 let severityPoliciesStore: SeverityNotificationPolicy[] = [...INITIAL_SEVERITY_POLICIES];
 let contactsStore: AlertNotificationContact[] = [...INITIAL_ALERT_CONTACTS];
+let customSeveritiesStore: CustomSeverityLevel[] = [...INITIAL_CUSTOM_SEVERITIES];
 let builtinOverridesStore: BuiltinSeverityOverride[] = [...INITIAL_BUILTIN_SEVERITY_OVERRIDES];
 
 export async function fetchOrgStructure(): Promise<OrgStructure> {
@@ -154,6 +157,19 @@ export async function deleteAlertContact(id: string): Promise<void> {
   contactsStore = contactsStore.filter((c) => c.id !== id);
 }
 
+export async function fetchCustomSeverities(): Promise<CustomSeverityLevel[]> {
+  await delay(200);
+  return [...customSeveritiesStore].sort((a, b) => a.order - b.order);
+}
+
+export async function saveCustomSeverities(
+  levels: CustomSeverityLevel[]
+): Promise<CustomSeverityLevel[]> {
+  await delay(300);
+  customSeveritiesStore = levels;
+  return customSeveritiesStore;
+}
+
 export async function fetchBuiltinSeverityOverrides(): Promise<BuiltinSeverityOverride[]> {
   await delay(200);
   return builtinOverridesStore;
@@ -172,5 +188,6 @@ export function resetAlertConfigStores() {
   geofenceRulesStore = [...INITIAL_GEOFENCE_RULES];
   severityPoliciesStore = [...INITIAL_SEVERITY_POLICIES];
   contactsStore = [...INITIAL_ALERT_CONTACTS];
+  customSeveritiesStore = [...INITIAL_CUSTOM_SEVERITIES];
   builtinOverridesStore = [...INITIAL_BUILTIN_SEVERITY_OVERRIDES];
 }

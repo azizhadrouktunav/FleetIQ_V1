@@ -69,11 +69,6 @@ export function generateFleetOverview(
       { vehicleName: vehicles[2]?.name ?? 'Fleet-003', dueIn: '1 semaine', type: 'Pneus' },
       { vehicleName: vehicles[5]?.name ?? 'Fleet-006', dueIn: '12 jours', type: 'Vidange' },
     ],
-    recentNotifications: [
-      { id: '1', message: 'Nouvelle alerte SOS — Fleet-004', time: 'Il y a 2 min' },
-      { id: '2', message: '3 alertes résolues automatiquement', time: 'Il y a 15 min' },
-      { id: '3', message: 'Rapport quotidien généré', time: 'Il y a 1h' },
-    ],
     topRiskVehicles: topRisk,
   };
 }

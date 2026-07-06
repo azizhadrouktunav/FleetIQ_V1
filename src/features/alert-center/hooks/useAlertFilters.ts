@@ -11,6 +11,7 @@ const DEFAULT_FILTERS: AlertFilters = {
   gpsStatuses: [],
   movementStates: [],
   datePreset: undefined,
+  selectedDate: undefined,
 };
 
 export function useAlertFilters() {
@@ -25,7 +26,6 @@ export function useAlertFilters() {
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (filters.search) count++;
-    if (filters.categories.length) count++;
     if (filters.severities.length) count++;
     if (filters.vehicleStates.length) count++;
     if (filters.dashboardIndicatorIds.length) count++;
@@ -33,6 +33,7 @@ export function useAlertFilters() {
     if (filters.gpsStatuses.length) count++;
     if (filters.movementStates.length) count++;
     if (filters.datePreset) count++;
+    if (filters.selectedDate) count++;
     return count;
   }, [filters]);
 

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { Vehicle } from '@/types';
 import type { GeofenceAlertRule } from '@/types/alert-config';
 import type { AlertSeverity } from '@/types/alerts';
 import { ALERT_SCOPE_TYPE_LABELS } from '@/types/alert-config';
@@ -7,15 +8,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ActivationModeControl } from './ActivationModeControl';
+import { ScopeTargetMultiSelect } from './ScopeTargetMultiSelect';
 import { Switch } from './Switch';
 
 interface GeofenceRuleFormProps {
+  vehicles: Vehicle[];
   initial?: GeofenceAlertRule;
   onSubmit: (rule: Omit<GeofenceAlertRule, 'id'> & { id?: string }) => void;
   onCancel: () => void;
 }
 
-export function GeofenceRuleForm({ initial, onSubmit, onCancel }: GeofenceRuleFormProps) {
+export function GeofenceRuleForm({ vehicles, initial, onSubmit, onCancel }: GeofenceRuleFormProps) {
   const [name, setName] = useState(initial?.name ?? '');
   const [zoneLabel, setZoneLabel] = useState(initial?.zoneLabel ?? MOCK_GEOFENCE_ZONES[0]);
   const [eventType, setEventType] = useState<GeofenceAlertRule['eventType']>(
@@ -26,13 +29,25 @@ export function GeofenceRuleForm({ initial, onSubmit, onCancel }: GeofenceRuleFo
   const [scopeType, setScopeType] = useState<'vehicle' | 'department'>(
     initial?.scopeType === 'department' ? 'department' : 'vehicle'
   );
-  const [scopeIds, setScopeIds] = useState(initial?.scopeIds.join(', ') ?? '');
+  const [scopeIds, setScopeIds] = useState<string[]>(initial?.scopeIds ?? []);
+  const [scopeIdsError, setScopeIdsError] = useState<string>();
   const [activationType, setActivationType] = useState(initial?.activationType ?? 'permanent');
   const [activationStart, setActivationStart] = useState(initial?.activationStart);
   const [activationEnd, setActivationEnd] = useState(initial?.activationEnd);
 
+  const handleScopeTypeChange = (next: 'vehicle' | 'department') => {
+    setScopeType(next);
+    setScopeIds([]);
+    setScopeIdsError(undefined);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (scopeIds.length === 0) {
+      setScopeIdsError('Sélectionnez au moins une cible.');
+      return;
+    }
+    setScopeIdsError(undefined);
     onSubmit({
       id: initial?.id,
       name: name || zoneLabel,
@@ -41,7 +56,7 @@ export function GeofenceRuleForm({ initial, onSubmit, onCancel }: GeofenceRuleFo
       severity,
       enabled,
       scopeType,
-      scopeIds: scopeIds.split(',').map((s) => s.trim()).filter(Boolean),
+      scopeIds,
       activationType,
       activationStart,
       activationEnd,
@@ -96,28 +111,29 @@ export function GeofenceRuleForm({ initial, onSubmit, onCancel }: GeofenceRuleFo
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1">
-          <Label>Périmètre</Label>
-          <select
-            value={scopeType}
-            onChange={(e) => setScopeType(e.target.value as 'vehicle' | 'department')}
-            className="w-full h-9 rounded-md border border-slate-200 px-2 text-sm"
-          >
-            {(['vehicle', 'department'] as const).map((t) => (
-              <option key={t} value={t}>{ALERT_SCOPE_TYPE_LABELS[t]}</option>
-            ))}
-          </select>
-        </div>
-        <div className="space-y-1">
-          <Label>IDs cibles (séparés par virgule)</Label>
-          <Input
-            value={scopeIds}
-            onChange={(e) => setScopeIds(e.target.value)}
-            placeholder="1, 2, dept-logistique"
-          />
-        </div>
+      <div className="space-y-1">
+        <Label>Périmètre</Label>
+        <select
+          value={scopeType}
+          onChange={(e) => handleScopeTypeChange(e.target.value as 'vehicle' | 'department')}
+          className="w-full h-9 rounded-md border border-slate-200 px-2 text-sm"
+        >
+          {(['vehicle', 'department'] as const).map((t) => (
+            <option key={t} value={t}>{ALERT_SCOPE_TYPE_LABELS[t]}</option>
+          ))}
+        </select>
       </div>
+
+      <ScopeTargetMultiSelect
+        scopeType={scopeType}
+        value={scopeIds}
+        onChange={(ids) => {
+          setScopeIds(ids);
+          if (ids.length > 0) setScopeIdsError(undefined);
+        }}
+        vehicles={vehicles}
+        error={scopeIdsError}
+      />
 
       <div className="flex items-center gap-2">
         <Switch checked={enabled} onCheckedChange={setEnabled} />

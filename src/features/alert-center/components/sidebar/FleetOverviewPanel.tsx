@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Wrench, Bell, AlertTriangle } from 'lucide-react';
+import { Wrench, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -14,14 +14,16 @@ import {
   FleetStatusListDialog,
   type FleetStatusDialogVariant,
 } from './FleetStatusListDialog';
+import { RecentAlertsTimelineSection } from './RecentAlertsTimelineSection';
 
 interface FleetOverviewPanelProps {
   data?: FleetOverviewData;
   isLoading?: boolean;
+  selectedDate?: string;
   onVehicleClick?: (vehicleId: string) => void;
 }
 
-export function FleetOverviewPanel({ data, isLoading, onVehicleClick }: FleetOverviewPanelProps) {
+export function FleetOverviewPanel({ data, isLoading, selectedDate, onVehicleClick }: FleetOverviewPanelProps) {
   const [dialogVariant, setDialogVariant] = useState<FleetStatusDialogVariant | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -126,21 +128,7 @@ export function FleetOverviewPanel({ data, isLoading, onVehicleClick }: FleetOve
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Bell className="w-4 h-4" /> Notifications récentes
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {data.recentNotifications.map((n) => (
-              <div key={n.id} className="text-sm">
-                <p className="text-slate-700">{n.message}</p>
-                <p className="text-xs text-muted-foreground">{n.time}</p>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+        <RecentAlertsTimelineSection selectedDate={selectedDate} onVehicleClick={onVehicleClick} />
 
         <Card>
           <CardHeader className="pb-2">

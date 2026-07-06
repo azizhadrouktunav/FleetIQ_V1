@@ -13,9 +13,17 @@ interface EventTimelineProps {
   events?: TimelineEvent[];
   isLoading?: boolean;
   initialLimit?: number;
+  onEventClick?: (event: TimelineEvent) => void;
+  emptyMessage?: string;
 }
 
-export function EventTimeline({ events, isLoading, initialLimit }: EventTimelineProps) {
+export function EventTimeline({
+  events,
+  isLoading,
+  initialLimit,
+  onEventClick,
+  emptyMessage = "Aucun événement dans l'historique",
+}: EventTimelineProps) {
   const [expanded, setExpanded] = useState(false);
 
   if (isLoading) {
@@ -29,7 +37,7 @@ export function EventTimeline({ events, isLoading, initialLimit }: EventTimeline
   }
 
   if (!events?.length) {
-    return <p className="text-sm text-muted-foreground p-4">Aucun événement dans l&apos;historique</p>;
+    return <p className="text-sm text-muted-foreground p-4">{emptyMessage}</p>;
   }
 
   const hasLimit = initialLimit != null && initialLimit > 0;
@@ -56,6 +64,27 @@ export function EventTimeline({ events, isLoading, initialLimit }: EventTimeline
               {dayEvents.map((event, idx) => {
                 const config = getSeverityConfig(event.severity);
                 const isLast = idx === dayEvents.length - 1;
+                const isClickable = Boolean(onEventClick && event.vehicleId);
+                const content = (
+                  <>
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <span className="text-xs font-mono font-semibold text-slate-700">{event.time}</span>
+                      <AlertTypeIcon alertType={event.type} severity={event.severity} size="sm" />
+                      <Badge variant={event.severity === 'critical' ? 'critical' : event.severity === 'warning' ? 'high' : 'info'} className="text-[10px] h-5">
+                        {event.severity === 'critical' ? 'Critique' : event.severity === 'warning' ? 'Avertissement' : 'Info'}
+                      </Badge>
+                    </div>
+                    <p className="text-sm font-medium text-slate-800">{event.label}</p>
+                    {event.vehicleName && (
+                      <p className="text-xs font-medium text-slate-600 mt-0.5">{event.vehicleName}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-0.5">{event.description}</p>
+                    {event.notifiedUser && (
+                      <p className="text-[10px] text-slate-400 mt-1">Notifié : {event.notifiedUser}</p>
+                    )}
+                  </>
+                );
+
                 return (
                   <div key={event.id} className="relative pb-6">
                     <div
@@ -67,20 +96,17 @@ export function EventTimeline({ events, isLoading, initialLimit }: EventTimeline
                     {!isLast && (
                       <div className="absolute left-[-7px] top-3 text-slate-300 text-[10px]">↓</div>
                     )}
-                    <div className="flex-1 min-w-0 ml-1">
-                      <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <span className="text-xs font-mono font-semibold text-slate-700">{event.time}</span>
-                        <AlertTypeIcon alertType={event.type} severity={event.severity} size="sm" />
-                        <Badge variant={event.severity === 'critical' ? 'critical' : event.severity === 'warning' ? 'high' : 'info'} className="text-[10px] h-5">
-                          {event.severity === 'critical' ? 'Critique' : event.severity === 'warning' ? 'Avertissement' : 'Info'}
-                        </Badge>
-                      </div>
-                      <p className="text-sm font-medium text-slate-800">{event.label}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{event.description}</p>
-                      {event.notifiedUser && (
-                        <p className="text-[10px] text-slate-400 mt-1">Notifié : {event.notifiedUser}</p>
-                      )}
-                    </div>
+                    {isClickable ? (
+                      <button
+                        type="button"
+                        onClick={() => onEventClick?.(event)}
+                        className="flex-1 min-w-0 ml-1 text-left rounded-md p-1 -m-1 hover:bg-slate-50 transition-colors"
+                      >
+                        {content}
+                      </button>
+                    ) : (
+                      <div className="flex-1 min-w-0 ml-1">{content}</div>
+                    )}
                   </div>
                 );
               })}

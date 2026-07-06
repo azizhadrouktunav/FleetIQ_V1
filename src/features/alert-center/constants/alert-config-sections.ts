@@ -43,6 +43,8 @@ export const ALERT_CONFIG_SECTIONS: AlertConfigSection[] = [
   },
 ];
 
+export const ALL_CONFIG_SECTION_IDS: AlertConfigSectionId[] = ALERT_CONFIG_SECTIONS.map((s) => s.id);
+
 export function getAlertTypesForSection(sectionId: AlertConfigSectionId): AlertType[] {
   if (sectionId === 'vehicle_management') {
     return getFleetParcAlertTypes();
@@ -68,4 +70,13 @@ export function getSectionForCategory(category: AlertCategory): AlertConfigSecti
   if (category === 'vehicle_management') return 'vehicle_management';
   if (category === 'geolocation') return 'geolocation';
   return 'security';
+}
+
+export function resolveCategoriesFromSections(sectionIds: AlertConfigSectionId[]): AlertCategory[] {
+  const categories = new Set<AlertCategory>();
+  for (const sectionId of sectionIds) {
+    const section = ALERT_CONFIG_SECTIONS.find((s) => s.id === sectionId);
+    section?.categories.forEach((category) => categories.add(category));
+  }
+  return [...categories];
 }

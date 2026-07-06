@@ -10,6 +10,7 @@ export const alertFiltersSchema = z.object({
   gpsStatuses: z.array(z.enum(['online', 'offline', 'lost'])),
   movementStates: z.array(z.enum(['moving', 'stopped'])),
   datePreset: z.enum(['today', '24h', '7d']).optional(),
+  selectedDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
 
 export const createAlertRuleSchema = z.object({

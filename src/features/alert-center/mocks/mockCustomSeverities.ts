@@ -1,4 +1,6 @@
-import type { BuiltinSeverityOverride } from '@/types/alert-config';
+import type { BuiltinSeverityOverride, CustomSeverityLevel } from '@/types/alert-config';
+
+export const INITIAL_CUSTOM_SEVERITIES: CustomSeverityLevel[] = [];
 
 export const INITIAL_BUILTIN_SEVERITY_OVERRIDES: BuiltinSeverityOverride[] = [];
 

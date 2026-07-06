@@ -22,6 +22,8 @@ const defaultFilters: AlertFilters = {
   departmentIds: [],
   gpsStatuses: [],
   movementStates: [],
+  datePreset: undefined,
+  selectedDate: undefined,
 };
 
 export function AlertCenterProvider({ children }: { children: ReactNode }) {

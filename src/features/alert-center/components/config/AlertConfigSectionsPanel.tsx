@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import type { Vehicle } from '@/types';
 import type { AlertScopeRef } from '@/types/alert-config';
 import type { AlertType } from '@/types/alerts';
 import { ALERT_CONFIG_SECTIONS, getAlertTypesForSection } from '../../constants/alert-config-sections';
@@ -14,11 +15,12 @@ import { ChevronDown } from 'lucide-react';
 
 interface AlertConfigSectionsPanelProps {
   selectedScopes: AlertScopeRef[];
+  vehicles: Vehicle[];
 }
 
 type PanelTab = 'alerts' | 'severity';
 
-export function AlertConfigSectionsPanel({ selectedScopes }: AlertConfigSectionsPanelProps) {
+export function AlertConfigSectionsPanel({ selectedScopes, vehicles }: AlertConfigSectionsPanelProps) {
   const { data: configs = [] } = useScopeConfigs();
   const [activeTab, setActiveTab] = useState<PanelTab>('alerts');
   const [openSections, setOpenSections] = useState<Set<string>>(
@@ -138,7 +140,7 @@ export function AlertConfigSectionsPanel({ selectedScopes }: AlertConfigSections
                         />
                       )}
                       {section.id === 'geolocation' && (
-                        <GeofencingAlertsSection selectedScopes={selectedScopes} />
+                        <GeofencingAlertsSection selectedScopes={selectedScopes} vehicles={vehicles} />
                       )}
                       {section.id === 'security' && (
                         <SecurityAlertsSection

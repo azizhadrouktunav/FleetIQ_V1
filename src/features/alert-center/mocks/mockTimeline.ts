@@ -35,6 +35,8 @@ export function alertsToTimelineEvents(alerts: FleetAlert[]): TimelineEvent[] {
         category: alert.category,
         notifiedUser: alert.notifiedUser,
         coordinates: alert.coordinates,
+        vehicleId: alert.vehicleId,
+        vehicleName: alert.vehicleName,
       };
     });
 }

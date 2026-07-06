@@ -20,6 +20,9 @@ export function SeveritySelect({ value, disabled, onChange, className }: Severit
     );
   }
 
+  const builtins = options.filter((o) => !o.isCustom);
+  const customs = options.filter((o) => o.isCustom);
+
   return (
     <select
       value={value}
@@ -27,11 +30,20 @@ export function SeveritySelect({ value, disabled, onChange, className }: Severit
       onChange={(e) => onChange(e.target.value)}
       className={cn('mt-1 w-full h-8 text-xs rounded-md border border-slate-200 bg-white px-2', className)}
     >
-      {options.map((opt) => (
+      {builtins.map((opt) => (
         <option key={opt.id} value={opt.id}>
           {opt.label}
         </option>
       ))}
+      {customs.length > 0 && (
+        <optgroup label="Niveaux personnalisés">
+          {customs.map((opt) => (
+            <option key={opt.id} value={opt.id}>
+              {opt.label}
+            </option>
+          ))}
+        </optgroup>
+      )}
     </select>
   );
 }
