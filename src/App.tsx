@@ -9,7 +9,7 @@ import { ParcContent } from './components/ParcContent';
 import { Vehicle, VehicleStatus } from './types';
 import { VehicleListPanel } from './components/VehicleListPanel';
 import { AlertsContent } from './components/AlertsContent';
-import { AIChatPanel } from './components/AIChatPanel';
+import { AIFleetDashboard } from './components/AIFleetDashboard';
 import { MessageSquare } from 'lucide-react';
 import { SuivieFilterBar, SuivieAction } from './components/SuivieFilterBar';
 import { SuivieGeneraleTable } from './components/SuivieGeneraleTable';
@@ -393,9 +393,10 @@ export function App() {
           }
 
             {/* AI Chat Panel */}
-            <AIChatPanel
-            isOpen={isAIChatOpen}
-            onClose={() => setIsAIChatOpen(false)} />
+            <AIFleetDashboard
+              isOpen={isAIChatOpen}
+              onClose={() => setIsAIChatOpen(false)}
+            />
           
           </>
         }
