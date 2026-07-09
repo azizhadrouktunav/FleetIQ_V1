@@ -447,6 +447,8 @@ export function AIFleetDashboard({ isOpen, onClose }: AIFleetDashboardProps) {
                           ))}
                         </Pie>
                         <Tooltip
+                          position={{ x: 18, y: -36 }}
+                          wrapperStyle={{ zIndex: 30, pointerEvents: 'none' }}
                           contentStyle={{
                             background: '#ffffff',
                             border: '1px solid #e2e8f0',
