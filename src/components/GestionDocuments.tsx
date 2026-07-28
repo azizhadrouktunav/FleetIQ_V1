@@ -14,6 +14,7 @@ import {
 'lucide-react';
 import { TableFooter } from './TableFooter';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ModalHeader } from '@/components/ui/modal-header';
 // --- Types ---
 type DocumentData = {
   id: number;
@@ -180,18 +181,7 @@ function AddDocumentModal({
           onClick={(e) => e.stopPropagation()}
           className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col">
           
-          {/* Header */}
-          <div className="px-6 py-4 bg-sky-500 flex items-center justify-between">
-            <h2 className="text-xl font-bold text-white">
-              Ajouter un document
-            </h2>
-            <button
-              onClick={onClose}
-              className="p-1 hover:bg-white/20 rounded-full transition-colors text-white">
-              
-              <X className="w-6 h-6" />
-            </button>
-          </div>
+          <ModalHeader title="Ajouter un document" onClose={onClose} />
 
           {/* Body */}
           <div className="p-6 space-y-5">
@@ -322,16 +312,7 @@ function EditDocumentModal({
           onClick={(e) => e.stopPropagation()}
           className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col">
           
-          {/* Header */}
-          <div className="px-6 py-4 bg-sky-500 flex items-center justify-between">
-            <h2 className="text-xl font-bold text-white">Modifier document</h2>
-            <button
-              onClick={onClose}
-              className="p-1 hover:bg-white/20 rounded-full transition-colors text-white">
-              
-              <X className="w-6 h-6" />
-            </button>
-          </div>
+          <ModalHeader title="Modifier document" onClose={onClose} />
 
           {/* Body */}
           <div className="p-6 space-y-5">
@@ -476,22 +457,11 @@ function HistoryModal({
           onClick={(e) => e.stopPropagation()}
           className="bg-white rounded-xl shadow-2xl w-full max-w-6xl overflow-hidden flex flex-col max-h-[90vh]">
           
-          <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-white">
-            <div>
-              <h2 className="text-xl font-bold text-slate-800">
-                Historique du document
-              </h2>
-              <p className="text-sm font-medium text-slate-500 mt-1">
-                Type: <span className="text-blue-600">{documentType}</span>
-              </p>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-slate-100 rounded-full transition-colors">
-              
-              <X className="w-6 h-6 text-slate-500" />
-            </button>
-          </div>
+          <ModalHeader
+            title="Historique du document"
+            subtitle={`Type: ${documentType}`}
+            onClose={onClose}
+          />
 
           <div className="flex-1 overflow-auto">
             <table className="w-full text-left border-collapse whitespace-nowrap">

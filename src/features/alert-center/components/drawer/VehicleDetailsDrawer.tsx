@@ -52,7 +52,7 @@ export function VehicleDetailsDrawer({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
+      <SheetContent className="w-full sm:max-w-xl overflow-y-auto p-0">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <Truck className="w-5 h-5" />
@@ -63,7 +63,7 @@ export function VehicleDetailsDrawer({
           </SheetDescription>
         </SheetHeader>
 
-        <div className="mt-6 space-y-4">
+        <div className="p-6 space-y-4">
           <div className="flex flex-wrap gap-2">
             <Badge variant={vehicle.status === 'active' ? 'success' : 'outline'}>
               {vehicle.status === 'active' ? 'En ligne' : vehicle.status}

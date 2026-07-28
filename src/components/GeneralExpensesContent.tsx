@@ -4,7 +4,6 @@ import {
   ChevronDown,
   PieChart as PieChartIcon,
   BarChart as BarChartIcon,
-  X,
   Eye,
   CheckIcon,
   FileTextIcon } from
@@ -25,6 +24,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { DateTimePicker } from './DateTimePicker';
 import { TableFooter } from './TableFooter';
+import { ModalHeader } from '@/components/ui/modal-header';
 // --- Types ---
 type FilterType = 'Véhicule' | 'Catégorie' | 'Article' | 'Département';
 type SubRubrique =
@@ -379,18 +379,7 @@ function ExpenseLinesModal({
           onClick={(e) => e.stopPropagation()}
           className="bg-white rounded-xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col max-h-[90vh]">
           
-          <div className="bg-[#0ea5e9] px-6 py-4 flex items-center justify-between flex-shrink-0">
-            <div>
-              <h2 className="text-xl font-bold text-white">{title}</h2>
-              <p className="text-sm text-sky-100 mt-1">{subtitle}</p>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-1.5 hover:bg-white/20 rounded-lg transition-colors">
-              
-              <X className="w-5 h-5 text-white" />
-            </button>
-          </div>
+          <ModalHeader title={title} subtitle={subtitle} onClose={onClose} />
 
           <div className="flex-1 overflow-auto">
             <table className="w-full text-left border-collapse">
@@ -521,18 +510,7 @@ function DrillDownModal({
           onClick={(e) => e.stopPropagation()}
           className="bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]">
           
-          <div className="bg-[#0ea5e9] px-6 py-4 flex items-center justify-between flex-shrink-0">
-            <div>
-              <h2 className="text-xl font-bold text-white">{title}</h2>
-              <p className="text-sm text-sky-100 mt-1">{subtitle}</p>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-1.5 hover:bg-white/20 rounded-lg transition-colors">
-              
-              <X className="w-5 h-5 text-white" />
-            </button>
-          </div>
+          <ModalHeader title={title} subtitle={subtitle} onClose={onClose} />
 
           <div className="flex-1 overflow-auto">
             <table className="w-full text-left border-collapse">

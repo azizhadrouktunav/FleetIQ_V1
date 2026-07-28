@@ -27,6 +27,7 @@ import {
   Table } from
 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ModalHeader } from '@/components/ui/modal-header';
 import { TableFooter } from './TableFooter';
 // --- Types ---
 type CouponType = 'Carte de remplissage' | 'Carnet de remplissage';
@@ -372,18 +373,11 @@ function AlimentationModal({
           onClick={(e) => e.stopPropagation()}
           className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
           
-          <div className="bg-[#0ea5e9] px-6 py-4 flex items-center justify-between">
-            <h2 className="text-xl font-bold text-white flex items-center gap-2">
-              <DollarSign className="w-5 h-5" />
-              Nouvelle alimentation
-            </h2>
-            <button
-              onClick={onClose}
-              className="p-1.5 hover:bg-white/20 rounded-lg transition-colors">
-              
-              <X className="w-5 h-5 text-white" />
-            </button>
-          </div>
+          <ModalHeader
+            title="Nouvelle alimentation"
+            icon={<DollarSign className="w-5 h-5 text-primary-foreground shrink-0" />}
+            onClose={onClose}
+          />
 
           <form onSubmit={handleSubmit} className="p-6 space-y-5">
             <div className="bg-sky-50 p-4 rounded-lg border border-sky-100">
@@ -605,38 +599,26 @@ function AddEditCouponModal({
           onClick={(e) => e.stopPropagation()}
           className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
           
-          {/* Header */}
-          <div className="bg-[#0ea5e9] px-6 py-4 flex items-center justify-between flex-shrink-0">
-            <div>
-              <h2 className="text-xl font-bold text-white">
-                {isEdit ? 'Modifier le coupon' : 'Ajouter un coupon'}
-              </h2>
-              {!isEdit &&
+          <ModalHeader
+            title={isEdit ? 'Modifier le coupon' : 'Ajouter un coupon'}
+            onClose={onClose}
+          >
+            {!isEdit && (
               <div className="flex items-center gap-2 mt-1">
-                  <div
-                  className={`h-1.5 w-8 rounded-full ${step >= 1 ? 'bg-white' : 'bg-white/30'}`} />
-                
-                  <div
-                  className={`h-1.5 w-8 rounded-full ${step >= 2 ? 'bg-white' : 'bg-white/30'}`} />
-                
-                  {type === 'Carte de remplissage' &&
                 <div
-                  className={`h-1.5 w-8 rounded-full ${step >= 3 ? 'bg-white' : 'bg-white/30'}`} />
-
-                }
-                  <span className="text-xs text-white/80 ml-2 font-medium">
-                    Étape {step} sur {type === 'Carte de remplissage' ? 3 : 2}
-                  </span>
-                </div>
-              }
-            </div>
-            <button
-              onClick={onClose}
-              className="p-1.5 hover:bg-white/20 rounded-lg transition-colors">
-              
-              <X className="w-5 h-5 text-white" />
-            </button>
-          </div>
+                  className={`h-1.5 w-8 rounded-full ${step >= 1 ? 'bg-white' : 'bg-white/30'}`} />
+                <div
+                  className={`h-1.5 w-8 rounded-full ${step >= 2 ? 'bg-white' : 'bg-white/30'}`} />
+                {type === 'Carte de remplissage' && (
+                  <div
+                    className={`h-1.5 w-8 rounded-full ${step >= 3 ? 'bg-white' : 'bg-white/30'}`} />
+                )}
+                <span className="text-xs text-primary-foreground/80 ml-2 font-medium">
+                  Étape {step} sur {type === 'Carte de remplissage' ? 3 : 2}
+                </span>
+              </div>
+            )}
+          </ModalHeader>
 
           {/* Form Content */}
           <div className="p-6 overflow-y-auto flex-1">
@@ -1005,14 +987,13 @@ function DeleteConfirmationModal({
             y: 20
           }}
           onClick={(e) => e.stopPropagation()}
-          className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden p-6 text-center">
+          className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
           
+          <ModalHeader title="Supprimer le coupon ?" onClose={onClose} />
+          <div className="p-6 text-center">
           <div className="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <AlertTriangle className="w-8 h-8 text-rose-500" />
           </div>
-          <h2 className="text-xl font-bold text-slate-800 mb-2">
-            Supprimer le coupon ?
-          </h2>
           <p className="text-slate-500 mb-6">
             Êtes-vous sûr de vouloir supprimer le coupon{' '}
             <span className="font-bold text-slate-700">{couponRef}</span> ?
@@ -1034,6 +1015,7 @@ function DeleteConfirmationModal({
               
               Supprimer
             </button>
+          </div>
           </div>
         </motion.div>
       </motion.div>
@@ -1115,15 +1097,10 @@ function AssignCouponModal({
           onClick={(e) => e.stopPropagation()}
           className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col">
           
-          <div className="bg-[#0ea5e9] px-6 py-4 flex items-center justify-between">
-            <h2 className="text-xl font-bold text-white">Affecter un solde</h2>
-            <button
-              onClick={onClose}
-              className="p-1.5 hover:bg-white/20 rounded-lg transition-colors">
-              
-              <X className="w-5 h-5 text-white" />
-            </button>
-          </div>
+          <ModalHeader
+            title="Affecter un solde"
+            onClose={onClose}
+          />
 
           <form onSubmit={handleSubmit} className="p-6 space-y-5">
             <div className="bg-sky-50 p-4 rounded-lg border border-sky-100 mb-2">
@@ -1271,18 +1248,11 @@ function EditAssignmentModal({
           onClick={(e) => e.stopPropagation()}
           className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
           
-          <div className="bg-[#0ea5e9] px-6 py-4 flex items-center justify-between">
-            <h2 className="text-xl font-bold text-white flex items-center gap-2">
-              <Edit className="w-5 h-5" />
-              Modifier l'affectation
-            </h2>
-            <button
-              onClick={onClose}
-              className="p-1.5 hover:bg-white/20 rounded-lg transition-colors">
-              
-              <X className="w-5 h-5 text-white" />
-            </button>
-          </div>
+          <ModalHeader
+            title="Modifier l'affectation"
+            icon={<Edit className="w-5 h-5 text-primary-foreground shrink-0" />}
+            onClose={onClose}
+          />
 
           <form onSubmit={handleSubmit} className="p-6 space-y-5">
             {/* Read-only info */}
@@ -1404,32 +1374,22 @@ function CarnetSummaryModal({
           onClick={(e) => e.stopPropagation()}
           className="bg-white rounded-xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col max-h-[90vh]">
           
-          <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between flex-shrink-0">
-            <div>
-              <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                <Ticket className="w-5 h-5 text-[#0ea5e9]" />
-                Carnet: {coupon.reference}
-              </h2>
-            </div>
-            <div className="flex items-center gap-4">
+          <ModalHeader
+            title={`Carnet: ${coupon.reference}`}
+            icon={<Ticket className="w-5 h-5 text-primary-foreground shrink-0" />}
+            onClose={onClose}
+            actions={
               <button
                 onClick={onAssignBons}
                 disabled={coupon.bonsRestants === 0}
-                className="flex items-center gap-2 px-4 py-2 bg-[#0ea5e9] hover:bg-sky-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-lg text-sm font-bold transition-colors shadow-sm">
-                
+                className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 disabled:bg-white/10 disabled:cursor-not-allowed text-primary-foreground rounded-lg text-sm font-bold transition-colors">
                 <Droplet className="w-4 h-4" />
                 Affecter des bons
               </button>
-              <button
-                onClick={onClose}
-                className="p-2 hover:bg-slate-100 rounded-full transition-colors">
-                
-                <X className="w-6 h-6 text-slate-500" />
-              </button>
-            </div>
-          </div>
+            }
+          />
 
-          <div className="flex-1 overflow-auto p-6 space-y-6">
+          <div className="flex-1 overflow-auto px-4 py-4 space-y-6">
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="bg-slate-50 rounded-xl border border-slate-200 p-4">
@@ -1697,15 +1657,10 @@ function CarnetAssignModal({
           onClick={(e) => e.stopPropagation()}
           className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col">
           
-          <div className="bg-[#0ea5e9] px-6 py-4 flex items-center justify-between">
-            <h2 className="text-xl font-bold text-white">Affecter des bons</h2>
-            <button
-              onClick={onClose}
-              className="p-1.5 hover:bg-white/20 rounded-lg transition-colors">
-              
-              <X className="w-5 h-5 text-white" />
-            </button>
-          </div>
+          <ModalHeader
+            title="Affecter des bons"
+            onClose={onClose}
+          />
 
           <form onSubmit={handleSubmit} className="p-6 space-y-5">
             <div className="bg-sky-50 p-4 rounded-lg border border-sky-100 mb-2">
@@ -1853,23 +1808,11 @@ function HistoryModal({
           onClick={(e) => e.stopPropagation()}
           className="bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]">
           
-          <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-white">
-            <div>
-              <h2 className="text-xl font-bold text-slate-800">
-                Historique d'affectation
-              </h2>
-              <p className="text-sm font-medium text-slate-500 mt-1">
-                Référence:{' '}
-                <span className="text-[#0ea5e9]">{coupon.reference}</span>
-              </p>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-slate-100 rounded-full transition-colors">
-              
-              <X className="w-6 h-6 text-slate-500" />
-            </button>
-          </div>
+          <ModalHeader
+            title="Historique d'affectation"
+            subtitle={`Référence: ${coupon.reference}`}
+            onClose={onClose}
+          />
 
           <div className="flex-1 overflow-auto">
             <table className="w-full text-left border-collapse whitespace-nowrap">
@@ -2071,24 +2014,14 @@ function CarteSummaryModal({
           onClick={(e) => e.stopPropagation()}
           className="bg-white rounded-xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col max-h-[90vh]">
           
-          {/* Header */}
-          <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between flex-shrink-0">
-            <div>
-              <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                <CreditCard className="w-5 h-5 text-[#0ea5e9]" />
-                Carte: {coupon.reference}
-              </h2>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-slate-100 rounded-full transition-colors">
-              
-              <X className="w-6 h-6 text-slate-500" />
-            </button>
-          </div>
+          <ModalHeader
+            title={`Carte: ${coupon.reference}`}
+            icon={<CreditCard className="w-5 h-5 text-primary-foreground shrink-0" />}
+            onClose={onClose}
+          />
 
           {/* Tabs */}
-          <div className="bg-white border-b border-slate-200 px-6 flex-shrink-0">
+          <div className="bg-white border-b border-slate-200 px-4 flex-shrink-0">
             <div className="flex gap-6">
               {[
               {
@@ -2120,7 +2053,7 @@ function CarteSummaryModal({
           </div>
 
           {/* Content */}
-          <div className="flex-1 overflow-auto p-6 bg-slate-50">
+          <div className="flex-1 overflow-auto px-4 py-4 bg-slate-50">
             <AnimatePresence mode="wait">
               {activeTab === 'statistiques' &&
               <motion.div

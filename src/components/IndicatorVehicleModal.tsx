@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, MapPin, Navigation, Search, ChevronRight } from 'lucide-react';
+import { MapPin, Navigation, Search, ChevronRight } from 'lucide-react';
 import { Vehicle } from '../types';
+import { ModalHeader } from '@/components/ui/modal-header';
 interface IndicatorVehicle {
   vehicleId: string;
   vehicleName: string;
@@ -68,34 +69,21 @@ export function IndicatorVehicleModal({
           onClick={(e) => e.stopPropagation()}
           className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[80vh] overflow-hidden flex flex-col">
           
-          {/* Header */}
-          <div className="bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-5 border-b border-blue-400">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <h2 className="text-2xl font-bold text-white mb-1">{title}</h2>
-                <p className="text-sm text-blue-100">{description}</p>
-                <div className="mt-3 flex items-center gap-4">
-                  <span className="text-xs font-semibold bg-white/20 px-3 py-1 rounded-full text-white">
-                    {vehicles.length} véhicule{vehicles.length > 1 ? 's' : ''}
-                  </span>
-                  {valueLabel &&
-                  <span className="text-xs text-blue-100">
-                      Cliquez sur un véhicule pour voir sa position
-                    </span>
-                  }
-                </div>
-              </div>
-              <button
-                onClick={onClose}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors">
-                
-                <X className="w-6 h-6 text-white" />
-              </button>
+          <ModalHeader title={title} subtitle={description} onClose={onClose}>
+            <div className="mt-3 flex items-center gap-4">
+              <span className="text-xs font-semibold bg-white/20 px-3 py-1 rounded-full text-primary-foreground">
+                {vehicles.length} véhicule{vehicles.length > 1 ? 's' : ''}
+              </span>
+              {valueLabel && (
+                <span className="text-xs text-primary-foreground/80">
+                  Cliquez sur un véhicule pour voir sa position
+                </span>
+              )}
             </div>
-          </div>
+          </ModalHeader>
 
           {/* Search Bar */}
-          <div className="px-6 py-4 border-b border-slate-200 bg-slate-50">
+          <div className="py-4 px-6 border-b border-slate-200 bg-slate-50">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
               <input
@@ -109,7 +97,7 @@ export function IndicatorVehicleModal({
           </div>
 
           {/* Vehicle List */}
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="flex-1 overflow-y-auto py-4 px-4">
             {filteredVehicles.length === 0 ?
             <div className="text-center py-12">
                 <MapPin className="w-16 h-16 text-slate-300 mx-auto mb-4" />

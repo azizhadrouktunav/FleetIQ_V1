@@ -7,7 +7,6 @@ import {
   Bell,
   Plus,
   Search,
-  X,
   ChevronLeft,
   ChevronRight,
   Car,
@@ -25,6 +24,7 @@ import { MOCK_DRIVERS } from '@/features/alert-center/mocks/mockNamedUsers';
 import { getAlertTypeLabel } from '@/features/alert-center/constants/alert-taxonomy';
 import { getAlertTypesForSection } from '@/features/alert-center/constants/alert-config-sections';
 import type { AlertType } from '@/types/alerts';
+import { ModalHeader } from '@/components/ui/modal-header';
 
 const MOCK_VEHICLES = [
   { id: '1', matricule: '8125 TU 226 Skander Elj' },
@@ -306,15 +306,10 @@ export function AlertMailSmsContent() {
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
-            <div className="bg-blue-500 px-6 py-4 flex items-center justify-between">
-              <h2 className="text-lg font-medium text-white">
-                {modalMode === 'add' ? 'Ajouter' : 'Modifier'}{' '}
-                {activeTab === 'email' ? 'une adresse mail' : 'un numéro portable'}
-              </h2>
-              <button onClick={handleCloseModal} className="text-white/80 hover:text-white">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+            <ModalHeader
+              title={`${modalMode === 'add' ? 'Ajouter' : 'Modifier'} ${activeTab === 'email' ? 'une adresse mail' : 'un numéro portable'}`}
+              onClose={handleCloseModal}
+            />
             <div className="p-6 space-y-4">
               <div>
                 <label className="text-xs font-medium text-gray-500 uppercase mb-1 block">Chauffeur (optionnel)</label>
@@ -372,17 +367,11 @@ export function AlertMailSmsContent() {
               exit={{ scale: 0.95, opacity: 0 }}
               className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col"
             >
-              <div className="bg-blue-500 px-6 py-4 flex items-center justify-between shrink-0">
-                <div>
-                  <h2 className="text-lg font-medium text-white">Configuration des alertes</h2>
-                  <p className="text-sm text-blue-100">
-                    {selectedContactForAlerts.name}
-                  </p>
-                </div>
-                <button onClick={() => setIsAlertConfigOpen(false)} className="text-white/80 hover:text-white">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
+              <ModalHeader
+                title="Configuration des alertes"
+                subtitle={selectedContactForAlerts.name}
+                onClose={() => setIsAlertConfigOpen(false)}
+              />
 
               <div className="p-6 overflow-y-auto flex-1 space-y-4">
                 <div className="relative" ref={dropdownRef}>

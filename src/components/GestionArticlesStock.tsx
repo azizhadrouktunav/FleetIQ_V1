@@ -12,6 +12,7 @@ import {
   ArrowUpDown } from
 'lucide-react';
 import { TableFooter } from './TableFooter';
+import { ModalHeader } from '@/components/ui/modal-header';
 interface Article {
   id: string;
   modele: string;
@@ -531,25 +532,14 @@ export function GestionArticlesStock() {
         onClick={() => setShowModal(false)}>
         
           <div
-          className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden"
+          className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col"
           onClick={(e) => e.stopPropagation()}>
           
-            <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 bg-white/20 rounded-lg flex items-center justify-center">
-                  <Package className="w-5 h-5 text-white" />
-                </div>
-                <h2 className="text-lg font-bold text-white">
-                  {editingArticle ? "Modifier l'article" : 'Nouvel article'}
-                </h2>
-              </div>
-              <button
-              onClick={() => setShowModal(false)}
-              className="p-2 hover:bg-white/20 rounded-lg transition-colors">
-              
-                <X className="w-5 h-5 text-white" />
-              </button>
-            </div>
+            <ModalHeader
+              title={editingArticle ? "Modifier l'article" : 'Nouvel article'}
+              icon={<Package className="w-5 h-5 text-primary-foreground shrink-0" />}
+              onClose={() => setShowModal(false)}
+            />
 
             <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
               <div className="grid grid-cols-2 gap-4">
@@ -694,15 +684,17 @@ export function GestionArticlesStock() {
         onClick={() => setDeleteConfirm(null)}>
         
           <div
-          className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6"
+          className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden"
           onClick={(e) => e.stopPropagation()}>
           
+            <ModalHeader
+              title="Supprimer l'article"
+              onClose={() => setDeleteConfirm(null)}
+            />
+            <div className="p-6 text-center">
             <div className="w-14 h-14 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Trash2 className="w-7 h-7 text-rose-600" />
             </div>
-            <h3 className="text-lg font-bold text-slate-800 text-center mb-2">
-              Supprimer l'article
-            </h3>
             <p className="text-sm text-slate-500 text-center mb-6">
               Cette action est irréversible. Voulez-vous vraiment supprimer cet
               article ?
@@ -722,6 +714,7 @@ export function GestionArticlesStock() {
               </button>
             </div>
           </div>
+        </div>
         </div>
       }
     </div>);

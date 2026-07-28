@@ -52,7 +52,7 @@ export function FleetStatusListDialog({
           <DialogTitle>{TITLES[variant]}</DialogTitle>
           <DialogDescription>{DESCRIPTIONS[variant]}</DialogDescription>
         </DialogHeader>
-        <ScrollArea className="max-h-[min(60vh,400px)] -mx-1 px-1">
+        <ScrollArea className="max-h-[min(60vh,400px)] px-6 py-4">
           {vehicles.length === 0 ? (
             <p className="text-sm text-muted-foreground py-6 text-center">
               Aucun véhicule dans cette catégorie

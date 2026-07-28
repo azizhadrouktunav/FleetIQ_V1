@@ -19,6 +19,7 @@ import {
 'lucide-react';
 import { TableFooter } from './TableFooter';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ModalHeader } from '@/components/ui/modal-header';
 // --- Types ---
 type AxleConfig = {
   id: number;
@@ -384,18 +385,10 @@ function AddEditTireModal({
           onClick={(e) => e.stopPropagation()}
           className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
           
-          {/* Header */}
-          <div className="bg-[#0ea5e9] px-6 py-4 flex items-center justify-between flex-shrink-0">
-            <h2 className="text-xl font-bold text-white">
-              {isEditMode ? 'Modifier ce pneu' : 'Ajouter un pneu'}
-            </h2>
-            <button
-              onClick={onClose}
-              className="p-1.5 hover:bg-white/20 rounded-lg transition-colors">
-              
-              <X className="w-5 h-5 text-white" />
-            </button>
-          </div>
+          <ModalHeader
+            title={isEditMode ? 'Modifier ce pneu' : 'Ajouter un pneu'}
+            onClose={onClose}
+          />
 
           {/* Form */}
           <form
@@ -594,31 +587,19 @@ function TireHistoryModal({
           onClick={(e) => e.stopPropagation()}
           className="bg-white rounded-xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col max-h-[90vh]">
           
-          <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-white">
-            <div>
-              <h2 className="text-xl font-bold text-slate-800">
-                Historique du pneu
-              </h2>
-              <p className="text-sm font-medium text-slate-500 mt-1">
-                ID Pneu: <span className="text-blue-600">{tireId}</span>
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
+          <ModalHeader
+            title="Historique du pneu"
+            subtitle={`ID Pneu: ${tireId}`}
+            onClose={onClose}
+            actions={
               <button
                 onClick={() => setShowAddHistoryForm(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold transition-colors shadow-sm">
-                
+                className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 text-primary-foreground rounded-lg text-sm font-bold transition-colors">
                 <Plus className="w-4 h-4" />
                 Ajouter
               </button>
-              <button
-                onClick={onClose}
-                className="p-2 hover:bg-slate-100 rounded-full transition-colors">
-                
-                <X className="w-6 h-6 text-slate-500" />
-              </button>
-            </div>
-          </div>
+            }
+          />
 
           <div className="flex-1 overflow-auto">
             <table className="w-full text-left border-collapse">
@@ -768,22 +749,11 @@ function VehicleTireHistoryModal({
           onClick={(e) => e.stopPropagation()}
           className="bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]">
           
-          <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-white">
-            <div>
-              <h2 className="text-xl font-bold text-slate-800">
-                Historique des pneus du véhicule
-              </h2>
-              <p className="text-sm font-medium text-slate-500 mt-1">
-                Véhicule: <span className="text-blue-600">{vehicle}</span>
-              </p>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-slate-100 rounded-full transition-colors">
-              
-              <X className="w-6 h-6 text-slate-500" />
-            </button>
-          </div>
+          <ModalHeader
+            title="Historique des pneus du véhicule"
+            subtitle={`Véhicule: ${vehicle}`}
+            onClose={onClose}
+          />
 
           <div className="flex-1 overflow-auto">
             <table className="w-full text-left border-collapse">
@@ -915,22 +885,12 @@ function EssieuxModal({
           onClick={(e) => e.stopPropagation()}
           className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
           
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-lg font-bold text-slate-800">
-                  Configuration des essieux
-                </h2>
-                <p className="text-sm text-slate-500">Véhicule: {vehicle}</p>
-              </div>
-              <button
-                onClick={onClose}
-                className="text-slate-400 hover:text-slate-600 transition-colors bg-slate-100 hover:bg-slate-200 p-2 rounded-full">
-                
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
+          <ModalHeader
+            title="Configuration des essieux"
+            subtitle={`Véhicule: ${vehicle}`}
+            onClose={onClose}
+          />
+          <div className="p-6 pt-0">
             <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
               {axles.map((axle) =>
               <div
@@ -1076,22 +1036,16 @@ function TireOperationFormModal({
           onClick={(e) => e.stopPropagation()}
           className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
           
-          {/* Header */}
-          <div className="bg-[#0ea5e9] px-6 py-4 flex items-center justify-between flex-shrink-0">
-            <h2 className="text-xl font-bold text-white">
-              {operationType === 'installation' ?
-              'Installation' :
-              operationType === 'desinstallation' ?
-              'Désinstallation' :
-              'Réparation/Vérification'}
-            </h2>
-            <button
-              onClick={onClose}
-              className="p-1.5 hover:bg-white/20 rounded-lg transition-colors">
-              
-              <X className="w-5 h-5 text-white" />
-            </button>
-          </div>
+          <ModalHeader
+            title={
+              operationType === 'installation'
+                ? 'Installation'
+                : operationType === 'desinstallation'
+                ? 'Désinstallation'
+                : 'Réparation/Vérification'
+            }
+            onClose={onClose}
+          />
 
           {/* Form */}
           <form
@@ -1422,22 +1376,11 @@ function SchemaModal({
           onClick={(e) => e.stopPropagation()}
           className="bg-white rounded-2xl shadow-2xl w-full max-w-[96vw] xl:max-w-[90vw] overflow-hidden flex flex-col max-h-[95vh]">
           
-          <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-white flex-shrink-0">
-            <div>
-              <h2 className="text-xl font-bold text-slate-800">
-                Schéma des pneumatiques
-              </h2>
-              <p className="text-sm font-medium text-slate-500 mt-1">
-                Véhicule: <span className="text-blue-600">{vehicle}</span>
-              </p>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-slate-100 rounded-full transition-colors">
-              
-              <X className="w-6 h-6 text-slate-500" />
-            </button>
-          </div>
+          <ModalHeader
+            title="Schéma des pneumatiques"
+            subtitle={`Véhicule: ${vehicle}`}
+            onClose={onClose}
+          />
 
           <div className="flex-1 overflow-hidden flex bg-slate-50 min-h-[500px]">
             {/* Left: Vehicle Schema - HORIZONTAL LAYOUT */}

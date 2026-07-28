@@ -29,6 +29,7 @@ import { TableFooter } from './TableFooter';
 import { useFilterManager } from '../hooks/useFilterManager';
 import { FilterManager } from './FilterManager';
 import { SaveFilterModal } from './SaveFilterModal';
+import { ModalHeader } from '@/components/ui/modal-header';
 // --- Types ---
 type ContractType = 'Location' | 'Emprunt';
 interface Contract {
@@ -406,20 +407,10 @@ function AddEditContractModal({
           onClick={(e) => e.stopPropagation()}
           className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
           
-          {/* Header */}
-          <div className="bg-[#0ea5e9] px-6 py-4 flex items-center justify-between flex-shrink-0">
-            <div className="flex-1">
-              <h2 className="text-xl font-bold text-white">
-                {isEdit ? 'Modifier le contrat' : 'Ajouter un contrat'}
-              </h2>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-1.5 hover:bg-white/20 rounded-lg transition-colors self-start">
-              
-              <X className="w-5 h-5 text-white" />
-            </button>
-          </div>
+          <ModalHeader
+            title={isEdit ? 'Modifier le contrat' : 'Ajouter un contrat'}
+            onClose={onClose}
+          />
 
           {/* Stepper */}
           <div className="bg-white px-6 py-5 border-b border-slate-200 flex-shrink-0">
@@ -829,17 +820,7 @@ function AddPaymentModal({
           onClick={(e) => e.stopPropagation()}
           className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col">
           
-          <div className="bg-[#0ea5e9] px-6 py-4 flex items-center justify-between">
-            <h2 className="text-xl font-bold text-white">
-              Ajouter un paiement
-            </h2>
-            <button
-              onClick={onClose}
-              className="p-1.5 hover:bg-white/20 rounded-lg transition-colors">
-              
-              <X className="w-5 h-5 text-white" />
-            </button>
-          </div>
+          <ModalHeader title="Ajouter un paiement" onClose={onClose} />
 
           <form
             onSubmit={handleSubmit}
@@ -1004,31 +985,19 @@ function PaymentListModal({
           onClick={(e) => e.stopPropagation()}
           className="bg-white rounded-xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col max-h-[90vh]">
           
-          <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-white">
-            <div>
-              <h2 className="text-xl font-bold text-slate-800">
-                Liste des paiements
-              </h2>
-              <p className="text-sm font-medium text-slate-500 mt-1">
-                Contrat ID: <span className="text-blue-600">{contractId}</span>
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
+          <ModalHeader
+            title="Liste des paiements"
+            subtitle={`Contrat ID: ${contractId}`}
+            onClose={onClose}
+            actions={
               <button
                 onClick={() => setShowAddModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-[#0ea5e9] hover:bg-sky-600 text-white rounded-lg text-sm font-bold transition-colors shadow-sm">
-                
+                className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 text-primary-foreground rounded-lg text-sm font-bold transition-colors">
                 <Plus className="w-4 h-4" />
                 Ajouter un paiement
               </button>
-              <button
-                onClick={onClose}
-                className="p-2 hover:bg-slate-100 rounded-full transition-colors">
-                
-                <X className="w-6 h-6 text-slate-500" />
-              </button>
-            </div>
-          </div>
+            }
+          />
 
           <div className="flex-1 overflow-auto p-6">
             <div className="bg-sky-50 border border-sky-100 rounded-lg p-4 mb-6 flex items-center justify-between">
@@ -1210,18 +1179,11 @@ function RenewContractModal({
           onClick={(e) => e.stopPropagation()}
           className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
           
-          <div className="bg-[#0ea5e9] px-6 py-4 flex items-center justify-between">
-            <h2 className="text-xl font-bold text-white flex items-center gap-2">
-              <RefreshCw className="w-5 h-5" />
-              Renouveler le contrat
-            </h2>
-            <button
-              onClick={onClose}
-              className="p-1.5 hover:bg-white/20 rounded-lg transition-colors">
-              
-              <X className="w-5 h-5 text-white" />
-            </button>
-          </div>
+          <ModalHeader
+            title="Renouveler le contrat"
+            icon={<RefreshCw className="w-5 h-5 text-primary-foreground" />}
+            onClose={onClose}
+          />
 
           <form onSubmit={handleSubmit} className="p-6 space-y-5">
             <div className="bg-sky-50 p-4 rounded-lg border border-sky-100">
@@ -1312,13 +1274,11 @@ function DeleteConfirmationModal({
           onClick={(e) => e.stopPropagation()}
           className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
           
+          <ModalHeader title="Supprimer le contrat ?" onClose={onClose} />
           <div className="p-6 text-center">
             <div className="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <AlertCircle className="w-8 h-8 text-rose-500" />
             </div>
-            <h2 className="text-xl font-bold text-slate-800 mb-2">
-              Supprimer le contrat ?
-            </h2>
             <p className="text-slate-500 mb-6">
               Êtes-vous sûr de vouloir supprimer le contrat{' '}
               <span className="font-bold text-slate-700">{contractRef}</span> ?

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Edit, Trash2, Search, X, ChevronDown } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, ChevronDown } from 'lucide-react';
+import { ModalHeader } from '@/components/ui/modal-header';
 interface Department {
   id: string;
   name: string;
@@ -162,20 +163,15 @@ function DepartmentModal({
           onClick={(e) => e.stopPropagation()}
           className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden">
           
-          {/* Header */}
-          <div className="bg-sky-500 px-5 py-4 flex items-center justify-between">
-            <h2 className="text-lg font-bold text-white">
-              {editingDept ?
-              'Mise à jour du département' :
-              'Ajouter un département'}
-            </h2>
-            <button
-              onClick={onClose}
-              className="text-white hover:text-sky-100 transition-colors">
-              
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+          <ModalHeader
+            title={
+              editingDept
+                ? 'Mise à jour du département'
+                : 'Ajouter un département'
+            }
+            onClose={onClose}
+            size="compact"
+          />
 
           {/* Body */}
           <div className="p-5 space-y-5">

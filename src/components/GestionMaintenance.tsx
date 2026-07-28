@@ -5,13 +5,13 @@ import {
   Trash2,
   ExternalLink,
   ChevronDown,
-  X,
   Plus,
   AlertTriangle,
   Calendar as CalendarIcon } from
 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TableFooter } from './TableFooter';
+import { ModalHeader } from '@/components/ui/modal-header';
 // --- Types ---
 interface Rappel {
   id: number;
@@ -440,16 +440,14 @@ function DeleteConfirmModal({
           onClick={(e) => e.stopPropagation()}
           className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
           
+          <ModalHeader title="Confirmer la suppression" onClose={onClose} />
           <div className="p-6">
             <div className="flex items-center gap-4 mb-4">
               <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
                 <AlertTriangle className="w-6 h-6 text-red-600" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-slate-800">
-                  Confirmer la suppression
-                </h3>
-                <p className="text-sm text-slate-500 mt-1">
+                <p className="text-sm text-slate-500">
                   Êtes-vous sûr de vouloir supprimer{' '}
                   <span className="font-semibold text-slate-700">
                     {itemName}
@@ -574,19 +572,15 @@ function AddEditRappelModal({
           onClick={(e) => e.stopPropagation()}
           className="bg-white rounded-lg shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
           
-          <div className="bg-[#0ea5e9] px-5 py-3.5 flex justify-between items-center flex-shrink-0">
-            <h2 className="text-white font-semibold text-lg">
-              {editItem ?
+          <ModalHeader
+            title={
+              editItem ?
               'Modifier cet entretien' :
-              "Ajouter un rappel d'entretien"}
-            </h2>
-            <button
-              onClick={onClose}
-              className="text-white/80 hover:text-white transition-colors">
-              
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+              "Ajouter un rappel d'entretien"
+            }
+            onClose={onClose}
+            size="compact"
+          />
 
           <form onSubmit={handleSubmit} className="p-6 overflow-y-auto flex-1">
             <div className="space-y-5">
@@ -747,17 +741,11 @@ function AddEditReparationModal({
           onClick={(e) => e.stopPropagation()}
           className="bg-white rounded-lg shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
           
-          <div className="bg-[#0ea5e9] px-5 py-3.5 flex justify-between items-center flex-shrink-0">
-            <h2 className="text-white font-semibold text-lg">
-              {editItem ? 'Modifier la réparation' : 'Ajouter'}
-            </h2>
-            <button
-              onClick={onClose}
-              className="text-white/80 hover:text-white transition-colors">
-              
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+          <ModalHeader
+            title={editItem ? 'Modifier la réparation' : 'Ajouter'}
+            onClose={onClose}
+            size="compact"
+          />
 
           <form onSubmit={handleSubmit} className="p-6 overflow-y-auto flex-1">
             <div className="space-y-5">
@@ -932,17 +920,11 @@ function AddEditEntretienAcheveModal({
           onClick={(e) => e.stopPropagation()}
           className="bg-white rounded-lg shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
           
-          <div className="bg-[#0ea5e9] px-5 py-3.5 flex justify-between items-center flex-shrink-0">
-            <h2 className="text-white font-semibold text-lg">
-              {editItem ? "Modifier l'entretien achevé" : 'Ajouter'}
-            </h2>
-            <button
-              onClick={onClose}
-              className="text-white/80 hover:text-white transition-colors">
-              
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+          <ModalHeader
+            title={editItem ? "Modifier l'entretien achevé" : 'Ajouter'}
+            onClose={onClose}
+            size="compact"
+          />
 
           <form onSubmit={handleSubmit} className="p-6 overflow-y-auto flex-1">
             <div className="space-y-5">
@@ -1077,28 +1059,20 @@ function EntretiensAchevesModal({
           onClick={(e) => e.stopPropagation()}
           className="bg-white rounded-xl shadow-2xl w-full max-w-6xl overflow-hidden flex flex-col max-h-[90vh]">
           
-          {/* Header */}
-          <div className="bg-[#0ea5e9] px-6 py-4 flex items-center justify-between flex-shrink-0">
-            <h2 className="text-xl font-bold text-white">
-              Les entretiens achevés{' '}
-              <span className="font-normal">{vehicleName}</span>
-            </h2>
-            <div className="flex items-center gap-3">
+          <ModalHeader
+            title="Les entretiens achevés"
+            subtitle={vehicleName}
+            onClose={onClose}
+            actions={
               <button
                 onClick={onAdd}
-                className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg text-sm font-semibold transition-colors">
+                className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 text-primary-foreground rounded-lg text-sm font-semibold transition-colors">
                 
                 <Plus className="w-4 h-4" />
                 Ajouter
               </button>
-              <button
-                onClick={onClose}
-                className="p-1.5 hover:bg-white/20 rounded-lg transition-colors">
-                
-                <X className="w-5 h-5 text-white" />
-              </button>
-            </div>
-          </div>
+            }
+          />
 
           {/* Table */}
           <div className="flex-1 overflow-auto">

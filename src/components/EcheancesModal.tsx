@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { X, Edit, Check, XCircle, CheckCircle } from 'lucide-react';
+import { Edit, Check, XCircle, CheckCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ModalHeader } from '@/components/ui/modal-header';
 interface Echeance {
   numero: number;
   montant: number;
@@ -83,20 +84,11 @@ export function EcheancesModal({
           onClick={(e) => e.stopPropagation()}
           className="bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]">
           
-          <div className="bg-[#0ea5e9] px-6 py-4 flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-white">
-                Tableau des échéances
-              </h2>
-              <p className="text-sky-100 text-sm mt-1">Facture: {factureRef}</p>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-1.5 hover:bg-white/20 rounded-lg transition-colors">
-              
-              <X className="w-5 h-5 text-white" />
-            </button>
-          </div>
+          <ModalHeader
+            title="Tableau des échéances"
+            subtitle={`Facture: ${factureRef}`}
+            onClose={onClose}
+          />
 
           <div className="p-6 overflow-y-auto">
             <div className="border border-slate-200 rounded-lg overflow-hidden">

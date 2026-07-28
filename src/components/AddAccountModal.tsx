@@ -1,13 +1,13 @@
 import React, { useEffect, useState, Fragment } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  X,
   ChevronDown,
   ChevronRight,
   Check,
   ArrowRight,
   ArrowLeft } from
 'lucide-react';
+import { ModalHeader } from '@/components/ui/modal-header';
 interface AddAccountModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -315,23 +315,11 @@ export function AddAccountModal({
           onClick={(e) => e.stopPropagation()}
           className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
           
-          {/* Header */}
-          <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-5 flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold text-white">
-                {editingAccount ? 'Modifier le compte' : 'Ajouter un compte'}
-              </h2>
-              <p className="text-sm text-blue-100 mt-1">
-                Étape {currentStep} sur 4
-              </p>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-white/10 rounded-lg transition-colors">
-              
-              <X className="w-6 h-6 text-white" />
-            </button>
-          </div>
+          <ModalHeader
+            title={editingAccount ? 'Modifier le compte' : 'Ajouter un compte'}
+            subtitle={`Étape ${currentStep} sur 4`}
+            onClose={onClose}
+          />
 
           {/* Progress Stepper */}
           <div className="bg-white border-b border-slate-200 px-6 py-4">

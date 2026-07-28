@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 
 interface SectionAlertVehiclesDialogProps {
   alertType: AlertType | null;
@@ -27,6 +28,17 @@ interface SectionAlertVehiclesDialogProps {
   onNavigateToVehicle?: (vehicleId: string, coordinates: [number, number]) => void;
   onSelectVehicle?: (vehicleId: string) => void;
 }
+
+const cellPadding = (colId: string, columns: { id: string }[]) => {
+  const isFirst = columns[0]?.id === colId;
+  const isLast = columns[columns.length - 1]?.id === colId;
+  return cn(
+    isFirst && 'pl-6',
+    isLast && 'pr-6',
+    !isFirst && 'pl-3',
+    !isLast && 'pr-3'
+  );
+};
 
 export function SectionAlertVehiclesDialog({
   alertType,
@@ -57,14 +69,14 @@ export function SectionAlertVehiclesDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>{label}</DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-auto -mx-6 px-6 flex flex-col min-h-0">
+        <div className="flex-1 overflow-auto flex flex-col min-h-0">
           {isLoading ? (
-            <div className="space-y-2">
+            <div className="space-y-2 px-6 py-4">
               {Array.from({ length: 4 }).map((_, i) => (
                 <Skeleton key={i} className="h-10 w-full" />
               ))}
@@ -81,7 +93,11 @@ export function SectionAlertVehiclesDialog({
                     {columns.map((col) => (
                       <th
                         key={col.id}
-                        className={`py-2 pr-3 ${col.id === 'action' ? 'text-right' : ''}`}
+                        className={cn(
+                          'py-3',
+                          cellPadding(col.id, columns),
+                          col.id === 'action' && 'text-right'
+                        )}
                       >
                         {col.label}
                       </th>
@@ -94,7 +110,10 @@ export function SectionAlertVehiclesDialog({
                       {columns.map((col) => {
                         if (col.id === 'action') {
                           return (
-                            <td key={col.id} className="py-2.5 text-right">
+                            <td
+                              key={col.id}
+                              className={cn('py-2.5 text-right', cellPadding(col.id, columns))}
+                            >
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -115,17 +134,13 @@ export function SectionAlertVehiclesDialog({
                         return (
                           <td
                             key={col.id}
-                            className={`py-2.5 pr-3 ${
-                              col.id === 'licensePlate' ? 'font-medium' : ''
-                            } ${
-                              col.id === 'alertDateTime'
-                                ? 'text-muted-foreground whitespace-nowrap'
-                                : ''
-                            } ${
-                              col.id === 'location' || col.id === 'detail'
-                                ? 'text-muted-foreground'
-                                : ''
-                            }`}
+                            className={cn(
+                              'py-2.5',
+                              cellPadding(col.id, columns),
+                              col.id === 'licensePlate' && 'font-medium',
+                              col.id === 'alertDateTime' && 'text-muted-foreground whitespace-nowrap',
+                              (col.id === 'location' || col.id === 'detail') && 'text-muted-foreground'
+                            )}
                           >
                             {isVehicleCol ? (
                               <button
@@ -148,16 +163,14 @@ export function SectionAlertVehiclesDialog({
                   ))}
                 </tbody>
               </table>
-              <div className="-mx-6 mt-auto border-t border-slate-200">
-                <TableFooter
-                  currentPage={currentPage}
-                  totalItems={rows.length}
-                  itemsPerPage={itemsPerPage}
-                  onPageChange={setCurrentPage}
-                  onItemsPerPageChange={setItemsPerPage}
-                  showExports={false}
-                />
-              </div>
+              <TableFooter
+                currentPage={currentPage}
+                totalItems={rows.length}
+                itemsPerPage={itemsPerPage}
+                onPageChange={setCurrentPage}
+                onItemsPerPageChange={setItemsPerPage}
+                showExports={false}
+              />
             </>
           )}
         </div>

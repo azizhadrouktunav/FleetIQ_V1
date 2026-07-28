@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Save, X, Calendar, Clock } from 'lucide-react';
+import { Save, Calendar, Clock } from 'lucide-react';
 import { DurationUnit } from '../types';
+import { ModalHeader } from '@/components/ui/modal-header';
 interface SaveFilterModalProps {
   show: boolean;
   onClose: () => void;
@@ -81,25 +82,12 @@ export function SaveFilterModal({
         onClick={(e) => e.stopPropagation()}
         className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
         
-        <div className="p-6 bg-gradient-to-r from-blue-50 to-blue-100 border-b border-blue-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                <Save className="w-6 h-6 text-blue-600" />
-                Sauvegarder le filtre
-              </h3>
-              <p className="text-sm text-slate-600 mt-1">
-                Configurez un filtre dynamique ou fixe
-              </p>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-1 hover:bg-blue-200 rounded-lg transition-colors">
-              
-              <X className="w-5 h-5 text-slate-600" />
-            </button>
-          </div>
-        </div>
+        <ModalHeader
+          title="Sauvegarder le filtre"
+          subtitle="Configurez un filtre dynamique ou fixe"
+          icon={<Save className="w-6 h-6 text-primary-foreground shrink-0" />}
+          onClose={onClose}
+        />
 
         <div className="p-6 space-y-6">
           {/* Filter Name */}

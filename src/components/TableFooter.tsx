@@ -5,6 +5,7 @@ import {
   FileText,
   FileSpreadsheet } from
 'lucide-react';
+import { cn } from '@/lib/utils';
 interface TableFooterProps {
   currentPage: number;
   totalItems: number;
@@ -14,6 +15,7 @@ interface TableFooterProps {
   onExportPdf?: () => void;
   onExportExcel?: () => void;
   showExports?: boolean;
+  className?: string;
 }
 export function TableFooter({
   currentPage,
@@ -23,13 +25,14 @@ export function TableFooter({
   onItemsPerPageChange,
   onExportPdf,
   onExportExcel,
-  showExports = true
+  showExports = true,
+  className
 }: TableFooterProps) {
   const totalPages = Math.ceil(totalItems / itemsPerPage);
   const startItem = (currentPage - 1) * itemsPerPage + 1;
   const endItem = Math.min(currentPage * itemsPerPage, totalItems);
   return (
-    <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-slate-200">
+    <div className={cn('flex items-center justify-between px-6 py-3 bg-white border-t border-slate-200', className)}>
       {/* Left: Export Buttons */}
       {showExports && (
       <div className="flex items-center gap-3">

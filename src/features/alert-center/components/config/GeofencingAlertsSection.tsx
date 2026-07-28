@@ -180,12 +180,14 @@ export function GeofencingAlertsSection({
               {editing ? 'Modifier la règle geofence' : 'Nouvelle règle geofence'}
             </DialogTitle>
           </DialogHeader>
+          <div className="p-6">
           <GeofenceRuleForm
             vehicles={vehicles}
             initial={editing}
             onSubmit={handleSave}
             onCancel={() => setDialogOpen(false)}
           />
+          </div>
         </DialogContent>
       </Dialog>
     </div>

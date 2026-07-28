@@ -51,6 +51,7 @@ import { GestionMissions } from './GestionMissions';
 import { GestionFactures } from './GestionFactures';
 import { GestionLocations } from './GestionLocations';
 import { AnimatePresence, motion } from 'framer-motion';
+import { ModalHeader } from '@/components/ui/modal-header';
 function FloatingLabelInput({
   label,
   value,
@@ -137,18 +138,11 @@ function FuelPriceSettingsModal({
           onClick={(e) => e.stopPropagation()}
           className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col">
           
-          <div className="bg-[#0ea5e9] px-6 py-4 flex items-center justify-between flex-shrink-0">
-            <h2 className="text-xl font-bold text-white flex items-center gap-2">
-              <Settings className="w-5 h-5" />
-              Configuration
-            </h2>
-            <button
-              onClick={onClose}
-              className="p-1.5 hover:bg-white/20 rounded-lg transition-colors">
-              
-              <XCircle className="w-5 h-5 text-white" />
-            </button>
-          </div>
+          <ModalHeader
+            title="Configuration"
+            icon={<Settings className="w-5 h-5 text-primary-foreground shrink-0" />}
+            onClose={onClose}
+          />
 
           <div className="p-6">
             <FloatingLabelInput

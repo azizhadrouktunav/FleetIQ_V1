@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Plus, Pencil, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Plus, Pencil, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TableFooter } from './TableFooter';
 import { Sinistre } from './GestionSinistres';
+import { ModalHeader } from '@/components/ui/modal-header';
 interface Repair {
   id: number;
   dateCompletion: string;
@@ -227,16 +228,11 @@ export function GestionReparations({
             onClick={(e) => e.stopPropagation()}
             className="bg-white rounded-lg shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
             
-              {/* Modal Header */}
-              <div className="bg-[#0ea5e9] px-5 py-3.5 flex justify-between items-center flex-shrink-0">
-                <h2 className="text-white font-semibold text-lg">Ajouter</h2>
-                <button
-                onClick={() => setShowAddModal(false)}
-                className="text-white/80 hover:text-white transition-colors">
-                
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
+              <ModalHeader
+                title="Ajouter"
+                onClose={() => setShowAddModal(false)}
+                size="compact"
+              />
 
               {/* Modal Body */}
               <div className="p-6 overflow-y-auto flex-1">

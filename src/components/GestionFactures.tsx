@@ -17,6 +17,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { TableFooter } from './TableFooter';
 import { EcheancesModal } from './EcheancesModal';
+import { ModalHeader } from '@/components/ui/modal-header';
 // --- Types ---
 type TypeMouvement = 'Achat' | 'Vente';
 type EtatPaiement =
@@ -808,21 +809,14 @@ function AddEditDocumentModal({
           onClick={(e) => e.stopPropagation()}
           className="bg-white rounded-xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
           
-          <div className="bg-[#0ea5e9] px-6 py-4 flex items-center justify-between flex-shrink-0">
-            <div>
-              <h2 className="text-xl font-bold text-white">
-                {editData ?
-                'Modifier le document commercial' :
-                'Créer un document commercial'}
-              </h2>
-            </div>
-            <button
-              onClick={onClose}
-              className="p-1.5 hover:bg-white/20 rounded-lg transition-colors">
-              
-              <X className="w-5 h-5 text-white" />
-            </button>
-          </div>
+          <ModalHeader
+            title={
+              editData
+                ? 'Modifier le document commercial'
+                : 'Créer un document commercial'
+            }
+            onClose={onClose}
+          />
 
           <div className="p-6 overflow-y-auto flex-1">
             {/* Dynamic Step Progress Bar */}
@@ -1733,29 +1727,21 @@ function ViewArticlesModal({
           onClick={(e) => e.stopPropagation()}
           className="bg-white rounded-xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col max-h-[90vh]">
           
-          <div className="bg-slate-800 px-6 py-4 flex items-center justify-between">
-            <h2 className="text-xl font-bold text-white">
-              Détails des articles - {document.reference}
-            </h2>
-            <div className="flex items-center gap-3">
+          <ModalHeader
+            title={`Détails des articles - ${document.reference}`}
+            onClose={onClose}
+            actions={
               <button
                 onClick={() => setShowAddForm(!showAddForm)}
-                className="flex items-center gap-2 px-3 py-1.5 bg-sky-500 hover:bg-sky-600 text-white rounded-lg text-sm font-medium transition-colors">
-                
+                className="flex items-center gap-2 px-3 py-1.5 bg-white/20 hover:bg-white/30 text-primary-foreground rounded-lg text-sm font-medium transition-colors">
                 <Plus className="w-4 h-4" />
                 Ajouter un article
               </button>
-              <button
-                onClick={onClose}
-                className="p-1.5 hover:bg-white/20 rounded-lg transition-colors">
-                
-                <X className="w-5 h-5 text-white" />
-              </button>
-            </div>
-          </div>
-          <div className="p-6 overflow-y-auto">
-            {showAddForm &&
-            <div className="mb-6 bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-4">
+            }
+          />
+          <div className="flex-1 overflow-y-auto">
+            {showAddForm && (
+            <div className="mx-4 mt-4 mb-2 bg-slate-50 p-4 rounded-lg border border-slate-200 space-y-4">
                 <h3 className="font-bold text-slate-800">Nouvel article</h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="relative">
@@ -1820,7 +1806,7 @@ function ViewArticlesModal({
                   </button>
                 </div>
               </div>
-            }
+            )}
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>

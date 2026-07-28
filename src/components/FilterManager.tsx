@@ -13,6 +13,7 @@ import {
   Clock } from
 'lucide-react';
 import { SavedFilter } from '../types';
+import { ModalHeader } from '@/components/ui/modal-header';
 interface FilterManagerProps {
   show: boolean;
   onClose: () => void;
@@ -75,15 +76,13 @@ export function FilterManager({
       }}
       className="absolute top-full left-0 mt-2 w-[420px] bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden z-50">
       
-      <div className="p-4 bg-gradient-to-r from-blue-50 to-blue-100 border-b border-blue-200">
-        <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-          <Settings className="w-5 h-5 text-blue-600" />
-          Filtres sauvegardés
-        </h3>
-        <p className="text-xs text-slate-600 mt-1">
-          Gérez vos filtres personnalisés
-        </p>
-      </div>
+      <ModalHeader
+        title="Filtres sauvegardés"
+        subtitle="Gérez vos filtres personnalisés"
+        icon={<Settings className="w-5 h-5 text-primary-foreground shrink-0" />}
+        onClose={onClose}
+        size="compact"
+      />
 
       <div className="max-h-96 overflow-y-auto">
         {savedFilters.length === 0 ?

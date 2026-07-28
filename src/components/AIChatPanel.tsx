@@ -2,7 +2,6 @@ import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   MessageSquare,
-  X,
   Send,
   Mic,
   MicOff,
@@ -17,6 +16,7 @@ import {
   Fuel,
   Activity } from
 'lucide-react';
+import { ModalHeader } from '@/components/ui/modal-header';
 interface Message {
   id: string;
   type: 'user' | 'ai';
@@ -228,27 +228,12 @@ export function AIChatPanel({ isOpen, onClose }: AIChatPanelProps) {
         }}
         className="absolute bottom-24 right-4 w-[420px] h-[650px] bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden z-50">
         
-        {/* Header */}
-        <div className="bg-blue-600 px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
-              <MessageSquare className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-white">Assistant GPS</h3>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-emerald-400 rounded-full" />
-                <p className="text-xs text-white/90">En ligne</p>
-              </div>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-white/20 rounded-lg transition-colors">
-            
-            <X className="w-5 h-5 text-white" />
-          </button>
-        </div>
+        <ModalHeader
+          title="Assistant GPS"
+          subtitle="En ligne"
+          icon={<MessageSquare className="w-5 h-5 text-primary-foreground shrink-0" />}
+          onClose={onClose}
+        />
 
         {/* Messages Container */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50">

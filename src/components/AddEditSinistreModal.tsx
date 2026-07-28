@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Calendar as CalendarIcon, User, ChevronDown } from 'lucide-react';
+import { Calendar as CalendarIcon, User, ChevronDown } from 'lucide-react';
+import { ModalHeader } from '@/components/ui/modal-header';
 import { Sinistre } from './GestionSinistres';
 interface AddEditSinistreModalProps {
   isOpen: boolean;
@@ -115,18 +116,10 @@ export function AddEditSinistreModal({
           onClick={(e) => e.stopPropagation()}
           className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col">
           
-          {/* Header */}
-          <div className="bg-[#0ea5e9] px-6 py-4 flex items-center justify-between">
-            <h2 className="text-xl font-bold text-white">
-              {sinistre ? 'Modifier une fiche' : 'Ajouter une fiche'}
-            </h2>
-            <button
-              onClick={onClose}
-              className="p-1.5 hover:bg-white/20 rounded-lg transition-colors">
-              
-              <X className="w-5 h-5 text-white" />
-            </button>
-          </div>
+          <ModalHeader
+            title={sinistre ? 'Modifier une fiche' : 'Ajouter une fiche'}
+            onClose={onClose}
+          />
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-4">

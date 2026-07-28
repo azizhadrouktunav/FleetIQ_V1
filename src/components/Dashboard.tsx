@@ -79,6 +79,7 @@ import { SaveFilterModal } from './SaveFilterModal';
 import { IndicatorVehicleModal } from './IndicatorVehicleModal';
 import { DateTimePicker } from './DateTimePicker';
 import { GlobalStatisticsSection } from './GlobalStatisticsSection';
+import { ModalHeader } from '@/components/ui/modal-header';
 import {
   SpeedSection,
   EngineStatsSection,
@@ -1164,24 +1165,14 @@ export function Dashboard({ vehicles, onNavigateToVehicle }: DashboardProps) {
               opacity: 0
             }}
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[80vh] overflow-hidden">
+            className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[80vh] overflow-hidden flex flex-col">
             
-              <div className="p-4 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-blue-100">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Activity className="w-5 h-5 text-blue-600" />
-                    <h3 className="text-sm font-bold text-slate-800">
-                      Configuration des sections
-                    </h3>
-                  </div>
-                  <button
-                  onClick={() => setShowSectionConfig(false)}
-                  className="p-1 hover:bg-blue-200 rounded transition-colors">
-                  
-                    <X className="w-4 h-4 text-slate-600" />
-                  </button>
-                </div>
-              </div>
+              <ModalHeader
+                title="Configuration des sections"
+                icon={<Activity className="w-5 h-5 text-primary-foreground shrink-0" />}
+                onClose={() => setShowSectionConfig(false)}
+                size="compact"
+              />
 
               <div className="p-3 max-h-[calc(80vh-140px)] overflow-y-auto">
                 <Reorder.Group
@@ -1263,34 +1254,14 @@ export function Dashboard({ vehicles, onNavigateToVehicle }: DashboardProps) {
               stiffness: 300
             }}
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[85vh] overflow-hidden">
+            className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[85vh] overflow-hidden flex flex-col">
             
-              <div className="bg-gradient-to-r from-rose-500 to-rose-600 px-6 py-5 flex items-center justify-between sticky top-0 z-10">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
-                    <Bell className="w-6 h-6 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-2xl font-bold text-white">
-                      Alertes Récentes
-                    </h3>
-                    <p className="text-sm text-white/90">
-                      {recentAlerts.length} alerte(s) •{' '}
-                      {
-                    recentAlerts.filter((a) => a.severity === 'critical').
-                    length
-                    }{' '}
-                      critique(s)
-                    </p>
-                  </div>
-                </div>
-                <button
-                onClick={() => setShowAlertsModal(false)}
-                className="p-2 hover:bg-white/20 rounded-lg transition-colors">
-                
-                  <X className="w-6 h-6 text-white" />
-                </button>
-              </div>
+              <ModalHeader
+                title="Alertes Récentes"
+                subtitle={`${recentAlerts.length} alerte(s) • ${recentAlerts.filter((a) => a.severity === 'critical').length} critique(s)`}
+                icon={<Bell className="w-6 h-6 text-primary-foreground shrink-0" />}
+                onClose={() => setShowAlertsModal(false)}
+              />
 
               <div className="p-6 overflow-y-auto max-h-[calc(85vh-140px)]">
                 <div className="space-y-3">
@@ -1404,34 +1375,14 @@ export function Dashboard({ vehicles, onNavigateToVehicle }: DashboardProps) {
               stiffness: 300
             }}
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[85vh] overflow-hidden">
+            className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[85vh] overflow-hidden flex flex-col">
             
-              <div className="bg-gradient-to-r from-amber-500 to-amber-600 px-6 py-5 flex items-center justify-between sticky top-0 z-10">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
-                    <FileText className="w-6 h-6 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-2xl font-bold text-white">
-                      Documents à Traiter
-                    </h3>
-                    <p className="text-sm text-white/90">
-                      {documentsToProcess.length} document(s) •{' '}
-                      {
-                    documentsToProcess.filter((d) => d.priority === 'high').
-                    length
-                    }{' '}
-                      urgent(s)
-                    </p>
-                  </div>
-                </div>
-                <button
-                onClick={() => setShowDocumentsModal(false)}
-                className="p-2 hover:bg-white/20 rounded-lg transition-colors">
-                
-                  <X className="w-6 h-6 text-white" />
-                </button>
-              </div>
+              <ModalHeader
+                title="Documents à Traiter"
+                subtitle={`${documentsToProcess.length} document(s) • ${documentsToProcess.filter((d) => d.priority === 'high').length} urgent(s)`}
+                icon={<FileText className="w-6 h-6 text-primary-foreground shrink-0" />}
+                onClose={() => setShowDocumentsModal(false)}
+              />
 
               <div className="p-6 overflow-y-auto max-h-[calc(85vh-140px)]">
                 <div className="space-y-3">

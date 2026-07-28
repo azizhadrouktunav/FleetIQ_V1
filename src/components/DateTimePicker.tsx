@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar, Clock, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Calendar, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ModalHeader } from '@/components/ui/modal-header';
 interface DateTimePickerProps {
   value: string;
   onChange: (value: string) => void;
@@ -202,24 +203,29 @@ export function DateTimePicker({
           }}>
           
             {/* Calendar Header */}
-            <div className="bg-gradient-to-r from-blue-500 to-blue-600 px-4 py-3 flex items-center justify-between">
-              <button
-              onClick={previousMonth}
-              className="p-1 hover:bg-white/20 rounded transition-colors">
-              
-                <ChevronLeft className="w-5 h-5 text-white" />
-              </button>
-              <div className="text-white font-semibold text-sm">
-                {monthNames[currentMonth.getMonth()]}{' '}
-                {currentMonth.getFullYear()}
-              </div>
-              <button
-              onClick={nextMonth}
-              className="p-1 hover:bg-white/20 rounded transition-colors">
-              
-                <ChevronRight className="w-5 h-5 text-white" />
-              </button>
-            </div>
+            <ModalHeader
+              title={`${monthNames[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`}
+              onClose={() => setIsOpen(false)}
+              size="compact"
+              actions={
+                <>
+                  <button
+                    type="button"
+                    onClick={previousMonth}
+                    className="p-1 hover:bg-white/20 rounded transition-colors"
+                    aria-label="Mois précédent">
+                    <ChevronLeft className="w-5 h-5 text-primary-foreground" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={nextMonth}
+                    className="p-1 hover:bg-white/20 rounded transition-colors"
+                    aria-label="Mois suivant">
+                    <ChevronRight className="w-5 h-5 text-primary-foreground" />
+                  </button>
+                </>
+              }
+            />
 
             {/* Calendar Grid */}
             <div className="p-3">

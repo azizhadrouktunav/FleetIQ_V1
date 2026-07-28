@@ -109,11 +109,11 @@ export function SeverityLevelEditorDialog({
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-md max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-5 pt-2">
+        <div className="flex-1 overflow-y-auto p-6 space-y-5">
           <div>
             <Label className="text-xs">Nom affiché</Label>
             <Input

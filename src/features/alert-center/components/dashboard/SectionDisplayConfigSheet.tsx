@@ -51,14 +51,14 @@ export function SectionDisplayConfigSheet({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="flex flex-col p-0 sm:max-w-md">
-        <SheetHeader className="px-6 pt-6 pb-4 border-b border-slate-200 dark:border-slate-700">
+        <SheetHeader>
           <SheetTitle>Configuration — {sectionLabel}</SheetTitle>
           <SheetDescription>
             {visibleCount} alerte(s) affichée(s) sur {totalCount}
           </SheetDescription>
         </SheetHeader>
 
-        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2">
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
           {sortedItems.map((item, index) => {
             const entry = getTaxonomyEntry(item.alertType);
             const indicator = DASHBOARD_INDICATORS.find((i) => i.alertTypeId === item.alertType);
@@ -140,7 +140,7 @@ export function SectionDisplayConfigSheet({
           })}
         </div>
 
-        <SheetFooter className="px-6 py-4 border-t border-slate-200 dark:border-slate-700">
+        <SheetFooter className="px-4 py-4 border-t border-slate-200 dark:border-slate-700">
           <Button variant="outline" className="w-full" onClick={resetToDefaults}>
             Réinitialiser aux valeurs par défaut
           </Button>
