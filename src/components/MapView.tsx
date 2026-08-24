@@ -1,167 +1,679 @@
-import React, { useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { useEffect, useRef, useState } from 'react';
+import type { MutableRefObject } from 'react';
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Popup,
+  Circle,
+  Rectangle,
+  Polygon,
+  Polyline,
+  useMap,
+  useMapEvents,
+} from 'react-leaflet';
 import { Vehicle } from '../types';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import 'leaflet.markercluster';
+import 'leaflet.markercluster/dist/MarkerCluster.css';
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import { MapLegend } from './MapLegend';
-// Custom marker component to handle map centering
+import type {
+  BasemapType,
+  DrawMode,
+  GeofenceDraft,
+  GeofenceOverlay,
+  GeofenceShapeType,
+  LatLng,
+  LocationOverlay,
+  PolygonOverlay,
+  RouteOverlay,
+} from '../types/map-overlays';
+import {
+  BASEMAP_TILES,
+  rectangleBoundsFromCenter,
+} from '../types/map-overlays';
+
+const MIN_RADIUS_KM = 0.05;
+const MAX_RADIUS_KM = 50;
+
+function clampRadiusKm(km: number): number {
+  const clamped = Math.min(MAX_RADIUS_KM, Math.max(MIN_RADIUS_KM, km));
+  return Math.round(clamped * 100) / 100;
+}
+
+function resizeHandlePosition(
+  center: LatLng,
+  radiusKm: number,
+  shapeType: GeofenceShapeType
+): LatLng {
+  const [lat, lng] = center;
+  if (shapeType === 'circulaire') {
+    const dLng = radiusKm / (111 * Math.cos((lat * Math.PI) / 180));
+    return [lat, lng + dLng];
+  }
+  const bounds = rectangleBoundsFromCenter(center, radiusKm);
+  return [bounds[1][0], bounds[1][1]];
+}
+
+function radiusKmFromPointer(
+  map: L.Map,
+  center: LatLng,
+  pointer: L.LatLng,
+  shapeType: GeofenceShapeType
+): number {
+  if (shapeType === 'circulaire') {
+    return clampRadiusKm(map.distance(L.latLng(center), pointer) / 1000);
+  }
+  const [lat, lng] = center;
+  const dLatKm = Math.abs(pointer.lat - lat) * 111;
+  const dLngKm =
+    Math.abs(pointer.lng - lng) * 111 * Math.cos((lat * Math.PI) / 180);
+  return clampRadiusKm(Math.max(dLatKm, dLngKm));
+}
+
 function MapController({
   selectedVehicle,
   mapCenter,
-  onMapCenterChange
-
-
-
-
-}: {selectedVehicle: Vehicle | null;mapCenter: [number, number] | null;onMapCenterChange: () => void;}) {
+  onMapCenterChange,
+  flyToTarget,
+  onFlyToDone,
+}: {
+  selectedVehicle: Vehicle | null;
+  mapCenter: [number, number] | null;
+  onMapCenterChange: () => void;
+  flyToTarget: LatLng | null;
+  onFlyToDone: () => void;
+}) {
   const map = useMap();
   useEffect(() => {
+    if (flyToTarget) {
+      map.flyTo(flyToTarget, 15, { animate: true, duration: 1.2 });
+      onFlyToDone();
+      return;
+    }
     if (mapCenter) {
-      map.flyTo(mapCenter, 15, {
-        animate: true,
-        duration: 1.5
-      });
-      // Clear the mapCenter after flying to it
+      map.flyTo(mapCenter, 15, { animate: true, duration: 1.5 });
       onMapCenterChange();
     } else if (selectedVehicle) {
       map.flyTo(selectedVehicle.coordinates, 15, {
         animate: true,
-        duration: 1.5
+        duration: 1.5,
       });
     }
-  }, [selectedVehicle, mapCenter, map, onMapCenterChange]);
+  }, [
+    selectedVehicle,
+    mapCenter,
+    map,
+    onMapCenterChange,
+    flyToTarget,
+    onFlyToDone,
+  ]);
   return null;
 }
+
+function MapClickHandler({
+  enabled,
+  onMapClick,
+  skipClickRef,
+}: {
+  enabled: boolean;
+  onMapClick: (latlng: LatLng) => void;
+  skipClickRef: MutableRefObject<boolean>;
+}) {
+  useMapEvents({
+    click(e) {
+      if (!enabled) return;
+      if (skipClickRef.current) {
+        skipClickRef.current = false;
+        return;
+      }
+      onMapClick([e.latlng.lat, e.latlng.lng]);
+    },
+  });
+  return null;
+}
+
+function DrawCursor({
+  drawMode,
+  isResizing,
+}: {
+  drawMode: DrawMode;
+  isResizing: boolean;
+}) {
+  const map = useMap();
+  useEffect(() => {
+    const container = map.getContainer();
+    if (isResizing) {
+      container.style.cursor = 'grabbing';
+    } else {
+      container.style.cursor = drawMode ? 'crosshair' : '';
+    }
+    return () => {
+      container.style.cursor = '';
+    };
+  }, [map, drawMode, isResizing]);
+  return null;
+}
+
+function GeofenceDraftResize({
+  center,
+  radiusKm,
+  shapeType,
+  onRadiusChange,
+  skipClickRef,
+  onResizingChange,
+}: {
+  center: LatLng;
+  radiusKm: number;
+  shapeType: GeofenceShapeType;
+  onRadiusChange: (km: number) => void;
+  skipClickRef: MutableRefObject<boolean>;
+  onResizingChange: (v: boolean) => void;
+}) {
+  const map = useMap();
+  const draggingRef = useRef(false);
+  const handlePos = resizeHandlePosition(center, radiusKm, shapeType);
+
+  const startResize = (e: L.LeafletMouseEvent) => {
+    L.DomEvent.stopPropagation(e.originalEvent);
+    L.DomEvent.preventDefault(e.originalEvent);
+    draggingRef.current = true;
+    onResizingChange(true);
+    map.dragging.disable();
+    onRadiusChange(radiusKmFromPointer(map, center, e.latlng, shapeType));
+  };
+
+  const stopResize = () => {
+    if (!draggingRef.current) return;
+    draggingRef.current = false;
+    onResizingChange(false);
+    skipClickRef.current = true;
+    map.dragging.enable();
+  };
+
+  useMapEvents({
+    mousemove(e) {
+      if (!draggingRef.current) return;
+      onRadiusChange(radiusKmFromPointer(map, center, e.latlng, shapeType));
+    },
+    mouseup: stopResize,
+  });
+
+  useEffect(() => {
+    window.addEventListener('mouseup', stopResize);
+    return () => window.removeEventListener('mouseup', stopResize);
+  });
+
+  return (
+    <>
+      <GeofenceShape
+        center={center}
+        radiusKm={radiusKm}
+        shapeType={shapeType}
+        preview
+        interactive
+        onMouseDown={startResize}
+      />
+      <Marker
+        position={handlePos}
+        draggable={false}
+        icon={L.divIcon({
+          className: 'gf-resize-handle',
+          html: `<div style="
+            width:16px;height:16px;border-radius:50%;
+            background:#3b82f6;border:3px solid white;
+            box-shadow:0 2px 6px rgba(0,0,0,.35);
+            cursor:nesw-resize;
+          " title="Glisser pour ajuster le rayon"></div>`,
+          iconSize: [16, 16],
+          iconAnchor: [8, 8],
+        })}
+        eventHandlers={{
+          mousedown: startResize,
+        }}
+      />
+    </>
+  );
+}
+
+function createVehicleIcon(status: string, isSelected: boolean) {
+  const color =
+    status === 'active'
+      ? '#10b981'
+      : status === 'idle'
+        ? '#f59e0b'
+        : '#f43f5e';
+  const size = isSelected ? 40 : 32;
+  const truckSvg = `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-white">
+      <path d="M10 17h4V5H2v12h3"></path>
+      <path d="M20 17h2v-3.34a4 4 0 0 0-1.17-2.83L19 9h-5v8h1"></path>
+      <path d="M14 17h1"></path>
+      <circle cx="7.5" cy="17.5" r="2.5"></circle>
+      <circle cx="17.5" cy="17.5" r="2.5"></circle>
+    </svg>
+  `;
+  return L.divIcon({
+    className: 'custom-marker',
+    html: `
+      <div style="
+        background-color: ${color};
+        width: ${size}px;
+        height: ${size}px;
+        border-radius: 50%;
+        border: 2px solid white;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+      ">
+        ${truckSvg}
+      </div>
+    `,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+    popupAnchor: [0, -size / 2],
+  });
+}
+
+function createLocationIcon() {
+  return L.divIcon({
+    className: 'location-marker',
+    html: `<div style="
+      width:24px;height:24px;border-radius:50% 50% 50% 0;
+      background:#3b82f6;border:2px solid white;
+      transform:rotate(-45deg);
+      box-shadow:0 2px 6px rgba(0,0,0,.3);
+    "></div>`,
+    iconSize: [24, 24],
+    iconAnchor: [12, 24],
+  });
+}
+
+function GeofenceShape({
+  center,
+  radiusKm,
+  shapeType,
+  preview,
+  interactive = true,
+  onMouseDown,
+}: {
+  center: LatLng;
+  radiusKm: number;
+  shapeType: 'circulaire' | 'rectangulaire';
+  preview?: boolean;
+  interactive?: boolean;
+  onMouseDown?: (e: L.LeafletMouseEvent) => void;
+}) {
+  const pathOpts = {
+    color: preview ? '#3b82f6' : '#6366f1',
+    fillColor: preview ? '#3b82f6' : '#6366f1',
+    fillOpacity: preview ? 0.15 : 0.2,
+    weight: 2,
+    dashArray: preview ? '6 4' : undefined,
+    interactive,
+  };
+  const eventHandlers = onMouseDown
+    ? {
+        mousedown: onMouseDown,
+        mouseover: (e: L.LeafletMouseEvent) => {
+          const el = (e.target as L.Path).getElement();
+          if (el) (el as SVGElement).style.cursor = 'nesw-resize';
+        },
+      }
+    : undefined;
+  if (shapeType === 'circulaire') {
+    return (
+      <Circle
+        center={center}
+        radius={radiusKm * 1000}
+        pathOptions={pathOpts}
+        eventHandlers={eventHandlers}
+      />
+    );
+  }
+  const bounds = rectangleBoundsFromCenter(center, radiusKm);
+  return (
+    <Rectangle
+      bounds={bounds}
+      pathOptions={pathOpts}
+      eventHandlers={eventHandlers}
+    />
+  );
+}
+
 interface MapViewProps {
   vehicles: Vehicle[];
   selectedVehicleId: string | null;
   onSelectVehicle: (vehicle: Vehicle) => void;
   mapCenter?: [number, number] | null;
   onMapCenterChange?: () => void;
+  basemap?: BasemapType;
+  drawMode?: DrawMode;
+  onMapClick?: (latlng: LatLng) => void;
+  geofences?: GeofenceOverlay[];
+  locations?: LocationOverlay[];
+  routes?: RouteOverlay[];
+  polygons?: PolygonOverlay[];
+  geofenceDraft?: GeofenceDraft | null;
+  onGeofenceRadiusChange?: (km: number) => void;
+  pendingPoints?: LatLng[];
+  clusterVehicles?: boolean;
+  clusterLocations?: boolean;
+  flyToTarget?: LatLng | null;
+  onFlyToDone?: () => void;
 }
+
 export function MapView({
   vehicles,
   selectedVehicleId,
   onSelectVehicle,
   mapCenter = null,
-  onMapCenterChange = () => {}
+  onMapCenterChange = () => {},
+  basemap = 'osm',
+  drawMode = null,
+  onMapClick = () => {},
+  geofences = [],
+  locations = [],
+  routes = [],
+  polygons = [],
+  geofenceDraft = null,
+  onGeofenceRadiusChange = () => {},
+  pendingPoints = [],
+  clusterVehicles = true,
+  clusterLocations = false,
+  flyToTarget = null,
+  onFlyToDone = () => {},
 }: MapViewProps) {
-  // Create custom icons based on status
-  const createCustomIcon = (status: string, isSelected: boolean) => {
-    const color =
-    status === 'active' ?
-    '#10b981' // emerald-500
-    : status === 'idle' ?
-    '#f59e0b' // amber-500
-    : '#f43f5e'; // rose-500
-    const size = isSelected ? 40 : 32;
-    // Using a truck icon SVG inside the marker
-    const truckSvg = `
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-white">
-        <path d="M10 17h4V5H2v12h3"></path>
-        <path d="M20 17h2v-3.34a4 4 0 0 0-1.17-2.83L19 9h-5v8h1"></path>
-        <path d="M14 17h1"></path>
-        <circle cx="7.5" cy="17.5" r="2.5"></circle>
-        <circle cx="17.5" cy="17.5" r="2.5"></circle>
-      </svg>
-    `;
-    return L.divIcon({
-      className: 'custom-marker',
-      html: `
-        <div style="
-          background-color: ${color};
-          width: ${size}px;
-          height: ${size}px;
-          border-radius: 50%;
-          border: 2px solid white;
-          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: white;
-        ">
-          ${truckSvg}
-        </div>
-      `,
-      iconSize: [size, size],
-      iconAnchor: [size / 2, size / 2],
-      popupAnchor: [0, -size / 2]
-    });
-  };
   const selectedVehicle =
-  vehicles.find((v) => v.id === selectedVehicleId) || null;
+    vehicles.find((v) => v.id === selectedVehicleId) || null;
+  const tile = BASEMAP_TILES[basemap];
+  const visibleLocations = locations.filter((l) => l.visible);
+  const skipClickRef = useRef(false);
+  const [isResizingGeofence, setIsResizingGeofence] = useState(false);
+
   return (
     <div className="w-full h-full relative z-0 bg-slate-100">
       <MapContainer
         center={[48.8566, 2.3522]}
         zoom={13}
-        style={{
-          height: '100%',
-          width: '100%',
-          background: '#f1f5f9'
-        }}
-        zoomControl={false}>
-        
-        {/* Light mode map tiles */}
+        style={{ height: '100%', width: '100%', background: '#f1f5f9' }}
+        zoomControl={false}
+      >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-        
+          key={basemap}
+          attribution={tile.attribution}
+          url={tile.url}
+        />
 
         <MapController
           selectedVehicle={selectedVehicle}
           mapCenter={mapCenter}
-          onMapCenterChange={onMapCenterChange} />
-        
+          onMapCenterChange={onMapCenterChange}
+          flyToTarget={flyToTarget}
+          onFlyToDone={onFlyToDone}
+        />
+        <MapClickHandler
+          enabled={!!drawMode && !isResizingGeofence}
+          onMapClick={onMapClick}
+          skipClickRef={skipClickRef}
+        />
+        <DrawCursor drawMode={drawMode} isResizing={isResizingGeofence} />
 
-        {vehicles.map((vehicle) =>
-        <Marker
-          key={vehicle.id}
-          position={vehicle.coordinates}
-          icon={createCustomIcon(
-            vehicle.status,
-            selectedVehicleId === vehicle.id
-          )}
-          eventHandlers={{
-            click: () => onSelectVehicle(vehicle)
-          }}>
-          
-            <Popup className="custom-popup">
-              <div className="p-1">
-                <h3 className="font-bold text-slate-800">{vehicle.name}</h3>
-                <p className="text-xs text-slate-500">{vehicle.location}</p>
-                <div className="mt-2 flex items-center gap-2">
-                  <span
-                  className={`px-2 py-0.5 rounded-full text-[10px] text-white font-medium
-                    ${vehicle.status === 'active' ? 'bg-emerald-500' : vehicle.status === 'idle' ? 'bg-amber-500' : 'bg-rose-500'}
-                  `}>
-                  
-                    {vehicle.status.toUpperCase()}
-                  </span>
-                  <span className="text-xs font-mono text-slate-600">
-                    {vehicle.speed} km/h
-                  </span>
+        {clusterVehicles && !drawMode ? (
+          <VehicleClusterLayer
+            vehicles={vehicles}
+            selectedVehicleId={selectedVehicleId}
+            onSelectVehicle={onSelectVehicle}
+            drawMode={drawMode}
+          />
+        ) : (
+          vehicles.map((vehicle) => (
+            <Marker
+              key={vehicle.id}
+              position={vehicle.coordinates}
+              interactive={!drawMode}
+              icon={createVehicleIcon(
+                vehicle.status,
+                selectedVehicleId === vehicle.id
+              )}
+              eventHandlers={{
+                click: () => {
+                  if (drawMode) return;
+                  onSelectVehicle(vehicle);
+                },
+              }}
+            >
+              <Popup className="custom-popup">
+                <div className="p-1">
+                  <h3 className="font-bold text-slate-800">{vehicle.name}</h3>
+                  <p className="text-xs text-slate-500">{vehicle.location}</p>
+                  <div className="mt-2 flex items-center gap-2">
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] text-white font-medium
+                    ${
+                      vehicle.status === 'active'
+                        ? 'bg-emerald-500'
+                        : vehicle.status === 'idle'
+                          ? 'bg-amber-500'
+                          : 'bg-rose-500'
+                    }
+                  `}
+                    >
+                      {vehicle.status.toUpperCase()}
+                    </span>
+                    <span className="text-xs font-mono text-slate-600">
+                      {vehicle.speed} km/h
+                    </span>
+                  </div>
                 </div>
-              </div>
-            </Popup>
-          </Marker>
+              </Popup>
+            </Marker>
+          ))
+        )}
+
+        {clusterLocations && !drawMode ? (
+          <LocationClusterLayer locations={visibleLocations} />
+        ) : (
+          visibleLocations.map((loc) => (
+            <Marker
+              key={loc.id}
+              position={loc.position}
+              interactive={!drawMode}
+              icon={createLocationIcon()}
+            >
+              <Popup>
+                <div className="text-sm font-medium">{loc.name}</div>
+              </Popup>
+            </Marker>
+          ))
+        )}
+
+        {/* Geofences */}
+        {geofences
+          .filter((g) => g.visible)
+          .map((g) => (
+            <GeofenceShape
+              key={g.id}
+              center={g.center}
+              radiusKm={g.radiusKm}
+              shapeType={g.shapeType}
+              interactive={!drawMode}
+            />
+          ))}
+
+        {/* Draft geofence preview */}
+        {geofenceDraft && (
+          <>
+            <Marker
+              position={geofenceDraft.center}
+              icon={L.divIcon({
+                className: 'gf-draft',
+                html: `<div style="width:12px;height:12px;background:#3b82f6;border:2px solid white;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>`,
+                iconSize: [12, 12],
+                iconAnchor: [6, 6],
+              })}
+              interactive={false}
+            />
+            <GeofenceDraftResize
+              center={geofenceDraft.center}
+              radiusKm={geofenceDraft.radiusKm}
+              shapeType={geofenceDraft.shapeType}
+              onRadiusChange={onGeofenceRadiusChange}
+              skipClickRef={skipClickRef}
+              onResizingChange={setIsResizingGeofence}
+            />
+          </>
+        )}
+
+        {/* Routes */}
+        {routes
+          .filter((r) => r.visible)
+          .map((r) => (
+            <Polyline
+              key={r.id}
+              positions={r.points}
+              pathOptions={{ color: '#0ea5e9', weight: 4, interactive: !drawMode }}
+            >
+              <Popup>{r.name}</Popup>
+            </Polyline>
+          ))}
+
+        {/* Polygons */}
+        {polygons
+          .filter((p) => p.visible)
+          .map((p) => (
+            <Polygon
+              key={p.id}
+              positions={p.points}
+              pathOptions={{
+                interactive: !drawMode,
+              }}
+            >
+              <Popup>{p.name}</Popup>
+            </Polygon>
+          ))}
+
+        {/* Pending draw points */}
+        {pendingPoints.map((pt, i) => (
+          <Marker
+            key={`pending-${i}`}
+            position={pt}
+            icon={L.divIcon({
+              className: 'pending-pt',
+              html: `<div style="width:10px;height:10px;background:#f59e0b;border:2px solid white;border-radius:50%"></div>`,
+              iconSize: [10, 10],
+              iconAnchor: [5, 5],
+            })}
+            interactive={false}
+          />
+        ))}
+        {pendingPoints.length >= 2 && drawMode === 'route' && (
+          <Polyline
+            positions={pendingPoints}
+            pathOptions={{ color: '#f59e0b', weight: 3, dashArray: '6 4' }}
+          />
+        )}
+        {pendingPoints.length >= 2 && drawMode === 'polygon' && (
+          <Polygon
+            positions={pendingPoints}
+            pathOptions={{
+              color: '#f59e0b',
+              fillColor: '#f59e0b',
+              fillOpacity: 0.1,
+              weight: 2,
+              dashArray: '6 4',
+            }}
+          />
         )}
       </MapContainer>
 
-      {/* Legend - Bottom Left */}
-      <div className="absolute bottom-6 left-4 z-10">
+      <div className="absolute bottom-4 left-4 z-10 flex flex-col gap-2 items-start">
         <MapLegend />
-      </div>
-
-      {/* Bottom Right Info Badges */}
-      <div className="absolute bottom-4 right-4 z-10 flex gap-2">
-        <div className="bg-white/95 backdrop-blur-sm px-3 py-1 rounded-full shadow-md text-xs font-medium text-slate-600">
-          Zoom: 12x
-        </div>
         <div className="bg-white/95 backdrop-blur-sm px-3 py-1 rounded-full shadow-md text-xs font-medium text-slate-600">
           Véhicules: {vehicles.length}
         </div>
       </div>
-    </div>);
+    </div>
+  );
+}
 
+function VehicleClusterLayer({
+  vehicles,
+  selectedVehicleId,
+  onSelectVehicle,
+  drawMode,
+}: {
+  vehicles: Vehicle[];
+  selectedVehicleId: string | null;
+  onSelectVehicle: (v: Vehicle) => void;
+  drawMode: DrawMode;
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    const group = L.markerClusterGroup({
+      showCoverageOnHover: false,
+      maxClusterRadius: 55,
+      spiderfyOnMaxZoom: true,
+    });
+
+    vehicles.forEach((vehicle) => {
+      const marker = L.marker(vehicle.coordinates, {
+        icon: createVehicleIcon(
+          vehicle.status,
+          selectedVehicleId === vehicle.id
+        ),
+      });
+      marker.bindPopup(`
+        <div class="p-1">
+          <h3 class="font-bold text-slate-800">${vehicle.name}</h3>
+          <p class="text-xs text-slate-500">${vehicle.location}</p>
+          <div class="mt-2 text-xs">${vehicle.speed} km/h</div>
+        </div>
+      `);
+      marker.on('click', () => {
+        if (!drawMode) onSelectVehicle(vehicle);
+      });
+      group.addLayer(marker);
+    });
+
+    map.addLayer(group);
+    return () => {
+      map.removeLayer(group);
+    };
+  }, [map, vehicles, selectedVehicleId, onSelectVehicle, drawMode]);
+
+  return null;
+}
+
+function LocationClusterLayer({
+  locations,
+}: {
+  locations: LocationOverlay[];
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    const group = L.markerClusterGroup({
+      showCoverageOnHover: false,
+      maxClusterRadius: 50,
+    });
+
+    locations.forEach((loc) => {
+      const marker = L.marker(loc.position, { icon: createLocationIcon() });
+      marker.bindPopup(`<div class="text-sm font-medium">${loc.name}</div>`);
+      group.addLayer(marker);
+    });
+
+    map.addLayer(group);
+    return () => {
+      map.removeLayer(group);
+    };
+  }, [map, locations]);
+
+  return null;
 }

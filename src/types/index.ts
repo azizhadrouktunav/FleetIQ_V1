@@ -41,3 +41,4 @@ export interface SavedFilter {
 
 export * from './alerts';
 export * from './alert-config';
+export * from './map-overlays';

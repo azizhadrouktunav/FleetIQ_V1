@@ -2,6 +2,12 @@ import React, { useEffect, useState, createElement } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
 import { MapView } from './components/MapView';
+import { MapControls } from './components/MapControls';
+import { GeofenceCreateModal } from './components/GeofenceCreateModal';
+import {
+  MapOverlayManagePanel,
+  NameOverlayModal,
+} from './components/MapOverlayManagerDialog';
 import { DataTable } from './components/DataTable';
 import { ReportsContent } from './components/ReportsContent';
 import { Dashboard } from './components/Dashboard';
@@ -26,6 +32,7 @@ import { AlertConfigurationPage } from './pages/AlertConfigurationPage';
 import { GestionSinistres } from './components/GestionSinistres';
 import { AlertMailSmsContent } from './components/AlertMailSmsContent';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { useMapOverlays } from './hooks/useMapOverlays';
 // Generate 50 mock vehicles
 const generateMockVehicles = (): Vehicle[] => {
   const statuses: VehicleStatus[] = ['active', 'idle', 'offline'];
@@ -150,7 +157,7 @@ export function App() {
   // Auth States
   const [isAuthenticated, setIsAuthenticated] = useState(true);
   const [authPage, setAuthPage] = useState<'login' | 'signup'>('login');
-  const [activeSection, setActiveSection] = useState('404');
+  const [activeSection, setActiveSection] = useState('suivie');
   const [alertUnreadCount, setAlertUnreadCount] = useState(defaultUnreadAlertsCount);
   const [historyVehicleIds, setHistoryVehicleIds] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState('suivie');
@@ -163,6 +170,7 @@ export function App() {
   const [mapCenter, setMapCenter] = useState<[number, number] | null>(null);
   const [isAIChatOpen, setIsAIChatOpen] = useState(false);
   const [hideBadges, setHideBadges] = useState(false);
+  const mapOverlays = useMapOverlays();
   // Suivie Filter States
   const [suivieStartDate, setSuivieStartDate] = useState('');
   const [suivieEndDate, setSuivieEndDate] = useState('');
@@ -331,19 +339,99 @@ export function App() {
               selectedVehicleId={selectedVehicleId}
               onSelectVehicle={handleVehicleSelect}
               mapCenter={mapCenter}
-              onMapCenterChange={() => setMapCenter(null)} />
+              onMapCenterChange={() => setMapCenter(null)}
+              basemap={mapOverlays.basemap}
+              drawMode={mapOverlays.drawMode}
+              onMapClick={mapOverlays.handleMapClick}
+              geofences={mapOverlays.geofences}
+              locations={mapOverlays.locations}
+              routes={mapOverlays.routes}
+              polygons={mapOverlays.polygons}
+              geofenceDraft={mapOverlays.geofenceDraft}
+              onGeofenceRadiusChange={(km) => {
+                mapOverlays.setGeofenceDraft((prev) =>
+                  prev ? { ...prev, radiusKm: km } : prev
+                );
+              }}
+              pendingPoints={mapOverlays.pendingPoints}
+              clusterVehicles={mapOverlays.clusterVehicles}
+              clusterLocations={mapOverlays.clusterLocations}
+              flyToTarget={mapOverlays.flyToTarget}
+              onFlyToDone={() => mapOverlays.setFlyToTarget(null)} />
             
             </div>
 
-            {/* Left: Vehicle List Panel (Floating Overlay) - Now contains filter bar */}
-            <div className="absolute left-0 top-0 bottom-0 z-30">
-              <VehicleListPanel
+            <MapControls
+              basemap={mapOverlays.basemap}
+              onBasemapChange={mapOverlays.setBasemap}
+              clusterVehicles={mapOverlays.clusterVehicles}
+              onClusterVehiclesChange={mapOverlays.setClusterVehicles}
+              clusterLocations={mapOverlays.clusterLocations}
+              onClusterLocationsChange={mapOverlays.setClusterLocations}
+              drawMode={mapOverlays.drawMode}
+              onStartDraw={mapOverlays.startDraw}
+              onOpenManage={mapOverlays.setManageDialog}
+              overlays={mapOverlays.allOverlays}
+              onRemoveOverlays={mapOverlays.removeOverlays}
+              onRemoveAllOverlays={mapOverlays.removeAllOverlays}
+              pendingPointsCount={mapOverlays.pendingPoints.length}
+              onFinishDraw={mapOverlays.finishMultiPointDraw}
+              onCancelDraw={mapOverlays.cancelDrawing}
+            />
+
+            <GeofenceCreateModal
+              open={mapOverlays.geofenceModalOpen}
+              draft={mapOverlays.geofenceDraft}
               vehicles={MOCK_VEHICLES}
-              selectedVehicleId={selectedVehicleId}
-              onSelectVehicle={handleVehicleSelect}
-              isCollapsed={isVehicleListCollapsed}
-              onToggleCollapse={handleToggleVehicleList} />
-            
+              onDraftChange={mapOverlays.setGeofenceDraft}
+              onSave={() => {
+                if (mapOverlays.geofenceDraft) {
+                  mapOverlays.addGeofence(mapOverlays.geofenceDraft);
+                }
+              }}
+              onCancel={mapOverlays.cancelDrawing}
+            />
+
+            <NameOverlayModal
+              open={!!mapOverlays.nameModal}
+              kind={mapOverlays.nameModal?.kind ?? null}
+              onSave={(name) => {
+                const modal = mapOverlays.nameModal;
+                if (!modal) return;
+                if (modal.kind === 'location') {
+                  mapOverlays.addLocation(name, modal.points[0]);
+                } else if (modal.kind === 'route') {
+                  mapOverlays.addRoute(name, modal.points);
+                } else {
+                  mapOverlays.addPolygon(name, modal.points);
+                }
+              }}
+              onCancel={() => mapOverlays.setNameModal(null)}
+            />
+
+            {/* Left: Gestion panel OR Vehicle List */}
+            <div className="absolute left-0 top-0 bottom-0 z-30">
+              {mapOverlays.manageDialog ? (
+                <MapOverlayManagePanel
+                  kind={mapOverlays.manageDialog}
+                  locations={mapOverlays.locations}
+                  routes={mapOverlays.routes}
+                  polygons={mapOverlays.polygons}
+                  geofences={mapOverlays.geofences}
+                  onBack={() => mapOverlays.setManageDialog(null)}
+                  onDelete={(id) => mapOverlays.removeOverlays([id])}
+                  onFlyTo={(center) => mapOverlays.setFlyToTarget(center)}
+                  onToggleVisible={mapOverlays.setOverlayVisible}
+                />
+              ) : (
+                <VehicleListPanel
+                  vehicles={MOCK_VEHICLES}
+                  selectedVehicleId={selectedVehicleId}
+                  onSelectVehicle={handleVehicleSelect}
+                  isCollapsed={isVehicleListCollapsed}
+                  onToggleCollapse={handleToggleVehicleList}
+                />
+              )}
             </div>
 
             {/* Right: Monitoring Center Card (Floating Overlay) */}
