@@ -464,6 +464,58 @@ function createLocationIcon() {
   });
 }
 
+function clusterIconSize(count: number): number {
+  if (count < 10) return 36;
+  if (count < 50) return 42;
+  return 48;
+}
+
+function createVehicleClusterIcon(count: number) {
+  const size = clusterIconSize(count);
+  return L.divIcon({
+    className: 'vehicle-cluster-icon',
+    html: `<div style="
+      width:${size}px;height:${size}px;border-radius:50%;
+      background:#10b981;border:3px solid white;
+      box-shadow:0 3px 10px rgba(0,0,0,.35);
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      color:white;font-weight:700;font-size:${size < 42 ? 11 : 13}px;line-height:1.1;
+      font-family:system-ui,sans-serif;
+    ">
+      <span style="font-size:9px;opacity:.9;letter-spacing:.02em">V</span>
+      <span>${count}</span>
+    </div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
+}
+
+function createLocationClusterIcon(count: number) {
+  const size = clusterIconSize(count);
+  return L.divIcon({
+    className: 'location-cluster-icon',
+    html: `<div style="
+      width:${size}px;height:${size}px;
+      border-radius:30% 30% 30% 0;
+      transform:rotate(-45deg);
+      background:#2563eb;border:3px solid white;
+      box-shadow:0 3px 10px rgba(0,0,0,.35);
+      display:flex;align-items:center;justify-content:center;
+    ">
+      <div style="
+        transform:rotate(45deg);
+        color:white;font-weight:700;font-size:${size < 42 ? 11 : 13}px;line-height:1.1;
+        text-align:center;font-family:system-ui,sans-serif;
+      ">
+        <div style="font-size:9px;opacity:.9">E</div>
+        <div>${count}</div>
+      </div>
+    </div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
+}
+
 function GeofenceShape({
   center,
   radiusKm,
@@ -807,10 +859,18 @@ function VehicleClusterLayer({
   const map = useMap();
 
   useEffect(() => {
+    if (!map.getPane('vehicleClusters')) {
+      map.createPane('vehicleClusters');
+      map.getPane('vehicleClusters')!.style.zIndex = '450';
+    }
+
     const group = L.markerClusterGroup({
       showCoverageOnHover: false,
       maxClusterRadius: 55,
       spiderfyOnMaxZoom: true,
+      clusterPane: 'vehicleClusters',
+      iconCreateFunction: (cluster) =>
+        createVehicleClusterIcon(cluster.getChildCount()),
     });
 
     vehicles.forEach((vehicle) => {
@@ -819,6 +879,7 @@ function VehicleClusterLayer({
           vehicle.status,
           selectedVehicleId === vehicle.id
         ),
+        pane: 'vehicleClusters',
       });
       marker.bindPopup(`
         <div class="p-1">
@@ -850,13 +911,25 @@ function LocationClusterLayer({
   const map = useMap();
 
   useEffect(() => {
+    if (!map.getPane('locationClusters')) {
+      map.createPane('locationClusters');
+      map.getPane('locationClusters')!.style.zIndex = '460';
+    }
+
     const group = L.markerClusterGroup({
       showCoverageOnHover: false,
       maxClusterRadius: 50,
+      spiderfyOnMaxZoom: true,
+      clusterPane: 'locationClusters',
+      iconCreateFunction: (cluster) =>
+        createLocationClusterIcon(cluster.getChildCount()),
     });
 
     locations.forEach((loc) => {
-      const marker = L.marker(loc.position, { icon: createLocationIcon() });
+      const marker = L.marker(loc.position, {
+        icon: createLocationIcon(),
+        pane: 'locationClusters',
+      });
       marker.bindPopup(`<div class="text-sm font-medium">${loc.name}</div>`);
       group.addLayer(marker);
     });
