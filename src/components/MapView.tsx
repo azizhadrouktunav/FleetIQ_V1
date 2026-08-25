@@ -34,6 +34,7 @@ import {
   BASEMAP_TILES,
   rectangleBoundsFromCenter,
 } from '../types/map-overlays';
+import { fetchDrivingRoute } from '../lib/osrm-routing';
 
 const MIN_RADIUS_KM = 0.05;
 const MAX_RADIUS_KM = 50;
@@ -133,6 +134,36 @@ function MapClickHandler({
     },
   });
   return null;
+}
+
+function PendingRoutePreview({ waypoints }: { waypoints: LatLng[] }) {
+  const [geometry, setGeometry] = useState<LatLng[]>(waypoints);
+
+  useEffect(() => {
+    if (waypoints.length < 2) {
+      setGeometry(waypoints);
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void fetchDrivingRoute(waypoints).then((route) => {
+        if (!cancelled) setGeometry(route);
+      });
+    }, 250);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [waypoints]);
+
+  if (geometry.length < 2) return null;
+
+  return (
+    <Polyline
+      positions={geometry}
+      pathOptions={{ color: '#f59e0b', weight: 3, dashArray: '6 4' }}
+    />
+  );
 }
 
 function DrawCursor({
@@ -721,10 +752,7 @@ export function MapView({
           />
         ))}
         {pendingPoints.length >= 2 && drawMode === 'route' && (
-          <Polyline
-            positions={pendingPoints}
-            pathOptions={{ color: '#f59e0b', weight: 3, dashArray: '6 4' }}
-          />
+          <PendingRoutePreview waypoints={pendingPoints} />
         )}
         {pendingPoints.length >= 2 && drawMode === 'polygon' && (
           <Polygon

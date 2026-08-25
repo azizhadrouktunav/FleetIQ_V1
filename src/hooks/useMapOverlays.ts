@@ -11,6 +11,7 @@ import type {
   RouteOverlay,
 } from '../types/map-overlays';
 import { createId } from '../types/map-overlays';
+import { fetchDrivingRoute } from '../lib/osrm-routing';
 
 const MIN_GEOFENCE_RADIUS_KM = 0.05;
 
@@ -51,7 +52,7 @@ export interface MapControlsState {
   setFlyToTarget: (t: LatLng | null) => void;
   startDraw: (mode: Exclude<DrawMode, null>) => void;
   cancelDrawing: () => void;
-  finishMultiPointDraw: () => void;
+  finishMultiPointDraw: () => void | Promise<void>;
   handleMapClick: (latlng: LatLng) => void;
   beginGeofenceAt: (center: LatLng, radiusKm?: number) => void;
   finishGeofencePlace: () => void;
@@ -201,9 +202,11 @@ export function useMapOverlays(): MapControlsState {
     setPolygons((p) => p.map((o) => (o.id === id ? { ...o, visible } : o)));
   }, []);
 
-  const finishMultiPointDraw = useCallback(() => {
+  const finishMultiPointDraw = useCallback(async () => {
     if (drawMode === 'route' && pendingPoints.length >= 2) {
-      setNameModal({ kind: 'route', points: [...pendingPoints] });
+      const waypoints = [...pendingPoints];
+      const geometry = await fetchDrivingRoute(waypoints);
+      setNameModal({ kind: 'route', points: geometry });
       setPendingPoints([]);
       setDrawMode(null);
     } else if (drawMode === 'polygon' && pendingPoints.length >= 3) {

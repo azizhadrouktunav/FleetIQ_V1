@@ -147,7 +147,7 @@ export function MapControls({
             {drawMode === 'location' &&
               'Cliquez sur la carte pour ajouter un emplacement'}
             {drawMode === 'route' &&
-              `Itinéraire : ${pendingPointsCount} point(s) — min. 2`}
+              `Itinéraire (suit les routes) : ${pendingPointsCount} point(s) — min. 2 · Terminer`}
             {drawMode === 'polygon' &&
               `Polygone : ${pendingPointsCount} point(s) — min. 3`}
           </span>
