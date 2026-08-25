@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Vehicle } from '@/types';
 import type { GeofenceDraft } from '@/types/map-overlays';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { X } from 'lucide-react';
+import { ChevronsUpDown, Search, X } from 'lucide-react';
 
 interface GeofenceCreateModalProps {
   open: boolean;
@@ -13,6 +13,10 @@ interface GeofenceCreateModalProps {
   onDraftChange: (draft: GeofenceDraft) => void;
   onSave: () => void;
   onCancel: () => void;
+}
+
+function vehicleLabel(v: Vehicle): string {
+  return `${v.name} (${v.driver})`;
 }
 
 /**
@@ -33,6 +37,9 @@ export function GeofenceCreateModal({
     radiusKm?: string;
   }>({});
   const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [vehicleQuery, setVehicleQuery] = useState('');
+  const [vehicleListOpen, setVehicleListOpen] = useState(false);
+  const vehiclePickerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{
     startX: number;
     startY: number;
@@ -40,9 +47,35 @@ export function GeofenceCreateModal({
     originY: number;
   } | null>(null);
 
+  const selectedVehicle = useMemo(
+    () => vehicles.find((v) => v.id === draft?.vehicleId) ?? null,
+    [vehicles, draft?.vehicleId]
+  );
+
+  const filteredVehicles = useMemo(() => {
+    const q = vehicleQuery.trim().toLowerCase();
+    if (!q) return vehicles;
+    return vehicles.filter(
+      (v) =>
+        v.name.toLowerCase().includes(q) ||
+        v.driver.toLowerCase().includes(q)
+    );
+  }, [vehicles, vehicleQuery]);
+
   useEffect(() => {
-    if (open) setOffset({ x: 0, y: 0 });
+    if (open) {
+      setOffset({ x: 0, y: 0 });
+      setVehicleQuery('');
+      setVehicleListOpen(false);
+      setErrors({});
+    }
   }, [open]);
+
+  useEffect(() => {
+    if (selectedVehicle && !vehicleListOpen) {
+      setVehicleQuery(vehicleLabel(selectedVehicle));
+    }
+  }, [selectedVehicle, vehicleListOpen]);
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
@@ -64,6 +97,24 @@ export function GeofenceCreateModal({
       window.removeEventListener('mouseup', onUp);
     };
   }, []);
+
+  useEffect(() => {
+    const onDocMouseDown = (e: MouseEvent) => {
+      if (
+        vehiclePickerRef.current &&
+        !vehiclePickerRef.current.contains(e.target as Node)
+      ) {
+        setVehicleListOpen(false);
+        if (selectedVehicle) {
+          setVehicleQuery(vehicleLabel(selectedVehicle));
+        } else {
+          setVehicleQuery('');
+        }
+      }
+    };
+    document.addEventListener('mousedown', onDocMouseDown);
+    return () => document.removeEventListener('mousedown', onDocMouseDown);
+  }, [selectedVehicle]);
 
   if (!open || !draft) return null;
 
@@ -96,6 +147,13 @@ export function GeofenceCreateModal({
     };
   };
 
+  const selectVehicle = (v: Vehicle) => {
+    update('vehicleId', v.id);
+    setVehicleQuery(vehicleLabel(v));
+    setVehicleListOpen(false);
+    setErrors((prev) => ({ ...prev, vehicleId: undefined }));
+  };
+
   return (
     <div
       className="absolute left-1/2 top-20 z-50 w-full max-w-md pointer-events-auto"
@@ -106,9 +164,9 @@ export function GeofenceCreateModal({
       aria-modal="false"
       aria-labelledby="geofence-modal-title"
     >
-      <div className="bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden">
+      <div className="bg-white rounded-xl shadow-2xl border border-slate-200 overflow-visible">
         <div
-          className="flex items-center justify-between bg-primary px-5 py-3 text-primary-foreground cursor-move select-none"
+          className="flex items-center justify-between bg-primary px-5 py-3 text-primary-foreground cursor-move select-none rounded-t-xl"
           onMouseDown={startDrag}
         >
           <h2
@@ -128,28 +186,68 @@ export function GeofenceCreateModal({
           </button>
         </div>
 
-        <div className="px-5 py-4 space-y-3 max-h-[55vh] overflow-y-auto">
+        <div className="px-5 py-4 space-y-3">
           <p className="text-xs text-slate-500">
-            Recliquez sur la carte pour repositionner le centre. Cliquez sur le
-            cercle puis glissez vers l’extérieur ou le centre pour ajuster le
-            rayon. Glissez la barre de titre pour déplacer cette fenêtre.
+            Maintenez le clic et glissez pour tracer. Déplacez le point central
+            pour repositionner. Glissez la barre de titre pour déplacer cette
+            fenêtre.
           </p>
 
-          <div className="space-y-1.5">
+          <div className="space-y-1.5" ref={vehiclePickerRef}>
             <Label htmlFor="gf-vehicle">Véhicule à sélectionner</Label>
-            <select
-              id="gf-vehicle"
-              value={draft.vehicleId}
-              onChange={(e) => update('vehicleId', e.target.value)}
-              className="w-full h-9 rounded-md border border-slate-200 px-2 text-sm bg-white"
-            >
-              <option value="">— Choisir —</option>
-              {vehicles.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.name} ({v.driver})
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              <Input
+                id="gf-vehicle"
+                value={vehicleQuery}
+                onChange={(e) => {
+                  setVehicleQuery(e.target.value);
+                  setVehicleListOpen(true);
+                  if (draft.vehicleId) update('vehicleId', '');
+                }}
+                onFocus={() => {
+                  setVehicleListOpen(true);
+                  if (selectedVehicle) setVehicleQuery('');
+                }}
+                placeholder="Rechercher un véhicule…"
+                className="pl-8 pr-8"
+                autoComplete="off"
+                aria-expanded={vehicleListOpen}
+                aria-controls="gf-vehicle-list"
+                role="combobox"
+              />
+              <ChevronsUpDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              {vehicleListOpen && (
+                <ul
+                  id="gf-vehicle-list"
+                  role="listbox"
+                  className="absolute left-0 right-0 top-full mt-1 z-50 max-h-48 overflow-y-auto rounded-md border border-slate-200 bg-white shadow-lg py-1"
+                >
+                  {filteredVehicles.length === 0 ? (
+                    <li className="px-3 py-2 text-sm text-slate-500">
+                      Aucun véhicule trouvé
+                    </li>
+                  ) : (
+                    filteredVehicles.map((v) => (
+                      <li key={v.id} role="option" aria-selected={v.id === draft.vehicleId}>
+                        <button
+                          type="button"
+                          className={`w-full text-left px-3 py-2 text-sm hover:bg-slate-50 transition-colors ${
+                            v.id === draft.vehicleId
+                              ? 'bg-blue-50 text-blue-700'
+                              : 'text-slate-800'
+                          }`}
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => selectVehicle(v)}
+                        >
+                          {vehicleLabel(v)}
+                        </button>
+                      </li>
+                    ))
+                  )}
+                </ul>
+              )}
+            </div>
             {errors.vehicleId && (
               <p className="text-xs text-rose-600">{errors.vehicleId}</p>
             )}
@@ -256,7 +354,7 @@ export function GeofenceCreateModal({
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 px-5 py-3 border-t border-slate-100 bg-slate-50">
+        <div className="flex justify-end gap-2 px-5 py-3 border-t border-slate-100 bg-slate-50 rounded-b-xl">
           <Button type="button" variant="outline" onClick={onCancel}>
             Annuler
           </Button>
