@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import type { MutableRefObject } from 'react';
 import {
   MapContainer,
@@ -38,6 +38,15 @@ import { fetchDrivingRoute } from '../lib/osrm-routing';
 
 const MIN_RADIUS_KM = 0.05;
 const MAX_RADIUS_KM = 50;
+
+const ROUTE_LINE = { color: '#2563eb', weight: 5, opacity: 1 };
+const ROUTE_CASING = { color: '#ffffff', weight: 8, opacity: 0.9 };
+const ROUTE_DRAFT = {
+  color: '#3b82f6',
+  weight: 4,
+  dashArray: '8 6',
+  opacity: 0.85,
+};
 
 function clampRadiusKm(km: number): number {
   const clamped = Math.min(MAX_RADIUS_KM, Math.max(MIN_RADIUS_KM, km));
@@ -159,10 +168,7 @@ function PendingRoutePreview({ waypoints }: { waypoints: LatLng[] }) {
   if (geometry.length < 2) return null;
 
   return (
-    <Polyline
-      positions={geometry}
-      pathOptions={{ color: '#f59e0b', weight: 3, dashArray: '6 4' }}
-    />
+    <Polyline positions={geometry} pathOptions={ROUTE_DRAFT} />
   );
 }
 
@@ -713,13 +719,18 @@ export function MapView({
         {routes
           .filter((r) => r.visible)
           .map((r) => (
-            <Polyline
-              key={r.id}
-              positions={r.points}
-              pathOptions={{ color: '#0ea5e9', weight: 4, interactive: !drawMode }}
-            >
-              <Popup>{r.name}</Popup>
-            </Polyline>
+            <Fragment key={r.id}>
+              <Polyline
+                positions={r.points}
+                pathOptions={{ ...ROUTE_CASING, interactive: false }}
+              />
+              <Polyline
+                positions={r.points}
+                pathOptions={{ ...ROUTE_LINE, interactive: !drawMode }}
+              >
+                <Popup>{r.name}</Popup>
+              </Polyline>
+            </Fragment>
           ))}
 
         {/* Polygons */}
@@ -738,19 +749,23 @@ export function MapView({
           ))}
 
         {/* Pending draw points */}
-        {pendingPoints.map((pt, i) => (
-          <Marker
-            key={`pending-${i}`}
-            position={pt}
-            icon={L.divIcon({
-              className: 'pending-pt',
-              html: `<div style="width:10px;height:10px;background:#f59e0b;border:2px solid white;border-radius:50%"></div>`,
-              iconSize: [10, 10],
-              iconAnchor: [5, 5],
-            })}
-            interactive={false}
-          />
-        ))}
+        {pendingPoints.map((pt, i) => {
+          const pendingColor =
+            drawMode === 'route' ? ROUTE_DRAFT.color : '#f59e0b';
+          return (
+            <Marker
+              key={`pending-${i}`}
+              position={pt}
+              icon={L.divIcon({
+                className: 'pending-pt',
+                html: `<div style="width:10px;height:10px;background:${pendingColor};border:2px solid white;border-radius:50%"></div>`,
+                iconSize: [10, 10],
+                iconAnchor: [5, 5],
+              })}
+              interactive={false}
+            />
+          );
+        })}
         {pendingPoints.length >= 2 && drawMode === 'route' && (
           <PendingRoutePreview waypoints={pendingPoints} />
         )}
