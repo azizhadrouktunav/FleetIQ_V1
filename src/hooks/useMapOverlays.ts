@@ -12,6 +12,8 @@ import type {
 } from '../types/map-overlays';
 import { createId } from '../types/map-overlays';
 
+const MIN_GEOFENCE_RADIUS_KM = 0.05;
+
 export interface MapControlsState {
   basemap: BasemapType;
   setBasemap: (b: BasemapType) => void;
@@ -51,14 +53,20 @@ export interface MapControlsState {
   cancelDrawing: () => void;
   finishMultiPointDraw: () => void;
   handleMapClick: (latlng: LatLng) => void;
+  beginGeofenceAt: (center: LatLng, radiusKm?: number) => void;
+  finishGeofencePlace: () => void;
 }
 
-const defaultGeofenceDraft = (center: LatLng, vehicleId = ''): GeofenceDraft => ({
+const defaultGeofenceDraft = (
+  center: LatLng,
+  vehicleId = '',
+  radiusKm = MIN_GEOFENCE_RADIUS_KM
+): GeofenceDraft => ({
   vehicleId,
   name: '',
   shapeType: 'circulaire',
   alertType: 'hors_zone',
-  radiusKm: 1,
+  radiusKm,
   center,
 });
 
@@ -209,13 +217,8 @@ export function useMapOverlays(): MapControlsState {
     (latlng: LatLng) => {
       if (!drawMode) return;
 
-      if (drawMode === 'geofence') {
-        setGeofenceDraft((prev) =>
-          prev ? { ...prev, center: latlng } : defaultGeofenceDraft(latlng)
-        );
-        setGeofenceModalOpen(true);
-        return;
-      }
+      // Geofence uses click-drag placement (beginGeofenceAt / finishGeofencePlace)
+      if (drawMode === 'geofence') return;
 
       if (drawMode === 'location') {
         setNameModal({ kind: 'location', points: [latlng] });
@@ -229,6 +232,19 @@ export function useMapOverlays(): MapControlsState {
     },
     [drawMode]
   );
+
+  const beginGeofenceAt = useCallback((center: LatLng, radiusKm = MIN_GEOFENCE_RADIUS_KM) => {
+    setGeofenceDraft((prev) =>
+      prev
+        ? { ...prev, radiusKm }
+        : defaultGeofenceDraft(center, '', radiusKm)
+    );
+    setGeofenceModalOpen(false);
+  }, []);
+
+  const finishGeofencePlace = useCallback(() => {
+    setGeofenceModalOpen(true);
+  }, []);
 
   return {
     basemap,
@@ -267,5 +283,7 @@ export function useMapOverlays(): MapControlsState {
     cancelDrawing,
     finishMultiPointDraw,
     handleMapClick,
+    beginGeofenceAt,
+    finishGeofencePlace,
   };
 }

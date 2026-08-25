@@ -143,7 +143,7 @@ export function MapControls({
         <div className="bg-slate-900/90 text-white text-xs font-medium px-3 py-2 rounded-xl shadow-lg max-w-xs flex items-center gap-2">
           <span className="flex-1">
             {drawMode === 'geofence' &&
-              'Cliquez pour placer · glissez le cercle pour ajuster le rayon'}
+              'Maintenez le clic et glissez pour tracer · centre pour déplacer · bord pour le rayon'}
             {drawMode === 'location' &&
               'Cliquez sur la carte pour ajouter un emplacement'}
             {drawMode === 'route' &&

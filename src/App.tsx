@@ -358,6 +358,9 @@ export function App() {
                   prev ? { ...prev, center } : prev
                 );
               }}
+              onGeofencePlaceStart={mapOverlays.beginGeofenceAt}
+              onGeofencePlaceProgress={mapOverlays.beginGeofenceAt}
+              onGeofencePlaceEnd={mapOverlays.finishGeofencePlace}
               pendingPoints={mapOverlays.pendingPoints}
               clusterVehicles={mapOverlays.clusterVehicles}
               clusterLocations={mapOverlays.clusterLocations}

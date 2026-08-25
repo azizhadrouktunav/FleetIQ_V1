@@ -159,114 +159,195 @@ function DrawCursor({
   return null;
 }
 
-function GeofenceDraftCenter({
-  center,
-  onCenterChange,
-  skipClickRef,
-  onMovingChange,
-}: {
-  center: LatLng;
-  onCenterChange: (center: LatLng) => void;
-  skipClickRef: MutableRefObject<boolean>;
-  onMovingChange: (v: boolean) => void;
-}) {
-  const map = useMap();
-
-  return (
-    <Marker
-      position={center}
-      draggable
-      zIndexOffset={600}
-      icon={L.divIcon({
-        className: 'gf-draft-center',
-        html: `<div style="
-          width:14px;height:14px;background:#3b82f6;border:2px solid white;
-          border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.4);
-          cursor:grab;
-        " title="Glisser pour déplacer"></div>`,
-        iconSize: [14, 14],
-        iconAnchor: [7, 7],
-      })}
-      eventHandlers={{
-        dragstart(e) {
-          L.DomEvent.stopPropagation(e.originalEvent);
-          onMovingChange(true);
-          map.dragging.disable();
-        },
-        drag(e) {
-          const ll = e.target.getLatLng();
-          onCenterChange([ll.lat, ll.lng]);
-        },
-        dragend(e) {
-          const ll = e.target.getLatLng();
-          onCenterChange([ll.lat, ll.lng]);
-          onMovingChange(false);
-          skipClickRef.current = true;
-          map.dragging.enable();
-        },
-      }}
-    />
-  );
-}
-
-function GeofenceDraftResize({
-  center,
-  radiusKm,
+function GeofencePlaceHandler({
+  enabled,
   shapeType,
-  onRadiusChange,
+  onPlaceStart,
+  onPlaceProgress,
+  onPlaceEnd,
   skipClickRef,
   onResizingChange,
 }: {
-  center: LatLng;
-  radiusKm: number;
+  enabled: boolean;
   shapeType: GeofenceShapeType;
-  onRadiusChange: (km: number) => void;
+  onPlaceStart: (center: LatLng, radiusKm: number) => void;
+  onPlaceProgress: (center: LatLng, radiusKm: number) => void;
+  onPlaceEnd: () => void;
   skipClickRef: MutableRefObject<boolean>;
   onResizingChange: (v: boolean) => void;
 }) {
   const map = useMap();
-  const draggingRef = useRef(false);
-  const handlePos = resizeHandlePosition(center, radiusKm, shapeType);
+  const placingRef = useRef(false);
+  const centerRef = useRef<LatLng | null>(null);
 
-  const startResize = (e: L.LeafletMouseEvent) => {
-    L.DomEvent.stopPropagation(e.originalEvent);
-    L.DomEvent.preventDefault(e.originalEvent);
-    draggingRef.current = true;
-    onResizingChange(true);
-    map.dragging.disable();
-    onRadiusChange(radiusKmFromPointer(map, center, e.latlng, shapeType));
+  const stopPlace = () => {
+    if (!placingRef.current) return;
+    placingRef.current = false;
+    centerRef.current = null;
+    onResizingChange(false);
+    skipClickRef.current = true;
+    map.dragging.enable();
+    onPlaceEnd();
   };
 
-  const stopResize = () => {
-    if (!draggingRef.current) return;
-    draggingRef.current = false;
+  useMapEvents({
+    mousedown(e) {
+      if (!enabled || placingRef.current) return;
+      if ((e.originalEvent as MouseEvent).button !== 0) return;
+      L.DomEvent.preventDefault(e.originalEvent);
+      L.DomEvent.stopPropagation(e.originalEvent);
+      const center: LatLng = [e.latlng.lat, e.latlng.lng];
+      placingRef.current = true;
+      centerRef.current = center;
+      onResizingChange(true);
+      map.dragging.disable();
+      onPlaceStart(center, MIN_RADIUS_KM);
+    },
+    mousemove(e) {
+      if (!placingRef.current || !centerRef.current) return;
+      onPlaceProgress(
+        centerRef.current,
+        radiusKmFromPointer(map, centerRef.current, e.latlng, shapeType)
+      );
+    },
+    mouseup: stopPlace,
+  });
+
+  useEffect(() => {
+    window.addEventListener('mouseup', stopPlace);
+    return () => window.removeEventListener('mouseup', stopPlace);
+  });
+
+  return null;
+}
+
+function GeofenceDraftEditor({
+  draft,
+  onCenterChange,
+  onRadiusChange,
+  skipClickRef,
+  onResizingChange,
+  onMovingChange,
+}: {
+  draft: GeofenceDraft;
+  onCenterChange: (center: LatLng) => void;
+  onRadiusChange: (km: number) => void;
+  skipClickRef: MutableRefObject<boolean>;
+  onResizingChange: (v: boolean) => void;
+  onMovingChange: (v: boolean) => void;
+}) {
+  const map = useMap();
+  const [liveCenter, setLiveCenter] = useState<LatLng>(draft.center);
+  const [liveRadiusKm, setLiveRadiusKm] = useState(draft.radiusKm);
+  const modeRef = useRef<'idle' | 'move' | 'resize'>('idle');
+  const centerRef = useRef<LatLng>(draft.center);
+
+  useEffect(() => {
+    if (modeRef.current !== 'idle') return;
+    setLiveCenter(draft.center);
+    setLiveRadiusKm(draft.radiusKm);
+  }, [draft.center, draft.radiusKm, draft.shapeType]);
+
+  useEffect(() => {
+    centerRef.current = liveCenter;
+  }, [liveCenter]);
+
+  const stopInteraction = () => {
+    if (modeRef.current === 'idle') return;
+    modeRef.current = 'idle';
+    onMovingChange(false);
     onResizingChange(false);
     skipClickRef.current = true;
     map.dragging.enable();
   };
 
+  const startMove = (e: L.LeafletMouseEvent) => {
+    L.DomEvent.stopPropagation(e.originalEvent);
+    L.DomEvent.preventDefault(e.originalEvent);
+    modeRef.current = 'move';
+    onMovingChange(true);
+    onResizingChange(false);
+    map.dragging.disable();
+  };
+
+  const startResize = (e: L.LeafletMouseEvent) => {
+    L.DomEvent.stopPropagation(e.originalEvent);
+    L.DomEvent.preventDefault(e.originalEvent);
+    modeRef.current = 'resize';
+    onResizingChange(true);
+    onMovingChange(false);
+    map.dragging.disable();
+    const km = radiusKmFromPointer(
+      map,
+      centerRef.current,
+      e.latlng,
+      draft.shapeType
+    );
+    setLiveRadiusKm(km);
+    onRadiusChange(km);
+  };
+
   useMapEvents({
     mousemove(e) {
-      if (!draggingRef.current) return;
-      onRadiusChange(radiusKmFromPointer(map, center, e.latlng, shapeType));
+      if (modeRef.current === 'move') {
+        const next: LatLng = [e.latlng.lat, e.latlng.lng];
+        centerRef.current = next;
+        setLiveCenter(next);
+        onCenterChange(next);
+        return;
+      }
+      if (modeRef.current === 'resize') {
+        const km = radiusKmFromPointer(
+          map,
+          centerRef.current,
+          e.latlng,
+          draft.shapeType
+        );
+        setLiveRadiusKm(km);
+        onRadiusChange(km);
+      }
     },
-    mouseup: stopResize,
+    mouseup: stopInteraction,
   });
 
   useEffect(() => {
-    window.addEventListener('mouseup', stopResize);
-    return () => window.removeEventListener('mouseup', stopResize);
+    window.addEventListener('mouseup', stopInteraction);
+    return () => window.removeEventListener('mouseup', stopInteraction);
   });
+
+  const handlePos = resizeHandlePosition(
+    liveCenter,
+    liveRadiusKm,
+    draft.shapeType
+  );
 
   return (
     <>
       <GeofenceShape
-        center={center}
-        radiusKm={radiusKm}
-        shapeType={shapeType}
+        center={liveCenter}
+        radiusKm={liveRadiusKm}
+        shapeType={draft.shapeType}
         preview
         interactive
         onMouseDown={startResize}
+      />
+      <Marker
+        position={liveCenter}
+        draggable={false}
+        zIndexOffset={600}
+        icon={L.divIcon({
+          className: 'gf-draft-center',
+          html: `<div style="
+            width:14px;height:14px;background:#3b82f6;border:2px solid white;
+            border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.4);
+            cursor:grab;
+          " title="Glisser pour déplacer"></div>`,
+          iconSize: [14, 14],
+          iconAnchor: [7, 7],
+        })}
+        eventHandlers={{
+          mousedown: startMove,
+        }}
       />
       <Marker
         position={handlePos}
@@ -414,6 +495,9 @@ interface MapViewProps {
   geofenceDraft?: GeofenceDraft | null;
   onGeofenceRadiusChange?: (km: number) => void;
   onGeofenceCenterChange?: (center: LatLng) => void;
+  onGeofencePlaceStart?: (center: LatLng, radiusKm?: number) => void;
+  onGeofencePlaceProgress?: (center: LatLng, radiusKm: number) => void;
+  onGeofencePlaceEnd?: () => void;
   pendingPoints?: LatLng[];
   clusterVehicles?: boolean;
   clusterLocations?: boolean;
@@ -437,6 +521,9 @@ export function MapView({
   geofenceDraft = null,
   onGeofenceRadiusChange = () => {},
   onGeofenceCenterChange = () => {},
+  onGeofencePlaceStart = () => {},
+  onGeofencePlaceProgress = () => {},
+  onGeofencePlaceEnd = () => {},
   pendingPoints = [],
   clusterVehicles = true,
   clusterLocations = false,
@@ -450,6 +537,7 @@ export function MapView({
   const skipClickRef = useRef(false);
   const [isResizingGeofence, setIsResizingGeofence] = useState(false);
   const [isMovingGeofence, setIsMovingGeofence] = useState(false);
+  const isGeofenceInteracting = isResizingGeofence || isMovingGeofence;
 
   return (
     <div className="w-full h-full relative z-0 bg-slate-100">
@@ -473,9 +561,22 @@ export function MapView({
           onFlyToDone={onFlyToDone}
         />
         <MapClickHandler
-          enabled={!!drawMode && !isResizingGeofence && !isMovingGeofence}
+          enabled={
+            !!drawMode &&
+            drawMode !== 'geofence' &&
+            !isGeofenceInteracting
+          }
           onMapClick={onMapClick}
           skipClickRef={skipClickRef}
+        />
+        <GeofencePlaceHandler
+          enabled={drawMode === 'geofence' && !geofenceDraft}
+          shapeType={geofenceDraft?.shapeType ?? 'circulaire'}
+          onPlaceStart={onGeofencePlaceStart}
+          onPlaceProgress={onGeofencePlaceProgress}
+          onPlaceEnd={onGeofencePlaceEnd}
+          skipClickRef={skipClickRef}
+          onResizingChange={setIsResizingGeofence}
         />
         <DrawCursor
           drawMode={drawMode}
@@ -567,22 +668,14 @@ export function MapView({
 
         {/* Draft geofence preview */}
         {geofenceDraft && (
-          <>
-            <GeofenceDraftCenter
-              center={geofenceDraft.center}
-              onCenterChange={onGeofenceCenterChange}
-              skipClickRef={skipClickRef}
-              onMovingChange={setIsMovingGeofence}
-            />
-            <GeofenceDraftResize
-              center={geofenceDraft.center}
-              radiusKm={geofenceDraft.radiusKm}
-              shapeType={geofenceDraft.shapeType}
-              onRadiusChange={onGeofenceRadiusChange}
-              skipClickRef={skipClickRef}
-              onResizingChange={setIsResizingGeofence}
-            />
-          </>
+          <GeofenceDraftEditor
+            draft={geofenceDraft}
+            onCenterChange={onGeofenceCenterChange}
+            onRadiusChange={onGeofenceRadiusChange}
+            skipClickRef={skipClickRef}
+            onResizingChange={setIsResizingGeofence}
+            onMovingChange={setIsMovingGeofence}
+          />
         )}
 
         {/* Routes */}
