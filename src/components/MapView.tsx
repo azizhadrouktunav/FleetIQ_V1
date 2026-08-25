@@ -138,14 +138,16 @@ function MapClickHandler({
 function DrawCursor({
   drawMode,
   isResizing,
+  isMoving,
 }: {
   drawMode: DrawMode;
   isResizing: boolean;
+  isMoving: boolean;
 }) {
   const map = useMap();
   useEffect(() => {
     const container = map.getContainer();
-    if (isResizing) {
+    if (isResizing || isMoving) {
       container.style.cursor = 'grabbing';
     } else {
       container.style.cursor = drawMode ? 'crosshair' : '';
@@ -153,8 +155,58 @@ function DrawCursor({
     return () => {
       container.style.cursor = '';
     };
-  }, [map, drawMode, isResizing]);
+  }, [map, drawMode, isResizing, isMoving]);
   return null;
+}
+
+function GeofenceDraftCenter({
+  center,
+  onCenterChange,
+  skipClickRef,
+  onMovingChange,
+}: {
+  center: LatLng;
+  onCenterChange: (center: LatLng) => void;
+  skipClickRef: MutableRefObject<boolean>;
+  onMovingChange: (v: boolean) => void;
+}) {
+  const map = useMap();
+
+  return (
+    <Marker
+      position={center}
+      draggable
+      zIndexOffset={600}
+      icon={L.divIcon({
+        className: 'gf-draft-center',
+        html: `<div style="
+          width:14px;height:14px;background:#3b82f6;border:2px solid white;
+          border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.4);
+          cursor:grab;
+        " title="Glisser pour déplacer"></div>`,
+        iconSize: [14, 14],
+        iconAnchor: [7, 7],
+      })}
+      eventHandlers={{
+        dragstart(e) {
+          L.DomEvent.stopPropagation(e.originalEvent);
+          onMovingChange(true);
+          map.dragging.disable();
+        },
+        drag(e) {
+          const ll = e.target.getLatLng();
+          onCenterChange([ll.lat, ll.lng]);
+        },
+        dragend(e) {
+          const ll = e.target.getLatLng();
+          onCenterChange([ll.lat, ll.lng]);
+          onMovingChange(false);
+          skipClickRef.current = true;
+          map.dragging.enable();
+        },
+      }}
+    />
+  );
 }
 
 function GeofenceDraftResize({
@@ -219,6 +271,7 @@ function GeofenceDraftResize({
       <Marker
         position={handlePos}
         draggable={false}
+        zIndexOffset={500}
         icon={L.divIcon({
           className: 'gf-resize-handle',
           html: `<div style="
@@ -360,6 +413,7 @@ interface MapViewProps {
   polygons?: PolygonOverlay[];
   geofenceDraft?: GeofenceDraft | null;
   onGeofenceRadiusChange?: (km: number) => void;
+  onGeofenceCenterChange?: (center: LatLng) => void;
   pendingPoints?: LatLng[];
   clusterVehicles?: boolean;
   clusterLocations?: boolean;
@@ -382,6 +436,7 @@ export function MapView({
   polygons = [],
   geofenceDraft = null,
   onGeofenceRadiusChange = () => {},
+  onGeofenceCenterChange = () => {},
   pendingPoints = [],
   clusterVehicles = true,
   clusterLocations = false,
@@ -394,6 +449,7 @@ export function MapView({
   const visibleLocations = locations.filter((l) => l.visible);
   const skipClickRef = useRef(false);
   const [isResizingGeofence, setIsResizingGeofence] = useState(false);
+  const [isMovingGeofence, setIsMovingGeofence] = useState(false);
 
   return (
     <div className="w-full h-full relative z-0 bg-slate-100">
@@ -417,11 +473,15 @@ export function MapView({
           onFlyToDone={onFlyToDone}
         />
         <MapClickHandler
-          enabled={!!drawMode && !isResizingGeofence}
+          enabled={!!drawMode && !isResizingGeofence && !isMovingGeofence}
           onMapClick={onMapClick}
           skipClickRef={skipClickRef}
         />
-        <DrawCursor drawMode={drawMode} isResizing={isResizingGeofence} />
+        <DrawCursor
+          drawMode={drawMode}
+          isResizing={isResizingGeofence}
+          isMoving={isMovingGeofence}
+        />
 
         {clusterVehicles && !drawMode ? (
           <VehicleClusterLayer
@@ -508,15 +568,11 @@ export function MapView({
         {/* Draft geofence preview */}
         {geofenceDraft && (
           <>
-            <Marker
-              position={geofenceDraft.center}
-              icon={L.divIcon({
-                className: 'gf-draft',
-                html: `<div style="width:12px;height:12px;background:#3b82f6;border:2px solid white;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>`,
-                iconSize: [12, 12],
-                iconAnchor: [6, 6],
-              })}
-              interactive={false}
+            <GeofenceDraftCenter
+              center={geofenceDraft.center}
+              onCenterChange={onGeofenceCenterChange}
+              skipClickRef={skipClickRef}
+              onMovingChange={setIsMovingGeofence}
             />
             <GeofenceDraftResize
               center={geofenceDraft.center}

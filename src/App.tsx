@@ -353,6 +353,11 @@ export function App() {
                   prev ? { ...prev, radiusKm: km } : prev
                 );
               }}
+              onGeofenceCenterChange={(center) => {
+                mapOverlays.setGeofenceDraft((prev) =>
+                  prev ? { ...prev, center } : prev
+                );
+              }}
               pendingPoints={mapOverlays.pendingPoints}
               clusterVehicles={mapOverlays.clusterVehicles}
               clusterLocations={mapOverlays.clusterLocations}
