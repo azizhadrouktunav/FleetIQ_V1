@@ -372,8 +372,7 @@ export function App() {
               onStartDraw={mapOverlays.startDraw}
               onOpenManage={mapOverlays.setManageDialog}
               overlays={mapOverlays.allOverlays}
-              onRemoveOverlays={mapOverlays.removeOverlays}
-              onRemoveAllOverlays={mapOverlays.removeAllOverlays}
+              onSetOverlayVisible={mapOverlays.setOverlayVisible}
               pendingPointsCount={mapOverlays.pendingPoints.length}
               onFinishDraw={mapOverlays.finishMultiPointDraw}
               onCancelDraw={mapOverlays.cancelDrawing}

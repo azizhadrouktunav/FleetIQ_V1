@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, type ComponentType } from 'react';
 import {
   Eye,
+  EyeOff,
   Layers,
-  Trash2,
   Route,
   Check,
   SlidersHorizontal,
@@ -14,14 +14,20 @@ import {
 import type { BasemapType, DrawMode, MapOverlay } from '../types/map-overlays';
 import { BASEMAP_TILES } from '../types/map-overlays';
 
-type OpenMenu = 'geo' | 'visibility' | 'layers' | 'delete' | null;
+type OpenMenu = 'geo' | 'visibility' | 'layers' | 'hide' | null;
 
 const toolbarBtn =
   'h-10 w-10 inline-flex items-center justify-center rounded-xl border transition-colors';
 const toolbarIdle =
   'border-slate-200 bg-white text-slate-700 hover:bg-slate-50';
 const toolbarActive = 'border-blue-200 bg-blue-50 text-blue-700';
-const toolbarTrashActive = 'border-rose-200 bg-rose-50 text-rose-700';
+
+function overlayKindLabel(kind: MapOverlay['kind']): string {
+  if (kind === 'geofence') return 'Géopérage';
+  if (kind === 'location') return 'Emplacement';
+  if (kind === 'route') return 'Route';
+  return 'Polygone';
+}
 
 function MenuRow({
   icon: Icon,
@@ -61,8 +67,7 @@ interface MapControlsProps {
   onStartDraw: (mode: Exclude<DrawMode, null>) => void;
   onOpenManage: (kind: 'location' | 'route' | 'polygon' | 'geofence') => void;
   overlays: MapOverlay[];
-  onRemoveOverlays: (ids: string[]) => void;
-  onRemoveAllOverlays: () => void;
+  onSetOverlayVisible: (id: string, visible: boolean) => void;
   pendingPointsCount: number;
   onFinishDraw: () => void;
   onCancelDraw: () => void;
@@ -79,17 +84,13 @@ export function MapControls({
   onStartDraw,
   onOpenManage,
   overlays,
-  onRemoveOverlays,
-  onRemoveAllOverlays,
+  onSetOverlayVisible,
   pendingPointsCount,
   onFinishDraw,
   onCancelDraw,
 }: MapControlsProps) {
   const [openMenu, setOpenMenu] = useState<OpenMenu>(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [selectedDeleteIds, setSelectedDeleteIds] = useState<Set<string>>(
-    new Set()
-  );
   const toolbarRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -126,13 +127,8 @@ export function MapControls({
     setOpenMenu(null);
   };
 
-  const toggleDeleteId = (id: string) => {
-    setSelectedDeleteIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  const setAllOverlaysVisible = (visible: boolean) => {
+    overlays.forEach((o) => onSetOverlayVisible(o.id, visible));
   };
 
   const canFinishRoute = drawMode === 'route' && pendingPointsCount >= 2;
@@ -386,85 +382,84 @@ export function MapControls({
           <div className="relative">
             <button
               type="button"
-              onClick={() => {
-                toggleMenu('delete');
-                setSelectedDeleteIds(new Set());
-              }}
+              onClick={() => toggleMenu('hide')}
               className={`${toolbarBtn} ${
-                openMenu === 'delete'
-                  ? toolbarTrashActive
-                  : `${toolbarIdle} hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200`
+                openMenu === 'hide' ? toolbarActive : toolbarIdle
               }`}
-              title="Supprimer des couches de la carte"
-              aria-label="Supprimer des couches de la carte"
-              aria-expanded={openMenu === 'delete'}
+              title="Masquer / afficher les couches"
+              aria-label="Masquer / afficher les couches"
+              aria-expanded={openMenu === 'hide'}
             >
-              <Trash2 className="w-5 h-5" />
+              <EyeOff className="w-5 h-5" />
             </button>
 
-            {openMenu === 'delete' && (
+            {openMenu === 'hide' && (
               <div className="absolute right-full top-0 mr-2 w-72 bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
                 <div className="px-4 py-3 border-b border-slate-100">
                   <h3 className="text-sm font-semibold text-slate-800">
-                    Supprimer des couches
+                    Masquer / afficher les couches
                   </h3>
                 </div>
                 {overlays.length === 0 ? (
                   <div className="p-4 text-sm text-slate-500 text-center">
-                    Aucune couche à supprimer
+                    Aucune couche à masquer
                   </div>
                 ) : (
                   <>
                     <div className="p-2 max-h-48 overflow-y-auto">
                       {overlays.map((o) => (
-                        <label
+                        <div
                           key={o.id}
-                          className="flex items-center gap-3 px-3 py-2 hover:bg-slate-50 rounded-lg cursor-pointer"
+                          className="flex items-center gap-3 px-3 py-2 hover:bg-slate-50 rounded-lg"
                         >
-                          <input
-                            type="checkbox"
-                            checked={selectedDeleteIds.has(o.id)}
-                            onChange={() => toggleDeleteId(o.id)}
-                            className="w-4 h-4 text-rose-600 border-slate-300 rounded"
-                          />
-                          <span className="text-sm text-slate-800 truncate flex-1">
+                          <span
+                            className={`text-sm truncate flex-1 ${
+                              o.visible
+                                ? 'text-slate-800 font-medium'
+                                : 'text-slate-400'
+                            }`}
+                          >
                             {o.name}
                           </span>
                           <span className="text-[10px] uppercase text-slate-400 font-medium">
-                            {o.kind === 'geofence'
-                              ? 'Géopérage'
-                              : o.kind === 'location'
-                                ? 'Emplacement'
-                                : o.kind === 'route'
-                                  ? 'Route'
-                                  : 'Polygone'}
+                            {overlayKindLabel(o.kind)}
                           </span>
-                        </label>
+                          <button
+                            type="button"
+                            title={o.visible ? 'Masquer' : 'Afficher'}
+                            aria-label={o.visible ? 'Masquer' : 'Afficher'}
+                            onClick={() =>
+                              onSetOverlayVisible(o.id, !o.visible)
+                            }
+                            className={`p-1.5 rounded-md transition-colors ${
+                              o.visible
+                                ? 'text-blue-600 hover:bg-blue-50'
+                                : 'text-slate-400 hover:bg-slate-100'
+                            }`}
+                          >
+                            {o.visible ? (
+                              <Eye className="w-4 h-4" />
+                            ) : (
+                              <EyeOff className="w-4 h-4" />
+                            )}
+                          </button>
+                        </div>
                       ))}
                     </div>
                     <div className="p-2 border-t border-slate-100 flex gap-2">
                       <button
                         type="button"
-                        disabled={selectedDeleteIds.size === 0}
-                        onClick={() => {
-                          onRemoveOverlays([...selectedDeleteIds]);
-                          setSelectedDeleteIds(new Set());
-                          setOpenMenu(null);
-                        }}
-                        className="flex-1 px-3 py-2 text-xs font-semibold rounded-lg bg-rose-500 text-white hover:bg-rose-600 disabled:opacity-40 disabled:cursor-not-allowed"
+                        onClick={() => setAllOverlaysVisible(false)}
+                        className="flex-1 px-3 py-2 text-xs font-semibold rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50"
                       >
-                        Supprimer la sélection
+                        Masquer tout
                       </button>
                       <button
                         type="button"
-                        onClick={() => {
-                          onRemoveAllOverlays();
-                          setSelectedDeleteIds(new Set());
-                          setOpenMenu(null);
-                        }}
-                        className="px-3 py-2 text-xs font-semibold rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50"
+                        onClick={() => setAllOverlaysVisible(true)}
+                        className="flex-1 px-3 py-2 text-xs font-semibold rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50"
                       >
-                        Tout
+                        Afficher tout
                       </button>
                     </div>
                   </>
