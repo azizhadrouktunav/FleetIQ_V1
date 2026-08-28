@@ -665,6 +665,8 @@ export function useMapOverlays(): MapControlsState {
       setRoutePreview(null);
       setRouteCreateOpen(false);
       setRouteCreateModeState(null);
+      setOverlayPanelMode('edit');
+      setEditTarget(null);
     } else if (drawMode === 'polygon' && pendingPoints.length >= 3) {
       if (closingWouldSelfIntersect(pendingPoints)) {
         setPolygonDrawError(
@@ -682,6 +684,8 @@ export function useMapOverlays(): MapControlsState {
       setPendingPoints([]);
       setDrawMode(null);
       setPolygonDrawError(null);
+      setOverlayPanelMode('edit');
+      setEditTarget(null);
     }
   }, [drawMode, pendingPoints]);
 
