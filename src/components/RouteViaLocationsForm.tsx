@@ -321,12 +321,6 @@ export function RouteViaLocationsForm({
     if (stops.length < 2) {
       next.waypoints = 'Ajoutez au moins un départ et une arrivée.';
     }
-    if (assignment.ids.length === 0) {
-      next.assignment =
-        assignment.mode === 'vehicle'
-          ? 'Sélectionnez au moins un véhicule.'
-          : 'Sélectionnez au moins un département.';
-    }
     setErrors(next);
     if (Object.keys(next).length > 0) return;
 

@@ -20,6 +20,7 @@ interface GeofenceCreateModalProps {
   onFlyTo?: (center: LatLng, zoom?: number) => void;
   readOnly?: boolean;
   onStartEdit?: () => void;
+  onBeforeGeometryChange?: () => void;
 }
 
 /**
@@ -37,6 +38,7 @@ export function GeofenceCreateModal({
   onFlyTo,
   readOnly = false,
   onStartEdit,
+  onBeforeGeometryChange,
 }: GeofenceCreateModalProps) {
   const [errors, setErrors] = useState<{
     name?: string;
@@ -63,10 +65,18 @@ export function GeofenceCreateModal({
     key: K,
     value: GeofenceDraft[K]
   ) => {
+    if (
+      key === 'center' ||
+      key === 'radiusKm' ||
+      key === 'shapeType'
+    ) {
+      onBeforeGeometryChange?.();
+    }
     onDraftChange({ ...draft, [key]: value });
   };
 
   const handleShapeChange = (shapeType: GeofenceDraft['shapeType']) => {
+    onBeforeGeometryChange?.();
     onDraftChange({
       ...draft,
       shapeType,
@@ -77,12 +87,6 @@ export function GeofenceCreateModal({
   const handleSave = () => {
     const next: typeof errors = {};
     if (!draft.name.trim()) next.name = 'Le nom est requis.';
-    if (draft.assignment.ids.length === 0) {
-      next.assignment =
-        draft.assignment.mode === 'vehicle'
-          ? 'Sélectionnez au moins un véhicule.'
-          : 'Sélectionnez au moins un département.';
-    }
     if (!isLegacyGouvernorat && (!draft.radiusKm || draft.radiusKm <= 0)) {
       next.radiusKm = 'Rayon invalide.';
     }

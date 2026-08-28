@@ -85,6 +85,10 @@ interface MapControlsProps {
   onUndoPoint?: () => void;
   onRedoPoint?: () => void;
   routeCreateOpen?: boolean;
+  geofenceModalOpen?: boolean;
+  geofenceGeometryActive?: boolean;
+  canUndoMapEdit?: boolean;
+  canRedoMapEdit?: boolean;
   hasOverlayDraft?: boolean;
   polygonDrawError?: string | null;
 }
@@ -109,6 +113,10 @@ export function MapControls({
   onUndoPoint,
   onRedoPoint,
   routeCreateOpen = false,
+  geofenceModalOpen = false,
+  geofenceGeometryActive = false,
+  canUndoMapEdit = false,
+  canRedoMapEdit = false,
   hasOverlayDraft = false,
   polygonDrawError,
 }: MapControlsProps) {
@@ -130,18 +138,20 @@ export function MapControls({
         const tag = (event.target as HTMLElement)?.tagName;
         return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
       };
-      const geoActive = !!drawMode || !!geometryEditKind;
+      const geoActive =
+        !!drawMode || !!geometryEditKind || geofenceGeometryActive;
       const mod = event.ctrlKey || event.metaKey;
       const drawingSessionActive =
         !!drawMode ||
         !!geometryEditKind ||
         routeCreateOpen ||
+        geofenceModalOpen ||
         hasOverlayDraft;
 
       if (
         event.key === 'Backspace' &&
         geoActive &&
-        pendingPointsCount > 0
+        canUndoMapEdit
       ) {
         if (isFormFieldFocused()) return;
         event.preventDefault();
@@ -150,7 +160,7 @@ export function MapControls({
       }
       if (mod && event.key === 'z' && !event.shiftKey && geoActive) {
         if (isFormFieldFocused()) return;
-        if (pendingPointsCount > 0) {
+        if (canUndoMapEdit) {
           event.preventDefault();
           onUndoPoint?.();
         }
@@ -162,8 +172,10 @@ export function MapControls({
         (event.key === 'y' || (event.key === 'z' && event.shiftKey))
       ) {
         if (isFormFieldFocused()) return;
-        event.preventDefault();
-        onRedoPoint?.();
+        if (canRedoMapEdit) {
+          event.preventDefault();
+          onRedoPoint?.();
+        }
         return;
       }
       if (
@@ -205,6 +217,9 @@ export function MapControls({
   }, [
     drawMode,
     geometryEditKind,
+    geofenceGeometryActive,
+    canUndoMapEdit,
+    canRedoMapEdit,
     hasOverlayDraft,
     onCancelDraw,
     openMenu,
@@ -213,6 +228,7 @@ export function MapControls({
     pendingPointsCount,
     onFinishDraw,
     routeCreateOpen,
+    geofenceModalOpen,
   ]);
 
   const toggleMenu = (menu: OpenMenu) => {
@@ -271,7 +287,7 @@ export function MapControls({
           <div className="flex items-center gap-2">
             <span className="flex-1">
               {drawMode === 'geofence' &&
-                'Maintenez le clic et glissez pour tracer · centre pour déplacer · bord pour le rayon'}
+                `Géopérage : maintenez le clic et glissez · centre pour déplacer · bord pour le rayon · ${shortcutHints}`}
               {drawMode === 'location' &&
                 'Cliquez sur la carte pour ajouter un emplacement'}
               {drawMode === 'route' &&

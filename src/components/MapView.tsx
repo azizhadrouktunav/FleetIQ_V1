@@ -388,6 +388,7 @@ function GeofenceDraftEditor({
   draft,
   onCenterChange,
   onRadiusChange,
+  onGeometryInteractionStart,
   skipClickRef,
   onResizingChange,
   onMovingChange,
@@ -395,6 +396,7 @@ function GeofenceDraftEditor({
   draft: GeofenceDraft;
   onCenterChange: (center: LatLng) => void;
   onRadiusChange: (km: number) => void;
+  onGeometryInteractionStart?: () => void;
   skipClickRef: MutableRefObject<boolean>;
   onResizingChange: (v: boolean) => void;
   onMovingChange: (v: boolean) => void;
@@ -427,6 +429,7 @@ function GeofenceDraftEditor({
   const startMove = (e: L.LeafletMouseEvent) => {
     L.DomEvent.stopPropagation(e.originalEvent);
     L.DomEvent.preventDefault(e.originalEvent);
+    onGeometryInteractionStart?.();
     modeRef.current = 'move';
     onMovingChange(true);
     onResizingChange(false);
@@ -436,6 +439,7 @@ function GeofenceDraftEditor({
   const startResize = (e: L.LeafletMouseEvent) => {
     L.DomEvent.stopPropagation(e.originalEvent);
     L.DomEvent.preventDefault(e.originalEvent);
+    onGeometryInteractionStart?.();
     modeRef.current = 'resize';
     onResizingChange(true);
     onMovingChange(false);
@@ -762,6 +766,7 @@ interface MapViewProps {
   onGeofencePlaceStart?: (center: LatLng, radiusKm?: number) => void;
   onGeofencePlaceProgress?: (center: LatLng, radiusKm: number) => void;
   onGeofencePlaceEnd?: () => void;
+  onGeofenceGeometryInteractionStart?: () => void;
   pendingPoints?: LatLng[];
   onPendingPointsChange?: (points: LatLng[]) => void;
   onFinishPolygon?: () => void;
@@ -819,6 +824,7 @@ export function MapView({
   onGeofencePlaceStart = () => {},
   onGeofencePlaceProgress = () => {},
   onGeofencePlaceEnd = () => {},
+  onGeofenceGeometryInteractionStart,
   pendingPoints = [],
   onPendingPointsChange,
   onFinishPolygon,
@@ -1033,6 +1039,7 @@ export function MapView({
             draft={geofenceDraft}
             onCenterChange={onGeofenceCenterChange}
             onRadiusChange={onGeofenceRadiusChange}
+            onGeometryInteractionStart={onGeofenceGeometryInteractionStart}
             skipClickRef={skipClickRef}
             onResizingChange={setIsResizingGeofence}
             onMovingChange={setIsMovingGeofence}

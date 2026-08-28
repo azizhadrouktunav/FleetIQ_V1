@@ -427,9 +427,15 @@ export function App() {
                   prev ? { ...prev, center } : prev
                 );
               }}
-              onGeofencePlaceStart={mapOverlays.beginGeofenceAt}
+              onGeofencePlaceStart={(center, radiusKm) => {
+                mapOverlays.recordGeofenceGeometryHistory();
+                mapOverlays.beginGeofenceAt(center, radiusKm);
+              }}
               onGeofencePlaceProgress={mapOverlays.beginGeofenceAt}
               onGeofencePlaceEnd={mapOverlays.finishGeofencePlace}
+              onGeofenceGeometryInteractionStart={
+                mapOverlays.recordGeofenceGeometryHistory
+              }
               pendingPoints={mapOverlays.pendingPoints}
               onPendingPointsChange={mapOverlays.setPendingPoints}
               onFinishPolygon={() => {
@@ -483,9 +489,13 @@ export function App() {
               pendingPointsCount={mapOverlays.pendingPoints.length}
               onFinishDraw={mapOverlays.finishMultiPointDraw}
               onCancelDraw={mapOverlays.cancelMapDrawing}
-              onUndoPoint={mapOverlays.undoPendingPoint}
-              onRedoPoint={mapOverlays.redoPendingPoint}
+              onUndoPoint={mapOverlays.undoMapEdit}
+              onRedoPoint={mapOverlays.redoMapEdit}
               routeCreateOpen={mapOverlays.routeCreateOpen}
+              geofenceModalOpen={mapOverlays.geofenceModalOpen}
+              geofenceGeometryActive={mapOverlays.geofenceGeometryActive}
+              canUndoMapEdit={mapOverlays.canUndoMapEdit}
+              canRedoMapEdit={mapOverlays.canRedoMapEdit}
               hasOverlayDraft={
                 !!mapOverlays.overlayForm &&
                 !mapOverlays.editTarget &&
@@ -560,6 +570,9 @@ export function App() {
                       : 'Ajouter un géopérage'
                   }
                   onDraftChange={mapOverlays.setGeofenceDraft}
+                  onBeforeGeometryChange={
+                    mapOverlays.recordGeofenceGeometryHistory
+                  }
                   onSave={() => {
                     if (!mapOverlays.geofenceDraft) return;
                     if (mapOverlays.editTarget?.kind === 'geofence') {

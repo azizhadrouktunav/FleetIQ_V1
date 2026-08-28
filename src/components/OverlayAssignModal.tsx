@@ -86,7 +86,7 @@ export function OverlayAssignModal({
   draft,
   vehicles,
   nameEditable = true,
-  requireAssignment = true,
+  requireAssignment = false,
   geometryEditable = false,
   readOnly = false,
   onStartEdit,

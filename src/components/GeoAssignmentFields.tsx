@@ -97,7 +97,11 @@ export function GeoAssignmentFields({
       )}
     >
       <div className="space-y-1.5">
-        <Label>Affecter par</Label>
+        <Label>Affectation (optionnelle)</Label>
+        <p className="text-[11px] text-slate-500">
+          Vous pouvez enregistrer sans affectation et assigner plus tard via
+          Gérer.
+        </p>
         <div className="grid grid-cols-2 gap-1 p-1 rounded-lg bg-slate-100">
           <button
             type="button"
