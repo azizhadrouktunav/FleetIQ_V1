@@ -215,7 +215,7 @@ export function Sidebar({
   if (position === 'bottom-left' || position === 'floating-right') {
     return (
       <div
-        className={`bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-200/50 transition-all duration-300 ${isCollapsed ? 'w-16 h-16' : 'w-80'}`}>
+        className={`bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-200/50 transition-all duration-300 relative ${isCollapsed ? 'w-16 h-16' : 'w-[min(320px,calc(100vw-2rem))] lg:w-80'}`}>
         
         {/* Collapse Toggle Button */}
         {onToggleCollapse &&
@@ -264,7 +264,7 @@ export function Sidebar({
             </div>
 
             {/* Vehicle Status Groups */}
-            <div className="p-4 space-y-2 max-h-[calc(100vh-300px)] overflow-y-auto">
+            <div className="p-4 space-y-2 max-h-[calc(100dvh-8rem)] lg:max-h-[calc(100vh-300px)] overflow-y-auto">
               {/* En Mouvement */}
               <button className="w-full flex items-center justify-between py-2.5 px-3 bg-gradient-to-r from-emerald-50 to-emerald-100/50 hover:from-emerald-100 hover:to-emerald-100 rounded-lg border border-emerald-200 group transition-all">
                 <div className="flex items-center gap-2">

@@ -812,6 +812,7 @@ interface MapViewProps {
   }) => void;
   selectedOverlayId?: string | null;
   geofenceDraftInteractive?: boolean;
+  legendHidden?: boolean;
 }
 
 export function MapView({
@@ -853,6 +854,7 @@ export function MapView({
   onOverlaySelect,
   selectedOverlayId = null,
   geofenceDraftInteractive = true,
+  legendHidden = false,
 }: MapViewProps) {
   const selectedVehicle =
     vehicles.find((v) => v.id === selectedVehicleId) || null;
@@ -1241,7 +1243,11 @@ export function MapView({
           )}
       </MapContainer>
 
-      <div className="absolute bottom-4 left-4 z-10 flex flex-col gap-2 items-start">
+      <div
+        className={`absolute bottom-4 left-4 z-10 flex flex-col gap-2 items-start ${
+          legendHidden ? 'hidden sm:flex' : ''
+        }`}
+      >
         <MapLegend />
         <div className="bg-white/95 backdrop-blur-sm px-3 py-1 rounded-full shadow-md text-xs font-medium text-slate-600">
           Véhicules: {vehicles.length}

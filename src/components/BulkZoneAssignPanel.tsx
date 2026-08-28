@@ -6,6 +6,7 @@ import type {
 } from '@/types/map-overlays';
 import { emptyAssignment } from '@/types/map-overlays';
 import { GeoAssignmentFields } from '@/components/GeoAssignmentFields';
+import { MapSidePanel } from '@/components/MapSidePanel';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Users } from 'lucide-react';
 
@@ -51,7 +52,7 @@ export function BulkZoneAssignPanel({
   };
 
   return (
-    <div className="h-full w-[360px] flex flex-col bg-white/95 backdrop-blur-md border-r border-slate-200/50 shadow-2xl">
+    <MapSidePanel>
       <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-200 bg-gradient-to-b from-white to-slate-50/50">
         <button
           type="button"
@@ -107,6 +108,6 @@ export function BulkZoneAssignPanel({
           Appliquer
         </Button>
       </div>
-    </div>
+    </MapSidePanel>
   );
 }

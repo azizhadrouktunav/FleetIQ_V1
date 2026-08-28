@@ -15,6 +15,7 @@ import {
 } from '@/types/map-overlays';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { MapSidePanel } from '@/components/MapSidePanel';
 import {
   ArrowLeft,
   CircleDot,
@@ -70,7 +71,7 @@ interface MapOverlayManagePanelProps {
   onToggleVisible: (id: string, visible: boolean) => void;
   onEdit: (kind: ManageOverlayKind, id: string) => void;
   onHighlightZone?: (id: string | null) => void;
-  onCreateRouteViaLocations?: () => void;
+  onCreateRoute?: () => void;
   selectedIds?: string[];
   onToggleSelect?: (id: string) => void;
   onSelectAll?: (ids: string[]) => void;
@@ -111,7 +112,7 @@ export function MapOverlayManagePanel({
   onToggleVisible,
   onEdit,
   onHighlightZone,
-  onCreateRouteViaLocations,
+  onCreateRoute,
   selectedIds = [],
   onToggleSelect,
   onSelectAll,
@@ -156,7 +157,7 @@ export function MapOverlayManagePanel({
   const someSelected = bulkSelectable && selectedIds.length > 0;
 
   return (
-    <div className="h-full w-[360px] flex flex-col bg-white/95 backdrop-blur-md border-r border-slate-200/50 shadow-2xl">
+    <MapSidePanel>
       <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-200 bg-gradient-to-b from-white to-slate-50/50">
         <button
           type="button"
@@ -224,16 +225,16 @@ export function MapOverlayManagePanel({
         </div>
       )}
 
-      {kind === 'route' && onCreateRouteViaLocations && (
+      {kind === 'route' && onCreateRoute && (
         <div className="px-4 pt-3">
           <Button
             type="button"
             variant="outline"
             className="w-full justify-start gap-2"
-            onClick={onCreateRouteViaLocations}
+            onClick={onCreateRoute}
           >
             <Plus className="w-4 h-4" />
-            Route par emplacements
+            Ajouter un itinéraire
           </Button>
         </div>
       )}
@@ -361,6 +362,6 @@ export function MapOverlayManagePanel({
           Retour aux véhicules
         </Button>
       </div>
-    </div>
+    </MapSidePanel>
   );
 }

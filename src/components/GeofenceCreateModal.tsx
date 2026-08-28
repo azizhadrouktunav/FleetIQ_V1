@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ArrowLeft, CircleDot, Pencil } from 'lucide-react';
 import { GeoAssignmentFields } from '@/components/GeoAssignmentFields';
+import { MapSidePanel } from '@/components/MapSidePanel';
 import {
   TUNISIA_PROVINCES,
   getTunisiaProvince,
@@ -121,8 +122,7 @@ export function GeofenceCreateModal({
   };
 
   return (
-    <div
-      className="h-full w-[360px] flex flex-col bg-white/95 backdrop-blur-md border-r border-slate-200/50 shadow-2xl"
+    <MapSidePanel
       role="dialog"
       aria-modal="false"
       aria-labelledby="geofence-modal-title"
@@ -338,6 +338,6 @@ export function GeofenceCreateModal({
           </>
         )}
       </div>
-    </div>
+    </MapSidePanel>
   );
 }

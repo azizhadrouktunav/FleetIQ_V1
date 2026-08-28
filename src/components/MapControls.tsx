@@ -24,7 +24,7 @@ import { BASEMAP_TILES } from '../types/map-overlays';
 type OpenMenu = 'geo' | 'visibility' | 'layers' | 'hide' | null;
 
 const toolbarBtn =
-  'h-10 w-10 inline-flex items-center justify-center rounded-xl border transition-colors';
+  'h-9 w-9 sm:h-10 sm:w-10 inline-flex items-center justify-center rounded-xl border transition-colors';
 const toolbarIdle =
   'border-slate-200 bg-white text-slate-700 hover:bg-slate-50';
 const toolbarActive = 'border-blue-200 bg-blue-50 text-blue-700';
@@ -76,7 +76,7 @@ interface MapControlsProps {
   geometryEditKind?: 'polygon' | 'route' | null;
   onStartDraw: (mode: Exclude<DrawMode, null>) => void;
   onOpenManage: (kind: ManageOverlayKind) => void;
-  onOpenRouteViaLocations?: () => void;
+  onOpenRouteCreate?: () => void;
   overlays: MapOverlay[];
   onSetOverlayVisible: (id: string, visible: boolean) => void;
   pendingPointsCount: number;
@@ -97,7 +97,7 @@ export function MapControls({
   geometryEditKind = null,
   onStartDraw,
   onOpenManage,
-  onOpenRouteViaLocations,
+  onOpenRouteCreate,
   overlays,
   onSetOverlayVisible,
   pendingPointsCount,
@@ -175,10 +175,10 @@ export function MapControls({
   return (
     <div
       ref={toolbarRef}
-      className="absolute top-4 right-4 z-40 flex flex-col items-end gap-2"
+      className="absolute top-2 right-2 sm:top-4 sm:right-4 z-40 flex flex-col items-end gap-1 sm:gap-2"
     >
       {showEditBanner && (
-        <div className="bg-slate-900/90 text-white text-xs font-medium px-3 py-2 rounded-xl shadow-lg max-w-sm flex flex-col gap-1.5">
+        <div className="bg-slate-900/90 text-white text-xs font-medium px-3 py-2 rounded-xl shadow-lg max-w-[calc(100vw-1rem)] sm:max-w-sm flex flex-col gap-1.5">
           <div className="flex items-center gap-2">
             <span className="flex-1">
               {geometryEditKind === 'polygon' &&
@@ -204,7 +204,7 @@ export function MapControls({
       )}
 
       {showCreateBanner && (
-        <div className="bg-slate-900/90 text-white text-xs font-medium px-3 py-2 rounded-xl shadow-lg max-w-sm flex flex-col gap-1.5">
+        <div className="bg-slate-900/90 text-white text-xs font-medium px-3 py-2 rounded-xl shadow-lg max-w-[calc(100vw-1rem)] sm:max-w-sm flex flex-col gap-1.5">
           <div className="flex items-center gap-2">
             <span className="flex-1">
               {drawMode === 'geofence' &&
@@ -276,7 +276,7 @@ export function MapControls({
             </button>
 
             {openMenu === 'geo' && (
-              <div className="absolute right-full top-0 mr-2 w-72 bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+              <div className="absolute right-full top-0 mr-2 w-[min(288px,calc(100vw-1rem))] max-h-[calc(100dvh-6rem)] overflow-y-auto bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
                 <div className="px-4 py-3 border-b border-slate-100">
                   <h3 className="text-sm font-semibold text-slate-800">
                     Opérations géographiques
@@ -296,19 +296,11 @@ export function MapControls({
                     icon={Route}
                     chip="bg-sky-50 text-sky-600"
                     label="Ajouter un itinéraire"
-                    onClick={() => startAndClose('route')}
+                    onClick={() => {
+                      onOpenRouteCreate?.();
+                      setOpenMenu(null);
+                    }}
                   />
-                  {onOpenRouteViaLocations && (
-                    <MenuRow
-                      icon={Route}
-                      chip="bg-sky-50 text-sky-600"
-                      label="Route par emplacements"
-                      onClick={() => {
-                        onOpenRouteViaLocations();
-                        setOpenMenu(null);
-                      }}
-                    />
-                  )}
                   <MenuRow
                     icon={MapPinned}
                     chip="bg-emerald-50 text-emerald-600"
@@ -391,7 +383,7 @@ export function MapControls({
             </button>
 
             {openMenu === 'visibility' && (
-              <div className="absolute right-full top-0 mr-2 w-72 bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+              <div className="absolute right-full top-0 mr-2 w-[min(288px,calc(100vw-1rem))] max-h-[calc(100dvh-6rem)] overflow-y-auto bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
                 <div className="px-4 py-3 border-b border-slate-100">
                   <h3 className="text-sm font-semibold text-slate-800">
                     Visibilité
@@ -444,7 +436,7 @@ export function MapControls({
             </button>
 
             {openMenu === 'layers' && (
-              <div className="absolute right-full top-0 mr-2 w-52 bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+              <div className="absolute right-full top-0 mr-2 w-[min(208px,calc(100vw-1rem))] max-h-[calc(100dvh-6rem)] overflow-y-auto bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
                 <div className="px-4 py-3 border-b border-slate-100">
                   <h3 className="text-sm font-semibold text-slate-800">
                     Vue de la carte
@@ -493,7 +485,7 @@ export function MapControls({
             </button>
 
             {openMenu === 'hide' && (
-              <div className="absolute right-full top-0 mr-2 w-72 bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+              <div className="absolute right-full top-0 mr-2 w-[min(288px,calc(100vw-1rem))] max-h-[calc(100dvh-6rem)] overflow-y-auto bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
                 <div className="px-4 py-3 border-b border-slate-100">
                   <h3 className="text-sm font-semibold text-slate-800">
                     Masquer / afficher les couches

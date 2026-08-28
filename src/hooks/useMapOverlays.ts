@@ -52,6 +52,8 @@ export type ZoneSelectTarget = Extract<
 
 export type BulkAssignKind = 'geofence' | 'polygon' | 'defaultZone';
 
+export type RouteCreateMode = 'locations' | 'map' | null;
+
 /** Prefer stored waypoints; otherwise sample sparse pins from a dense OSRM path. */
 function routeEditWaypoints(route: RouteOverlay): LatLng[] {
   if (route.waypoints && route.waypoints.length >= 2) {
@@ -106,8 +108,11 @@ export interface MapControlsState {
   activeGeometryMode: GeometryEditKind | null;
   manageDialog: ManageOverlayKind | null;
   setManageDialog: (m: ManageOverlayKind | null) => void;
-  routeViaOpen: boolean;
-  setRouteViaOpen: (o: boolean) => void;
+  routeCreateOpen: boolean;
+  routeCreateMode: RouteCreateMode;
+  openRouteCreate: (initialMode?: RouteCreateMode) => void;
+  closeRouteCreate: () => void;
+  setRouteCreateMode: (mode: RouteCreateMode) => void;
   routePreview: {
     geometry: LatLng[];
     distanceMeters?: number;
@@ -212,7 +217,9 @@ export function useMapOverlays(): MapControlsState {
   const [manageDialog, setManageDialog] = useState<ManageOverlayKind | null>(
     null
   );
-  const [routeViaOpen, setRouteViaOpen] = useState(false);
+  const [routeCreateOpen, setRouteCreateOpen] = useState(false);
+  const [routeCreateMode, setRouteCreateModeState] =
+    useState<RouteCreateMode>(null);
   const [routePreview, setRoutePreview] = useState<{
     geometry: LatLng[];
     distanceMeters?: number;
@@ -309,17 +316,61 @@ export function useMapOverlays(): MapControlsState {
     setOverlayPanelMode('view');
   }, []);
 
+  const closeRouteCreate = useCallback(() => {
+    setRouteCreateOpen(false);
+    setRouteCreateModeState(null);
+    setDrawMode(null);
+    setPendingPoints([]);
+    setRoutePreview(null);
+    setPolygonDrawError(null);
+  }, []);
+
+  const openRouteCreate = useCallback((initialMode?: RouteCreateMode) => {
+    setEditTarget(null);
+    setGeometryEditKind(null);
+    setOverlayForm(null);
+    setOverlayFormKind(null);
+    setGeofenceDraft(null);
+    setGeofenceModalOpen(false);
+    setLocationForm(null);
+    setLocationFormOpen(false);
+    setPolygonDrawError(null);
+    setRoutePreview(null);
+    setRouteCreateOpen(true);
+    setRouteCreateModeState(initialMode ?? null);
+    if (initialMode === 'map') {
+      setPendingPoints([]);
+      setDrawMode('route');
+    } else {
+      setDrawMode(null);
+      setPendingPoints([]);
+    }
+  }, []);
+
+  const setRouteCreateMode = useCallback((mode: RouteCreateMode) => {
+    setRouteCreateModeState(mode);
+    setPolygonDrawError(null);
+    setRoutePreview(null);
+    if (mode === 'map') {
+      setPendingPoints([]);
+      setDrawMode('route');
+    } else {
+      setDrawMode(null);
+      setPendingPoints([]);
+    }
+  }, []);
+
   const startDraw = useCallback(
     (mode: Exclude<DrawMode, null>) => {
       closeEditForms();
-      setRouteViaOpen(false);
+      closeRouteCreate();
       setRoutePreview(null);
       setPendingPoints([]);
       setPolygonDrawError(null);
       setGeometryEditKind(null);
       setDrawMode(mode);
     },
-    [closeEditForms]
+    [closeEditForms, closeRouteCreate]
   );
 
   const undoPendingPoint = useCallback(() => {
@@ -464,8 +515,9 @@ export function useMapOverlays(): MapControlsState {
     setOverlayFormKind(null);
     setDrawMode(null);
     setPendingPoints([]);
-    setRouteViaOpen(false);
     setRoutePreview(null);
+    setRouteCreateOpen(false);
+    setRouteCreateModeState(null);
     setEditTarget(null);
     setGeometryEditKind(null);
   }, []);
@@ -611,6 +663,8 @@ export function useMapOverlays(): MapControlsState {
       setPendingPoints([]);
       setDrawMode(null);
       setRoutePreview(null);
+      setRouteCreateOpen(false);
+      setRouteCreateModeState(null);
     } else if (drawMode === 'polygon' && pendingPoints.length >= 3) {
       if (closingWouldSelfIntersect(pendingPoints)) {
         setPolygonDrawError(
@@ -703,7 +757,8 @@ export function useMapOverlays(): MapControlsState {
       setDrawMode(null);
       setPendingPoints([]);
       setPolygonDrawError(null);
-      setRouteViaOpen(false);
+      setRouteCreateOpen(false);
+      setRouteCreateModeState(null);
       setRoutePreview(null);
       setGeometryEditKind(null);
       setOverlayPanelMode(mode);
@@ -994,8 +1049,11 @@ export function useMapOverlays(): MapControlsState {
     activeGeometryMode,
     manageDialog,
     setManageDialog,
-    routeViaOpen,
-    setRouteViaOpen,
+    routeCreateOpen,
+    routeCreateMode,
+    openRouteCreate,
+    closeRouteCreate,
+    setRouteCreateMode,
     routePreview,
     setRoutePreview,
     geofences,

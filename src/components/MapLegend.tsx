@@ -1,7 +1,7 @@
 import React from 'react';
 export function MapLegend() {
   return (
-    <div className="bg-white p-4 rounded-lg shadow-lg w-48 text-sm">
+    <div className="bg-white p-3 sm:p-4 rounded-lg shadow-lg w-full max-w-[12rem] sm:w-48 text-sm">
       <h3 className="font-bold text-slate-800 mb-3">Légende</h3>
 
       <div className="space-y-2">

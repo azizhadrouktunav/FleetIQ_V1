@@ -117,7 +117,14 @@ export function VehicleListPanel({
   isCollapsed = false,
   onToggleCollapse
 }: VehicleListPanelProps) {
-  const [width, setWidth] = useState(800);
+  const [width, setWidth] = useState(() =>
+    typeof window !== 'undefined'
+      ? Math.min(800, Math.round(window.innerWidth * 0.9))
+      : 800
+  );
+  const [isDesktop, setIsDesktop] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth >= 1024
+  );
   const [isResizing, setIsResizing] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [selectedDepartments, setSelectedDepartments] = useState<string[]>([]);
@@ -184,6 +191,13 @@ export function VehicleListPanel({
     return grouped;
   };
   const vehiclesByDepartment = getVehiclesByDepartment();
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const update = () => setIsDesktop(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isResizing) return;
@@ -649,9 +663,9 @@ export function VehicleListPanel({
     <div
       ref={panelRef}
       style={{
-        width: isCollapsed ? '0px' : `${width}px`
+        width: isCollapsed ? '0px' : isDesktop ? `${width}px` : '100%',
       }}
-      className="h-full flex flex-col bg-white/95 backdrop-blur-md border-r border-slate-200/50 flex-shrink-0 relative transition-all duration-300 shadow-2xl">
+      className="h-full flex flex-col bg-white/95 backdrop-blur-md border-r border-slate-200/50 flex-shrink-0 relative transition-all duration-300 shadow-2xl min-w-0 w-full max-w-full">
       
       {/* Collapse Toggle Button */}
       {onToggleCollapse &&
@@ -673,9 +687,9 @@ export function VehicleListPanel({
           <div className="border-b border-slate-200 bg-gradient-to-b from-white to-slate-50/50">
             {/* First Line: Main Filters */}
             <div className="px-4 pt-4 pb-3">
-              <div className="grid grid-cols-12 gap-3 items-end">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
                 {/* Vehicle/Department Selection - 4 cols */}
-                <div className="col-span-4 relative" ref={vehicleDropdownRef}>
+                <div className="col-span-full sm:col-span-2 lg:col-span-4 relative" ref={vehicleDropdownRef}>
                   <label className="text-xs font-semibold text-slate-700 mb-1.5 block flex items-center gap-1.5">
                     <Car className="w-3.5 h-3.5 text-blue-600" />
                     Véhicules / Départements
@@ -711,7 +725,7 @@ export function VehicleListPanel({
                       opacity: 0,
                       y: 5
                     }}
-                    className="absolute top-full left-0 mt-1 bg-white rounded-xl shadow-xl border border-slate-200 z-50 overflow-hidden flex flex-col max-h-[400px] w-[320px]">
+                    className="absolute top-full left-0 mt-1 bg-white rounded-xl shadow-xl border border-slate-200 z-50 overflow-hidden flex flex-col max-h-[400px] w-full max-w-[min(320px,calc(100vw-2rem))]">
                     
                         <div className="flex border-b border-slate-100">
                           <button
@@ -826,7 +840,7 @@ export function VehicleListPanel({
                 </div>
 
                 {/* Date Range - 4 cols total (2 each) */}
-                <div className="col-span-3">
+                <div className="col-span-full sm:col-span-1 lg:col-span-3">
                   <label className="text-xs font-semibold text-slate-700 mb-1.5 block flex items-center gap-1.5">
                     <Calendar className="w-3.5 h-3.5 text-blue-600" />
                     Date début
@@ -837,7 +851,7 @@ export function VehicleListPanel({
                   placeholder="Début" />
                 
                 </div>
-                <div className="col-span-3">
+                <div className="col-span-full sm:col-span-1 lg:col-span-3">
                   <label className="text-xs font-semibold text-slate-700 mb-1.5 block flex items-center gap-1.5">
                     <Calendar className="w-3.5 h-3.5 text-blue-600" />
                     Date fin
@@ -852,9 +866,9 @@ export function VehicleListPanel({
             </div>
 
             {/* Second Line: Action + Alert Types (if needed) + Export Buttons + Apply */}
-            <div className="px-4 pb-3 flex items-end gap-3">
+            <div className="px-4 pb-3 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-end gap-3">
               {/* Action Selection */}
-              <div className="w-64 relative" ref={actionDropdownRef}>
+              <div className="w-full sm:w-64 relative" ref={actionDropdownRef}>
                 <label className="text-xs font-semibold text-slate-700 mb-1.5 block flex items-center gap-1.5">
                   <Layers className="w-3.5 h-3.5 text-blue-600" />
                   Action
@@ -943,7 +957,7 @@ export function VehicleListPanel({
                     opacity: 0,
                     y: 5
                   }}
-                  className="absolute top-full right-0 mt-1 bg-white rounded-xl shadow-xl border border-slate-200 z-50 overflow-hidden w-[220px] max-h-[280px] flex flex-col">
+                  className="absolute top-full right-0 left-0 sm:left-auto mt-1 bg-white rounded-xl shadow-xl border border-slate-200 z-50 overflow-hidden w-full sm:w-[220px] max-w-[min(220px,calc(100vw-2rem))] max-h-[280px] flex flex-col">
                   
                         <div className="p-1.5 border-b border-slate-100 flex justify-between">
                           <button
@@ -1012,7 +1026,7 @@ export function VehicleListPanel({
           </div>
 
           {/* Table Container */}
-          <div className="flex-1 overflow-auto bg-white">
+          <div className="flex-1 overflow-x-auto overflow-y-auto bg-white min-w-0">
             <table className="w-full text-left border-collapse">
               <thead className="bg-blue-600 sticky top-0 z-10">
                 <tr>
@@ -1074,7 +1088,7 @@ export function VehicleListPanel({
           {/* Resize Handle */}
           <div
           onMouseDown={() => setIsResizing(true)}
-          className="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-blue-500 transition-colors group">
+          className="hidden lg:block absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-blue-500 transition-colors group">
           
             <div className="absolute top-1/2 right-0 -translate-y-1/2 w-1 h-12 bg-slate-300 group-hover:bg-blue-500 transition-colors rounded-l" />
           </div>

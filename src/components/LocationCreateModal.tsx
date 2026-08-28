@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ArrowLeft, MapPinned } from 'lucide-react';
+import { MapSidePanel } from '@/components/MapSidePanel';
 
 export type { LocationFormState };
 
@@ -58,8 +59,7 @@ export function LocationCreateModal({
   };
 
   return (
-    <div
-      className="h-full w-[360px] flex flex-col bg-white/95 backdrop-blur-md border-r border-slate-200/50 shadow-2xl"
+    <MapSidePanel
       role="dialog"
       aria-modal="false"
       aria-labelledby="location-modal-title"
@@ -150,6 +150,6 @@ export function LocationCreateModal({
           Enregistrer
         </Button>
       </div>
-    </div>
+    </MapSidePanel>
   );
 }

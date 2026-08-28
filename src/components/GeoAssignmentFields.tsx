@@ -193,7 +193,7 @@ export function GeoAssignmentFields({
           </button>
         </div>
 
-        <div className="max-h-36 overflow-y-auto rounded-md border border-slate-200 divide-y divide-slate-100">
+        <div className="max-h-28 sm:max-h-36 overflow-y-auto rounded-md border border-slate-200 divide-y divide-slate-100">
           {items.length === 0 ? (
             <p className="px-3 py-2 text-sm text-slate-500">Aucun résultat</p>
           ) : (

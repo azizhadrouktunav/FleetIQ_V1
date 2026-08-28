@@ -1,4 +1,4 @@
-import React, { useEffect, useState, createElement } from 'react';
+import React, { useCallback, useEffect, useState, createElement } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
 import { MapView } from './components/MapView';
@@ -8,7 +8,7 @@ import { GeofenceCreateModal } from './components/GeofenceCreateModal';
 import { MapOverlayManagePanel } from './components/MapOverlayManagerDialog';
 import { LocationCreateModal } from './components/LocationCreateModal';
 import { OverlayAssignModal } from './components/OverlayAssignModal';
-import { RouteViaLocationsPanel } from './components/RouteViaLocationsPanel';
+import { RouteCreatePanel } from './components/RouteCreatePanel';
 import { DataTable } from './components/DataTable';
 import { ReportsContent } from './components/ReportsContent';
 import { Dashboard } from './components/Dashboard';
@@ -172,6 +172,65 @@ export function App() {
   const [isAIChatOpen, setIsAIChatOpen] = useState(false);
   const [hideBadges, setHideBadges] = useState(false);
   const mapOverlays = useMapOverlays();
+
+  const hasOverlayPanel =
+    mapOverlays.overlayForm &&
+    (mapOverlays.overlayFormKind === 'polygon' ||
+      mapOverlays.overlayFormKind === 'route' ||
+      mapOverlays.editTarget?.kind === 'defaultZone');
+
+  const leftPanelOpen =
+    mapOverlays.bulkAssignOpen ||
+    mapOverlays.geofenceModalOpen ||
+    mapOverlays.locationFormOpen ||
+    !!hasOverlayPanel ||
+    mapOverlays.routeCreateOpen ||
+    !!mapOverlays.manageDialog ||
+    !isVehicleListCollapsed;
+
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 1023px)');
+    const update = () => setIsMobileViewport(mq.matches);
+    update();
+    if (mq.matches) {
+      setIsMonitoringCollapsed(true);
+    }
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
+
+  const handleCloseLeftPanel = useCallback(() => {
+    if (mapOverlays.bulkAssignOpen) {
+      mapOverlays.closeBulkAssign();
+      return;
+    }
+    if (mapOverlays.geofenceModalOpen) {
+      mapOverlays.closeEditForms();
+      mapOverlays.cancelDrawing();
+      return;
+    }
+    if (mapOverlays.locationFormOpen) {
+      mapOverlays.closeEditForms();
+      return;
+    }
+    if (hasOverlayPanel) {
+      mapOverlays.closeEditForms();
+      return;
+    }
+    if (mapOverlays.routeCreateOpen) {
+      mapOverlays.closeRouteCreate();
+      return;
+    }
+    if (mapOverlays.manageDialog) {
+      mapOverlays.setManageDialog(null);
+      mapOverlays.setHighlightedZoneId(null);
+      return;
+    }
+    setIsVehicleListCollapsed(true);
+  }, [hasOverlayPanel, mapOverlays]);
+
   // Suivie Filter States
   const [suivieStartDate, setSuivieStartDate] = useState('');
   const [suivieEndDate, setSuivieEndDate] = useState('');
@@ -389,7 +448,9 @@ export function App() {
               geofenceDraftInteractive={
                 mapOverlays.overlayPanelMode === 'edit' ||
                 mapOverlays.editTarget?.kind !== 'geofence'
-              } />
+              }
+              legendHidden={isMobileViewport && leftPanelOpen}
+            />
             
             </div>
 
@@ -404,10 +465,7 @@ export function App() {
               geometryEditKind={mapOverlays.geometryEditKind}
               onStartDraw={mapOverlays.startDraw}
               onOpenManage={mapOverlays.setManageDialog}
-              onOpenRouteViaLocations={() => {
-                mapOverlays.setManageDialog('route');
-                mapOverlays.setRouteViaOpen(true);
-              }}
+              onOpenRouteCreate={() => mapOverlays.openRouteCreate()}
               overlays={mapOverlays.allOverlays}
               onSetOverlayVisible={mapOverlays.setOverlayVisible}
               pendingPointsCount={mapOverlays.pendingPoints.length}
@@ -417,8 +475,17 @@ export function App() {
               polygonDrawError={mapOverlays.polygonDrawError}
             />
 
+            {leftPanelOpen && (
+              <button
+                type="button"
+                aria-label="Fermer le panneau"
+                className="fixed inset-0 bg-black/40 z-30 lg:hidden"
+                onClick={handleCloseLeftPanel}
+              />
+            )}
+
             {/* Left: Forms | Route via | Gestion | Vehicle List */}
-            <div className="absolute left-0 top-0 bottom-0 z-30">
+            <div className="fixed inset-y-0 left-0 z-40 w-full lg:absolute lg:z-30 lg:w-auto">
               {mapOverlays.bulkAssignOpen ? (
                 <BulkZoneAssignPanel
                   open={mapOverlays.bulkAssignOpen}
@@ -426,6 +493,39 @@ export function App() {
                   vehicles={MOCK_VEHICLES}
                   onApply={mapOverlays.applyBulkAssignment}
                   onCancel={mapOverlays.closeBulkAssign}
+                />
+              ) : mapOverlays.routeCreateOpen ? (
+                <RouteCreatePanel
+                  open={mapOverlays.routeCreateOpen}
+                  mode={mapOverlays.routeCreateMode}
+                  locations={mapOverlays.locations}
+                  vehicles={MOCK_VEHICLES}
+                  pendingPoints={mapOverlays.pendingPoints}
+                  onModeChange={mapOverlays.setRouteCreateMode}
+                  onClose={() => {
+                    mapOverlays.closeRouteCreate();
+                  }}
+                  onFinishMapRoute={mapOverlays.finishMultiPointDraw}
+                  onUndoPoint={mapOverlays.undoPendingPoint}
+                  onPreviewChange={(geometry, metrics) => {
+                    mapOverlays.setRoutePreview(
+                      geometry.length
+                        ? {
+                            geometry,
+                            distanceMeters: metrics?.distanceMeters,
+                            durationSeconds: metrics?.durationSeconds,
+                          }
+                        : null
+                    );
+                  }}
+                  onRequestAddLocation={() => {
+                    mapOverlays.closeRouteCreate();
+                    mapOverlays.startDraw('location');
+                  }}
+                  onSave={(draft) => {
+                    mapOverlays.addRouteFromDraft(draft);
+                    mapOverlays.setManageDialog('route');
+                  }}
                 />
               ) : mapOverlays.geofenceModalOpen ? (
                 <GeofenceCreateModal
@@ -566,39 +666,6 @@ export function App() {
                     mapOverlays.closeEditForms();
                   }}
                 />
-              ) : mapOverlays.routeViaOpen ? (
-                <RouteViaLocationsPanel
-                  open={mapOverlays.routeViaOpen}
-                  locations={mapOverlays.locations}
-                  vehicles={MOCK_VEHICLES}
-                  onClose={() => {
-                    mapOverlays.setRouteViaOpen(false);
-                    mapOverlays.setRoutePreview(null);
-                    if (mapOverlays.manageDialog !== 'route') {
-                      mapOverlays.setManageDialog('route');
-                    }
-                  }}
-                  onPreviewChange={(geometry, metrics) => {
-                    mapOverlays.setRoutePreview(
-                      geometry.length
-                        ? {
-                            geometry,
-                            distanceMeters: metrics?.distanceMeters,
-                            durationSeconds: metrics?.durationSeconds,
-                          }
-                        : null
-                    );
-                  }}
-                  onRequestAddLocation={() => {
-                    mapOverlays.setRouteViaOpen(false);
-                    mapOverlays.setRoutePreview(null);
-                    mapOverlays.startDraw('location');
-                  }}
-                  onSave={(draft) => {
-                    mapOverlays.addRouteFromDraft(draft);
-                    mapOverlays.setManageDialog('route');
-                  }}
-                />
               ) : mapOverlays.manageDialog ? (
                 <MapOverlayManagePanel
                   kind={mapOverlays.manageDialog}
@@ -611,7 +678,7 @@ export function App() {
                   onBack={() => {
                     mapOverlays.setManageDialog(null);
                     mapOverlays.setHighlightedZoneId(null);
-                    mapOverlays.setRouteViaOpen(false);
+                    mapOverlays.closeRouteCreate();
                   }}
                   onDelete={(id) => mapOverlays.removeOverlays([id])}
                   onFlyTo={(center) => {
@@ -621,9 +688,9 @@ export function App() {
                   }}
                   onToggleVisible={mapOverlays.setOverlayVisible}
                   onHighlightZone={mapOverlays.setHighlightedZoneId}
-                  onCreateRouteViaLocations={() => {
+                  onCreateRoute={() => {
                     mapOverlays.setManageDialog('route');
-                    mapOverlays.setRouteViaOpen(true);
+                    mapOverlays.openRouteCreate('locations');
                   }}
                   onEdit={(kind, id) => {
                     if (
@@ -666,7 +733,7 @@ export function App() {
             </div>
 
             {/* Right: Monitoring Center Card (Floating Overlay) */}
-            <div className="absolute right-4 bottom-4 z-50">
+            <div className="absolute right-2 bottom-2 lg:right-4 lg:bottom-4 z-50">
               <Sidebar
               activeTab={activeTab}
               setActiveTab={setActiveTab}
@@ -681,11 +748,11 @@ export function App() {
             {!isAIChatOpen &&
           <button
             onClick={() => setIsAIChatOpen(true)}
-            className="absolute right-4 bottom-[100px] group z-30">
+            className="absolute right-2 bottom-16 lg:right-4 lg:bottom-[100px] group z-30">
             
                 <div className="relative">
                   {/* Main button - no background */}
-                  <div className="relative w-20 h-20 flex items-center justify-center transition-all duration-300 group-hover:scale-110">
+                  <div className="relative w-14 h-14 lg:w-20 lg:h-20 flex items-center justify-center transition-all duration-300 group-hover:scale-110">
                     <img
                   src="/unnamed__8_-removebg-preview.png"
                   alt="Assistant TUNAVI"
