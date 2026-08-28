@@ -1,10 +1,16 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Vehicle } from '@/types';
-import type { GeofenceDraft } from '@/types/map-overlays';
+import type { GeofenceDraft, LatLng } from '@/types/map-overlays';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ChevronsUpDown, Search, X } from 'lucide-react';
+import { ArrowLeft, CircleDot, Pencil } from 'lucide-react';
+import { GeoAssignmentFields } from '@/components/GeoAssignmentFields';
+import {
+  TUNISIA_PROVINCES,
+  getTunisiaProvince,
+  provinceCentroid,
+} from '@/data/tunisia-provinces';
 
 interface GeofenceCreateModalProps {
   open: boolean;
@@ -13,15 +19,15 @@ interface GeofenceCreateModalProps {
   onDraftChange: (draft: GeofenceDraft) => void;
   onSave: () => void;
   onCancel: () => void;
-}
-
-function vehicleLabel(v: Vehicle): string {
-  return `${v.name} (${v.driver})`;
+  title?: string;
+  onFlyTo?: (center: LatLng, zoom?: number) => void;
+  readOnly?: boolean;
+  onStartEdit?: () => void;
 }
 
 /**
- * Floating panel (not a blocking dialog) so the user can re-click the map
- * to reposition the geofence while the form stays open. Header is draggable.
+ * Left sidebar form so the user can re-click the map to reposition the
+ * geofence while the form stays open.
  */
 export function GeofenceCreateModal({
   open,
@@ -30,93 +36,29 @@ export function GeofenceCreateModal({
   onDraftChange,
   onSave,
   onCancel,
+  title = 'Ajouter un géopérage',
+  onFlyTo,
+  readOnly = false,
+  onStartEdit,
 }: GeofenceCreateModalProps) {
   const [errors, setErrors] = useState<{
     name?: string;
-    vehicleId?: string;
+    assignment?: string;
     radiusKm?: string;
+    provinceId?: string;
   }>({});
-  const [offset, setOffset] = useState({ x: 0, y: 0 });
-  const [vehicleQuery, setVehicleQuery] = useState('');
-  const [vehicleListOpen, setVehicleListOpen] = useState(false);
-  const vehiclePickerRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<{
-    startX: number;
-    startY: number;
-    originX: number;
-    originY: number;
-  } | null>(null);
-
-  const selectedVehicle = useMemo(
-    () => vehicles.find((v) => v.id === draft?.vehicleId) ?? null,
-    [vehicles, draft?.vehicleId]
-  );
-
-  const filteredVehicles = useMemo(() => {
-    const q = vehicleQuery.trim().toLowerCase();
-    if (!q) return vehicles;
-    return vehicles.filter(
-      (v) =>
-        v.name.toLowerCase().includes(q) ||
-        v.driver.toLowerCase().includes(q)
-    );
-  }, [vehicles, vehicleQuery]);
 
   useEffect(() => {
-    if (open) {
-      setOffset({ x: 0, y: 0 });
-      setVehicleQuery('');
-      setVehicleListOpen(false);
-      setErrors({});
-    }
+    if (open) setErrors({});
   }, [open]);
 
-  useEffect(() => {
-    if (selectedVehicle && !vehicleListOpen) {
-      setVehicleQuery(vehicleLabel(selectedVehicle));
-    }
-  }, [selectedVehicle, vehicleListOpen]);
-
-  useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      if (!dragRef.current) return;
-      const dx = e.clientX - dragRef.current.startX;
-      const dy = e.clientY - dragRef.current.startY;
-      setOffset({
-        x: dragRef.current.originX + dx,
-        y: dragRef.current.originY + dy,
-      });
-    };
-    const onUp = () => {
-      dragRef.current = null;
-    };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-    return () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-    };
-  }, []);
-
-  useEffect(() => {
-    const onDocMouseDown = (e: MouseEvent) => {
-      if (
-        vehiclePickerRef.current &&
-        !vehiclePickerRef.current.contains(e.target as Node)
-      ) {
-        setVehicleListOpen(false);
-        if (selectedVehicle) {
-          setVehicleQuery(vehicleLabel(selectedVehicle));
-        } else {
-          setVehicleQuery('');
-        }
-      }
-    };
-    document.addEventListener('mousedown', onDocMouseDown);
-    return () => document.removeEventListener('mousedown', onDocMouseDown);
-  }, [selectedVehicle]);
-
   if (!open || !draft) return null;
+
+  const isGouvernorat = draft.shapeType === 'gouvernorat';
+  const displayTitle =
+    readOnly && title.startsWith('Modifier')
+      ? 'Détails du géopérage'
+      : title;
 
   const update = <K extends keyof GeofenceDraft>(
     key: K,
@@ -125,243 +67,276 @@ export function GeofenceCreateModal({
     onDraftChange({ ...draft, [key]: value });
   };
 
+  const handleShapeChange = (shapeType: GeofenceDraft['shapeType']) => {
+    if (shapeType === 'gouvernorat') {
+      onDraftChange({
+        ...draft,
+        shapeType,
+        provinceId: undefined,
+      });
+      return;
+    }
+    onDraftChange({
+      ...draft,
+      shapeType,
+      provinceId: undefined,
+    });
+  };
+
+  const handleProvinceChange = (provinceId: string) => {
+    const province = getTunisiaProvince(provinceId);
+    if (!province) {
+      onDraftChange({ ...draft, provinceId: undefined });
+      return;
+    }
+    const center = provinceCentroid(province.points);
+    onDraftChange({
+      ...draft,
+      provinceId,
+      center,
+      name: draft.name.trim() ? draft.name : province.name,
+    });
+    onFlyTo?.(center, 9);
+  };
+
   const handleSave = () => {
     const next: typeof errors = {};
     if (!draft.name.trim()) next.name = 'Le nom est requis.';
-    if (!draft.vehicleId) next.vehicleId = 'Sélectionnez un véhicule.';
-    if (!draft.radiusKm || draft.radiusKm <= 0)
+    if (draft.assignment.ids.length === 0) {
+      next.assignment =
+        draft.assignment.mode === 'vehicle'
+          ? 'Sélectionnez au moins un véhicule.'
+          : 'Sélectionnez au moins un département.';
+    }
+    if (isGouvernorat) {
+      if (!draft.provinceId) {
+        next.provinceId = 'Sélectionnez un gouvernorat.';
+      }
+    } else if (!draft.radiusKm || draft.radiusKm <= 0) {
       next.radiusKm = 'Rayon invalide.';
+    }
     setErrors(next);
     if (Object.keys(next).length > 0) return;
     onSave();
   };
 
-  const startDrag = (e: React.MouseEvent) => {
-    if ((e.target as HTMLElement).closest('button')) return;
-    e.preventDefault();
-    dragRef.current = {
-      startX: e.clientX,
-      startY: e.clientY,
-      originX: offset.x,
-      originY: offset.y,
-    };
-  };
-
-  const selectVehicle = (v: Vehicle) => {
-    update('vehicleId', v.id);
-    setVehicleQuery(vehicleLabel(v));
-    setVehicleListOpen(false);
-    setErrors((prev) => ({ ...prev, vehicleId: undefined }));
-  };
-
   return (
     <div
-      className="absolute left-1/2 top-20 z-50 w-full max-w-md pointer-events-auto"
-      style={{
-        transform: `translate(calc(-50% + ${offset.x}px), ${offset.y}px)`,
-      }}
+      className="h-full w-[360px] flex flex-col bg-white/95 backdrop-blur-md border-r border-slate-200/50 shadow-2xl"
       role="dialog"
       aria-modal="false"
       aria-labelledby="geofence-modal-title"
     >
-      <div className="bg-white rounded-xl shadow-2xl border border-slate-200 overflow-visible">
-        <div
-          className="flex items-center justify-between bg-primary px-5 py-3 text-primary-foreground cursor-move select-none rounded-t-xl"
-          onMouseDown={startDrag}
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-200 bg-gradient-to-b from-white to-slate-50/50">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="p-2 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors"
+          title="Retour"
+          aria-label="Retour"
         >
-          <h2
-            id="geofence-modal-title"
-            className="text-lg font-bold tracking-tight"
-          >
-            Ajouter un géopérage
-          </h2>
-          <button
-            type="button"
-            onClick={onCancel}
-            onMouseDown={(e) => e.stopPropagation()}
-            className="rounded-lg p-1.5 hover:bg-white/20 transition-colors cursor-pointer"
-            aria-label="Fermer"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <ArrowLeft className="w-4 h-4" />
+        </button>
+        <span className="h-8 w-8 rounded-lg inline-flex items-center justify-center shrink-0 bg-blue-50 text-blue-600">
+          <CircleDot className="w-4 h-4" />
+        </span>
+        <h2
+          id="geofence-modal-title"
+          className="text-sm font-semibold text-slate-800 flex-1 truncate"
+        >
+          {displayTitle}
+        </h2>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {!readOnly && (
+          <p className="text-xs text-slate-500">
+            {isGouvernorat
+              ? 'Choisissez un gouvernorat pour définir la zone sur la carte.'
+              : 'Maintenez le clic et glissez pour tracer. Déplacez le point central pour repositionner.'}
+          </p>
+        )}
+
+        <div className="space-y-1.5">
+          <Label htmlFor="gf-name">Nom de géopérage</Label>
+          <Input
+            id="gf-name"
+            value={draft.name}
+            onChange={(e) => update('name', e.target.value)}
+            placeholder="Ex: Zone dépôt"
+            disabled={readOnly}
+          />
+          {errors.name && (
+            <p className="text-xs text-rose-600">{errors.name}</p>
+          )}
         </div>
 
-        <div className="px-5 py-4 space-y-3">
-          <p className="text-xs text-slate-500">
-            Maintenez le clic et glissez pour tracer. Déplacez le point central
-            pour repositionner. Glissez la barre de titre pour déplacer cette
-            fenêtre.
-          </p>
+        <GeoAssignmentFields
+          assignment={draft.assignment}
+          onAssignmentChange={(a) => update('assignment', a)}
+          alertType={draft.alertType}
+          onAlertTypeChange={(t) => update('alertType', t)}
+          vehicles={vehicles}
+          assignmentError={errors.assignment}
+          showAlertType={false}
+          disabled={readOnly}
+        />
 
-          <div className="space-y-1.5" ref={vehiclePickerRef}>
-            <Label htmlFor="gf-vehicle">Véhicule à sélectionner</Label>
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+        <div className="space-y-1.5">
+          <Label htmlFor="gf-shape">Type de géopérage</Label>
+          <select
+            id="gf-shape"
+            value={draft.shapeType}
+            onChange={(e) =>
+              handleShapeChange(
+                e.target.value as GeofenceDraft['shapeType']
+              )
+            }
+            disabled={readOnly}
+            className="w-full h-9 rounded-md border border-slate-200 px-2 text-sm bg-white disabled:bg-slate-50 disabled:text-slate-600"
+          >
+            <option value="circulaire">Circulaire</option>
+            <option value="rectangulaire">Rectangulaire</option>
+            <option value="gouvernorat">Gouvernorat</option>
+          </select>
+        </div>
+
+        {isGouvernorat && (
+          <div className="space-y-1.5">
+            <Label htmlFor="gf-province">Gouvernorat</Label>
+            <select
+              id="gf-province"
+              value={draft.provinceId ?? ''}
+              onChange={(e) => handleProvinceChange(e.target.value)}
+              disabled={readOnly}
+              className="w-full h-9 rounded-md border border-slate-200 px-2 text-sm bg-white disabled:bg-slate-50 disabled:text-slate-600"
+            >
+              <option value="">Sélectionner un gouvernorat…</option>
+              {TUNISIA_PROVINCES.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+            {errors.provinceId && (
+              <p className="text-xs text-rose-600">{errors.provinceId}</p>
+            )}
+          </div>
+        )}
+
+        <div className="space-y-1.5">
+          <Label htmlFor="gf-alert">Type d&apos;alerte</Label>
+          <select
+            id="gf-alert"
+            value={draft.alertType}
+            onChange={(e) =>
+              update(
+                'alertType',
+                e.target.value as GeofenceDraft['alertType']
+              )
+            }
+            disabled={readOnly}
+            className="w-full h-9 rounded-md border border-slate-200 px-2 text-sm bg-white disabled:bg-slate-50 disabled:text-slate-600"
+          >
+            <option value="hors_zone">Sortie</option>
+            <option value="dans_zone">Entrée</option>
+            <option value="les_deux">Entrée et sortie</option>
+          </select>
+        </div>
+
+        {!isGouvernorat && (
+          <>
+            <div className="space-y-1.5">
+              <Label htmlFor="gf-radius">Rayon (km)</Label>
               <Input
-                id="gf-vehicle"
-                value={vehicleQuery}
-                onChange={(e) => {
-                  setVehicleQuery(e.target.value);
-                  setVehicleListOpen(true);
-                  if (draft.vehicleId) update('vehicleId', '');
-                }}
-                onFocus={() => {
-                  setVehicleListOpen(true);
-                  if (selectedVehicle) setVehicleQuery('');
-                }}
-                placeholder="Rechercher un véhicule…"
-                className="pl-8 pr-8"
-                autoComplete="off"
-                aria-expanded={vehicleListOpen}
-                aria-controls="gf-vehicle-list"
-                role="combobox"
+                id="gf-radius"
+                type="number"
+                min={0.1}
+                step={0.1}
+                value={draft.radiusKm}
+                onChange={(e) =>
+                  update('radiusKm', parseFloat(e.target.value) || 0)
+                }
+                disabled={readOnly}
               />
-              <ChevronsUpDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-              {vehicleListOpen && (
-                <ul
-                  id="gf-vehicle-list"
-                  role="listbox"
-                  className="absolute left-0 right-0 top-full mt-1 z-50 max-h-48 overflow-y-auto rounded-md border border-slate-200 bg-white shadow-lg py-1"
-                >
-                  {filteredVehicles.length === 0 ? (
-                    <li className="px-3 py-2 text-sm text-slate-500">
-                      Aucun véhicule trouvé
-                    </li>
-                  ) : (
-                    filteredVehicles.map((v) => (
-                      <li key={v.id} role="option" aria-selected={v.id === draft.vehicleId}>
-                        <button
-                          type="button"
-                          className={`w-full text-left px-3 py-2 text-sm hover:bg-slate-50 transition-colors ${
-                            v.id === draft.vehicleId
-                              ? 'bg-blue-50 text-blue-700'
-                              : 'text-slate-800'
-                          }`}
-                          onMouseDown={(e) => e.preventDefault()}
-                          onClick={() => selectVehicle(v)}
-                        >
-                          {vehicleLabel(v)}
-                        </button>
-                      </li>
-                    ))
-                  )}
-                </ul>
+              {errors.radiusKm && (
+                <p className="text-xs text-rose-600">{errors.radiusKm}</p>
               )}
             </div>
-            {errors.vehicleId && (
-              <p className="text-xs text-rose-600">{errors.vehicleId}</p>
-            )}
-          </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="gf-name">Nom de géopérage</Label>
-            <Input
-              id="gf-name"
-              value={draft.name}
-              onChange={(e) => update('name', e.target.value)}
-              placeholder="Ex: Zone dépôt"
-            />
-            {errors.name && (
-              <p className="text-xs text-rose-600">{errors.name}</p>
-            )}
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="gf-shape">Type de géopérage</Label>
-            <select
-              id="gf-shape"
-              value={draft.shapeType}
-              onChange={(e) =>
-                update(
-                  'shapeType',
-                  e.target.value as GeofenceDraft['shapeType']
-                )
-              }
-              className="w-full h-9 rounded-md border border-slate-200 px-2 text-sm bg-white"
-            >
-              <option value="circulaire">Circulaire</option>
-              <option value="rectangulaire">Rectangulaire</option>
-            </select>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="gf-alert">Type d&apos;alerte</Label>
-            <select
-              id="gf-alert"
-              value={draft.alertType}
-              onChange={(e) =>
-                update(
-                  'alertType',
-                  e.target.value as GeofenceDraft['alertType']
-                )
-              }
-              className="w-full h-9 rounded-md border border-slate-200 px-2 text-sm bg-white"
-            >
-              <option value="hors_zone">Hors zone</option>
-              <option value="dans_zone">Dans zone</option>
-              <option value="les_deux">Les deux</option>
-            </select>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="gf-radius">Rayon (km)</Label>
-            <Input
-              id="gf-radius"
-              type="number"
-              min={0.1}
-              step={0.1}
-              value={draft.radiusKm}
-              onChange={(e) =>
-                update('radiusKm', parseFloat(e.target.value) || 0)
-              }
-            />
-            {errors.radiusKm && (
-              <p className="text-xs text-rose-600">{errors.radiusKm}</p>
-            )}
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="gf-lat">Latitude</Label>
-              <Input
-                id="gf-lat"
-                type="number"
-                step="any"
-                value={Number(draft.center[0].toFixed(6))}
-                onChange={(e) =>
-                  update('center', [
-                    parseFloat(e.target.value) || 0,
-                    draft.center[1],
-                  ])
-                }
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="gf-lat">Latitude</Label>
+                <Input
+                  id="gf-lat"
+                  type="number"
+                  step="any"
+                  value={Number(draft.center[0].toFixed(6))}
+                  onChange={(e) =>
+                    update('center', [
+                      parseFloat(e.target.value) || 0,
+                      draft.center[1],
+                    ])
+                  }
+                  disabled={readOnly}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="gf-lng">Longitude</Label>
+                <Input
+                  id="gf-lng"
+                  type="number"
+                  step="any"
+                  value={Number(draft.center[1].toFixed(6))}
+                  onChange={(e) =>
+                    update('center', [
+                      draft.center[0],
+                      parseFloat(e.target.value) || 0,
+                    ])
+                  }
+                  disabled={readOnly}
+                />
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="gf-lng">Longitude</Label>
-              <Input
-                id="gf-lng"
-                type="number"
-                step="any"
-                value={Number(draft.center[1].toFixed(6))}
-                onChange={(e) =>
-                  update('center', [
-                    draft.center[0],
-                    parseFloat(e.target.value) || 0,
-                  ])
-                }
-              />
-            </div>
-          </div>
-        </div>
+          </>
+        )}
+      </div>
 
-        <div className="flex justify-end gap-2 px-5 py-3 border-t border-slate-100 bg-slate-50 rounded-b-xl">
-          <Button type="button" variant="outline" onClick={onCancel}>
-            Annuler
-          </Button>
-          <Button type="button" onClick={handleSave}>
-            Enregistrer
-          </Button>
-        </div>
+      <div className="px-4 py-3 border-t border-slate-100 bg-slate-50 flex gap-2">
+        {readOnly ? (
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1"
+              onClick={onCancel}
+            >
+              Fermer
+            </Button>
+            <Button
+              type="button"
+              className="flex-1 gap-1.5"
+              onClick={onStartEdit}
+            >
+              <Pencil className="w-3.5 h-3.5" />
+              Modifier
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1"
+              onClick={onCancel}
+            >
+              Annuler
+            </Button>
+            <Button type="button" className="flex-1" onClick={handleSave}>
+              Enregistrer
+            </Button>
+          </>
+        )}
       </div>
     </div>
   );

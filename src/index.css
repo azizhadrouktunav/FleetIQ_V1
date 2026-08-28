@@ -76,3 +76,9 @@
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+/* Leaflet route ETA badge: kill default white div-icon chrome */
+.leaflet-div-icon.route-metrics-badge {
+  background: transparent !important;
+  border: none !important;
+}

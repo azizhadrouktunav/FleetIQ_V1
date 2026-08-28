@@ -18,9 +18,11 @@ import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
+import { motion, AnimatePresence } from 'framer-motion';
 import { MapLegend } from './MapLegend';
 import type {
   BasemapType,
+  DefaultZoneOverlay,
   DrawMode,
   GeofenceDraft,
   GeofenceOverlay,
@@ -32,12 +34,18 @@ import type {
 } from '../types/map-overlays';
 import {
   BASEMAP_TILES,
+  formatRouteDistance,
+  formatRouteDuration,
+  midpointOfPolyline,
   rectangleBoundsFromCenter,
 } from '../types/map-overlays';
 import { fetchDrivingRoute } from '../lib/osrm-routing';
+import { approxPxDistance } from '../lib/polygon-geometry';
+import { getTunisiaProvince } from '../data/tunisia-provinces';
 
 const MIN_RADIUS_KM = 0.05;
 const MAX_RADIUS_KM = 50;
+const POLYGON_SNAP_PX = 14;
 
 const ROUTE_LINE = { color: '#2563eb', weight: 5, opacity: 1 };
 const ROUTE_CASING = { color: '#ffffff', weight: 8, opacity: 0.9 };
@@ -46,6 +54,13 @@ const ROUTE_DRAFT = {
   weight: 4,
   dashArray: '8 6',
   opacity: 0.85,
+};
+const POLYGON_DRAFT = {
+  color: '#8b5cf6',
+  fillColor: '#8b5cf6',
+  fillOpacity: 0.12,
+  weight: 2,
+  dashArray: '6 4',
 };
 
 function clampRadiusKm(km: number): number {
@@ -88,18 +103,34 @@ function MapController({
   mapCenter,
   onMapCenterChange,
   flyToTarget,
+  flyToZoom,
   onFlyToDone,
+  fitBoundsPoints,
+  onFitBoundsDone,
 }: {
   selectedVehicle: Vehicle | null;
   mapCenter: [number, number] | null;
   onMapCenterChange: () => void;
   flyToTarget: LatLng | null;
+  flyToZoom?: number | null;
   onFlyToDone: () => void;
+  fitBoundsPoints: LatLng[] | null;
+  onFitBoundsDone: () => void;
 }) {
   const map = useMap();
   useEffect(() => {
+    if (fitBoundsPoints?.length) {
+      map.fitBounds(fitBoundsPoints, {
+        paddingTopLeft: [380, 48],
+        paddingBottomRight: [48, 48],
+        animate: true,
+        duration: 1.2,
+      });
+      onFitBoundsDone();
+      return;
+    }
     if (flyToTarget) {
-      map.flyTo(flyToTarget, 15, { animate: true, duration: 1.2 });
+      map.flyTo(flyToTarget, flyToZoom ?? 15, { animate: true, duration: 1.2 });
       onFlyToDone();
       return;
     }
@@ -118,45 +149,88 @@ function MapController({
     map,
     onMapCenterChange,
     flyToTarget,
+    flyToZoom,
     onFlyToDone,
+    fitBoundsPoints,
+    onFitBoundsDone,
   ]);
   return null;
 }
 
-function MapClickHandler({
-  enabled,
-  onMapClick,
-  skipClickRef,
+function RouteMetricsBadge({
+  geometry,
+  distanceMeters,
+  durationSeconds,
 }: {
-  enabled: boolean;
-  onMapClick: (latlng: LatLng) => void;
-  skipClickRef: MutableRefObject<boolean>;
+  geometry: LatLng[];
+  distanceMeters?: number;
+  durationSeconds?: number;
 }) {
-  useMapEvents({
-    click(e) {
-      if (!enabled) return;
-      if (skipClickRef.current) {
-        skipClickRef.current = false;
-        return;
-      }
-      onMapClick([e.latlng.lat, e.latlng.lng]);
-    },
-  });
-  return null;
+  const mid = midpointOfPolyline(geometry);
+  if (!mid || distanceMeters == null) return null;
+  const label = `${formatRouteDistance(distanceMeters)} · ${formatRouteDuration(durationSeconds)}`;
+  // Approximate pill size so Leaflet doesn't clip white text onto the map
+  const width = Math.max(88, Math.ceil(label.length * 7.2) + 24);
+  const height = 28;
+
+  return (
+    <Marker
+      position={mid}
+      interactive={false}
+      icon={L.divIcon({
+        className: 'route-metrics-badge',
+        html: `<div style="
+          width: ${width}px;
+          height: ${height}px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-sizing: border-box;
+          white-space: nowrap;
+          background: #0f172a;
+          color: #ffffff;
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: 0.01em;
+          padding: 0 12px;
+          border-radius: 999px;
+          box-shadow: 0 4px 14px rgba(15,23,42,0.35);
+          border: 1px solid rgba(255,255,255,0.18);
+          text-shadow: 0 1px 2px rgba(0,0,0,0.45);
+        ">${label}</div>`,
+        iconSize: [width, height],
+        iconAnchor: [width / 2, height / 2],
+      })}
+    />
+  );
 }
 
-function PendingRoutePreview({ waypoints }: { waypoints: LatLng[] }) {
+function PendingRoutePreview({
+  waypoints,
+}: {
+  waypoints: LatLng[];
+}) {
   const [geometry, setGeometry] = useState<LatLng[]>(waypoints);
+  const [metrics, setMetrics] = useState<{
+    distanceMeters: number;
+    durationSeconds: number;
+  } | null>(null);
 
   useEffect(() => {
     if (waypoints.length < 2) {
       setGeometry(waypoints);
+      setMetrics(null);
       return;
     }
     let cancelled = false;
     const timer = window.setTimeout(() => {
       void fetchDrivingRoute(waypoints).then((route) => {
-        if (!cancelled) setGeometry(route);
+        if (cancelled) return;
+        setGeometry(route.geometry);
+        setMetrics({
+          distanceMeters: route.distanceMeters,
+          durationSeconds: route.durationSeconds,
+        });
       });
     }, 250);
     return () => {
@@ -168,8 +242,81 @@ function PendingRoutePreview({ waypoints }: { waypoints: LatLng[] }) {
   if (geometry.length < 2) return null;
 
   return (
-    <Polyline positions={geometry} pathOptions={ROUTE_DRAFT} />
+    <>
+      <Polyline positions={geometry} pathOptions={ROUTE_DRAFT} />
+      {metrics && (
+        <RouteMetricsBadge
+          geometry={geometry}
+          distanceMeters={metrics.distanceMeters}
+          durationSeconds={metrics.durationSeconds}
+        />
+      )}
+    </>
   );
+}
+
+function PolygonCursorTracker({
+  enabled,
+  onCursor,
+}: {
+  enabled: boolean;
+  onCursor: (latlng: LatLng | null) => void;
+}) {
+  useMapEvents({
+    mousemove(e) {
+      if (!enabled) return;
+      onCursor([e.latlng.lat, e.latlng.lng]);
+    },
+    mouseout() {
+      if (enabled) onCursor(null);
+    },
+  });
+  return null;
+}
+
+function MapClickHandler({
+  enabled,
+  onMapClick,
+  skipClickRef,
+  pendingPoints,
+  drawMode,
+  onFinishPolygon,
+}: {
+  enabled: boolean;
+  onMapClick: (latlng: LatLng) => void;
+  skipClickRef: MutableRefObject<boolean>;
+  pendingPoints: LatLng[];
+  drawMode: DrawMode;
+  onFinishPolygon?: () => void;
+}) {
+  const map = useMap();
+  useMapEvents({
+    click(e) {
+      if (!enabled) return;
+      if (skipClickRef.current) {
+        skipClickRef.current = false;
+        return;
+      }
+      const latlng: LatLng = [e.latlng.lat, e.latlng.lng];
+
+      // Snap-close polygon when clicking near first vertex
+      if (
+        drawMode === 'polygon' &&
+        pendingPoints.length >= 3 &&
+        onFinishPolygon
+      ) {
+        const zoom = map.getZoom();
+        const dist = approxPxDistance(pendingPoints[0], latlng, zoom);
+        if (dist <= POLYGON_SNAP_PX) {
+          onFinishPolygon();
+          return;
+        }
+      }
+
+      onMapClick(latlng);
+    },
+  });
+  return null;
 }
 
 function DrawCursor({
@@ -283,7 +430,7 @@ function GeofenceDraftEditor({
     if (modeRef.current !== 'idle') return;
     setLiveCenter(draft.center);
     setLiveRadiusKm(draft.radiusKm);
-  }, [draft.center, draft.radiusKm, draft.shapeType]);
+  }, [draft.center, draft.radiusKm, draft.shapeType, draft.provinceId]);
 
   useEffect(() => {
     centerRef.current = liveCenter;
@@ -351,6 +498,19 @@ function GeofenceDraftEditor({
     window.addEventListener('mouseup', stopInteraction);
     return () => window.removeEventListener('mouseup', stopInteraction);
   });
+
+  if (draft.shapeType === 'gouvernorat') {
+    return (
+      <GeofenceShape
+        center={draft.center}
+        radiusKm={draft.radiusKm}
+        shapeType="gouvernorat"
+        provinceId={draft.provinceId}
+        preview
+        interactive={false}
+      />
+    );
+  }
 
   const handlePos = resizeHandlePosition(
     liveCenter,
@@ -520,26 +680,44 @@ function GeofenceShape({
   center,
   radiusKm,
   shapeType,
+  provinceId,
   preview,
   interactive = true,
+  selected = false,
   onMouseDown,
+  onSelect,
 }: {
   center: LatLng;
   radiusKm: number;
-  shapeType: 'circulaire' | 'rectangulaire';
+  shapeType: GeofenceShapeType;
+  provinceId?: string;
   preview?: boolean;
   interactive?: boolean;
+  selected?: boolean;
   onMouseDown?: (e: L.LeafletMouseEvent) => void;
+  onSelect?: (e: L.LeafletMouseEvent) => void;
 }) {
   const pathOpts = {
-    color: preview ? '#3b82f6' : '#6366f1',
-    fillColor: preview ? '#3b82f6' : '#6366f1',
-    fillOpacity: preview ? 0.15 : 0.2,
-    weight: 2,
+    color: selected ? '#1d4ed8' : preview ? '#3b82f6' : '#6366f1',
+    fillColor: selected ? '#3b82f6' : preview ? '#3b82f6' : '#6366f1',
+    fillOpacity: selected ? 0.28 : preview ? 0.15 : 0.2,
+    weight: selected ? 3 : 2,
     dashArray: preview ? '6 4' : undefined,
     interactive,
   };
-  const eventHandlers = onMouseDown
+  const selectHandlers = onSelect
+    ? {
+        click: (e: L.LeafletMouseEvent) => {
+          L.DomEvent.stopPropagation(e.originalEvent);
+          onSelect(e);
+        },
+        mouseover: (e: L.LeafletMouseEvent) => {
+          const el = (e.target as L.Path).getElement();
+          if (el) (el as SVGElement).style.cursor = 'pointer';
+        },
+      }
+    : undefined;
+  const resizeHandlers = onMouseDown
     ? {
         mousedown: onMouseDown,
         mouseover: (e: L.LeafletMouseEvent) => {
@@ -548,6 +726,22 @@ function GeofenceShape({
         },
       }
     : undefined;
+  const eventHandlers = onMouseDown ? resizeHandlers : selectHandlers;
+
+  if (shapeType === 'gouvernorat') {
+    const province = provinceId
+      ? getTunisiaProvince(provinceId)
+      : undefined;
+    if (!province) return null;
+    return (
+      <Polygon
+        positions={province.points}
+        pathOptions={pathOpts}
+        eventHandlers={eventHandlers}
+      />
+    );
+  }
+
   if (shapeType === 'circulaire') {
     return (
       <Circle
@@ -581,6 +775,8 @@ interface MapViewProps {
   locations?: LocationOverlay[];
   routes?: RouteOverlay[];
   polygons?: PolygonOverlay[];
+  defaultZones?: DefaultZoneOverlay[];
+  highlightedZoneId?: string | null;
   geofenceDraft?: GeofenceDraft | null;
   onGeofenceRadiusChange?: (km: number) => void;
   onGeofenceCenterChange?: (center: LatLng) => void;
@@ -588,10 +784,34 @@ interface MapViewProps {
   onGeofencePlaceProgress?: (center: LatLng, radiusKm: number) => void;
   onGeofencePlaceEnd?: () => void;
   pendingPoints?: LatLng[];
+  onPendingPointsChange?: (points: LatLng[]) => void;
+  onFinishPolygon?: () => void;
+  /** Create or edit geometry mode for pending overlays */
+  activeGeometryMode?: 'polygon' | 'route' | null;
+  /** Hide saved overlay while its geometry is being edited */
+  editingOverlayId?: string | null;
+  /** Allow map clicks even when not in draw mode (e.g. reposition location form) */
+  mapClickEnabled?: boolean;
+  /** Draft location pin while create/edit form is open */
+  draftLocationPosition?: LatLng | null;
+  routePreview?: {
+    geometry: LatLng[];
+    distanceMeters?: number;
+    durationSeconds?: number;
+  } | null;
   clusterVehicles?: boolean;
   clusterLocations?: boolean;
   flyToTarget?: LatLng | null;
+  flyToZoom?: number | null;
   onFlyToDone?: () => void;
+  fitBoundsPoints?: LatLng[] | null;
+  onFitBoundsDone?: () => void;
+  onOverlaySelect?: (target: {
+    kind: 'geofence' | 'polygon' | 'defaultZone';
+    id: string;
+  }) => void;
+  selectedOverlayId?: string | null;
+  geofenceDraftInteractive?: boolean;
 }
 
 export function MapView({
@@ -607,6 +827,8 @@ export function MapView({
   locations = [],
   routes = [],
   polygons = [],
+  defaultZones = [],
+  highlightedZoneId = null,
   geofenceDraft = null,
   onGeofenceRadiusChange = () => {},
   onGeofenceCenterChange = () => {},
@@ -614,25 +836,62 @@ export function MapView({
   onGeofencePlaceProgress = () => {},
   onGeofencePlaceEnd = () => {},
   pendingPoints = [],
+  onPendingPointsChange,
+  onFinishPolygon,
+  activeGeometryMode = null,
+  editingOverlayId = null,
+  mapClickEnabled = false,
+  draftLocationPosition = null,
+  routePreview = null,
   clusterVehicles = true,
   clusterLocations = false,
   flyToTarget = null,
+  flyToZoom = null,
   onFlyToDone = () => {},
+  fitBoundsPoints = null,
+  onFitBoundsDone = () => {},
+  onOverlaySelect,
+  selectedOverlayId = null,
+  geofenceDraftInteractive = true,
 }: MapViewProps) {
   const selectedVehicle =
     vehicles.find((v) => v.id === selectedVehicleId) || null;
   const tile = BASEMAP_TILES[basemap];
-  const visibleLocations = locations.filter((l) => l.visible);
+  const visibleLocations = locations.filter(
+    (l) => l.visible && l.id !== editingOverlayId
+  );
   const skipClickRef = useRef(false);
   const [isResizingGeofence, setIsResizingGeofence] = useState(false);
   const [isMovingGeofence, setIsMovingGeofence] = useState(false);
+  const [polygonCursor, setPolygonCursor] = useState<LatLng | null>(null);
   const isGeofenceInteracting = isResizingGeofence || isMovingGeofence;
+
+  const geometryMode = activeGeometryMode ?? (
+    drawMode === 'polygon' || drawMode === 'route' ? drawMode : null
+  );
+  const mapBusy =
+    !!drawMode ||
+    !!geometryMode ||
+    (!!geofenceDraft && geofenceDraftInteractive);
+
+  const handleOverlaySelect = (
+    kind: 'geofence' | 'polygon' | 'defaultZone',
+    id: string
+  ) => {
+    if (mapBusy || !onOverlaySelect) return;
+    onOverlaySelect({ kind, id });
+  };
+
+  const polygonPreviewPositions =
+    geometryMode === 'polygon' && pendingPoints.length >= 1 && polygonCursor
+      ? [...pendingPoints, polygonCursor]
+      : pendingPoints;
 
   return (
     <div className="w-full h-full relative z-0 bg-slate-100">
       <MapContainer
-        center={[48.8566, 2.3522]}
-        zoom={13}
+        center={[36.8065, 10.1815]}
+        zoom={8}
         style={{ height: '100%', width: '100%', background: '#f1f5f9' }}
         zoomControl={false}
       >
@@ -647,16 +906,31 @@ export function MapView({
           mapCenter={mapCenter}
           onMapCenterChange={onMapCenterChange}
           flyToTarget={flyToTarget}
+          flyToZoom={flyToZoom}
           onFlyToDone={onFlyToDone}
+          fitBoundsPoints={fitBoundsPoints}
+          onFitBoundsDone={onFitBoundsDone}
         />
         <MapClickHandler
           enabled={
-            !!drawMode &&
-            drawMode !== 'geofence' &&
-            !isGeofenceInteracting
+            mapClickEnabled ||
+            !!geometryMode ||
+            (!!drawMode &&
+              drawMode !== 'geofence' &&
+              !isGeofenceInteracting)
           }
           onMapClick={onMapClick}
           skipClickRef={skipClickRef}
+          pendingPoints={pendingPoints}
+          drawMode={geometryMode ?? drawMode}
+          onFinishPolygon={
+            // Snap-close only during create, not while editing from Manage
+            editingOverlayId ? undefined : onFinishPolygon
+          }
+        />
+        <PolygonCursorTracker
+          enabled={geometryMode === 'polygon' && pendingPoints.length > 0}
+          onCursor={setPolygonCursor}
         />
         <GeofencePlaceHandler
           enabled={drawMode === 'geofence' && !geofenceDraft}
@@ -668,12 +942,12 @@ export function MapView({
           onResizingChange={setIsResizingGeofence}
         />
         <DrawCursor
-          drawMode={drawMode}
+          drawMode={drawMode ?? (geometryMode as DrawMode)}
           isResizing={isResizingGeofence}
           isMoving={isMovingGeofence}
         />
 
-        {clusterVehicles && !drawMode ? (
+        {clusterVehicles && !mapBusy ? (
           <VehicleClusterLayer
             vehicles={vehicles}
             selectedVehicleId={selectedVehicleId}
@@ -685,14 +959,14 @@ export function MapView({
             <Marker
               key={vehicle.id}
               position={vehicle.coordinates}
-              interactive={!drawMode}
+              interactive={!mapBusy}
               icon={createVehicleIcon(
                 vehicle.status,
                 selectedVehicleId === vehicle.id
               )}
               eventHandlers={{
                 click: () => {
-                  if (drawMode) return;
+                  if (mapBusy) return;
                   onSelectVehicle(vehicle);
                 },
               }}
@@ -725,14 +999,14 @@ export function MapView({
           ))
         )}
 
-        {clusterLocations && !drawMode ? (
+        {clusterLocations && !mapBusy ? (
           <LocationClusterLayer locations={visibleLocations} />
         ) : (
           visibleLocations.map((loc) => (
             <Marker
               key={loc.id}
               position={loc.position}
-              interactive={!drawMode}
+              interactive={!mapBusy}
               icon={createLocationIcon()}
             >
               <Popup>
@@ -742,21 +1016,33 @@ export function MapView({
           ))
         )}
 
+        {/* Draft location while form open */}
+        {draftLocationPosition && (
+          <Marker
+            position={draftLocationPosition}
+            interactive={false}
+            icon={createLocationIcon()}
+          />
+        )}
+
         {/* Geofences */}
         {geofences
-          .filter((g) => g.visible)
+          .filter((g) => g.visible && g.id !== editingOverlayId)
           .map((g) => (
             <GeofenceShape
               key={g.id}
               center={g.center}
               radiusKm={g.radiusKm}
               shapeType={g.shapeType}
-              interactive={!drawMode}
+              provinceId={g.provinceId}
+              selected={selectedOverlayId === g.id}
+              interactive={!mapBusy}
+              onSelect={() => handleOverlaySelect('geofence', g.id)}
             />
           ))}
 
         {/* Draft geofence preview */}
-        {geofenceDraft && (
+        {geofenceDraft && geofenceDraftInteractive && (
           <GeofenceDraftEditor
             draft={geofenceDraft}
             onCenterChange={onGeofenceCenterChange}
@@ -767,9 +1053,41 @@ export function MapView({
           />
         )}
 
+        {/* Default province zones */}
+        {defaultZones
+          .filter((z) => z.visible)
+          .map((z) => {
+            const highlighted =
+              highlightedZoneId === z.id || selectedOverlayId === z.id;
+            return (
+              <Polygon
+                key={z.id}
+                positions={z.points}
+                pathOptions={{
+                  color: highlighted ? '#d97706' : '#f59e0b',
+                  fillColor: highlighted ? '#f59e0b' : '#fbbf24',
+                  fillOpacity: highlighted ? 0.28 : 0.14,
+                  weight: highlighted ? 3 : 1.5,
+                  interactive: !drawMode && !mapBusy,
+                }}
+                eventHandlers={{
+                  click: (e) => {
+                    L.DomEvent.stopPropagation(e.originalEvent);
+                    handleOverlaySelect('defaultZone', z.id);
+                  },
+                }}
+              >
+                <Popup>
+                  <div className="text-sm font-medium">{z.name}</div>
+                  <div className="text-xs text-slate-500">Province</div>
+                </Popup>
+              </Polygon>
+            );
+          })}
+
         {/* Routes */}
         {routes
-          .filter((r) => r.visible)
+          .filter((r) => r.visible && r.id !== editingOverlayId)
           .map((r) => (
             <Fragment key={r.id}>
               <Polyline
@@ -778,61 +1096,149 @@ export function MapView({
               />
               <Polyline
                 positions={r.points}
-                pathOptions={{ ...ROUTE_LINE, interactive: !drawMode }}
+                pathOptions={{ ...ROUTE_LINE, interactive: !mapBusy }}
               >
-                <Popup>{r.name}</Popup>
+                <Popup>
+                  <div className="text-sm font-medium">{r.name}</div>
+                  {(r.distanceMeters != null || r.durationSeconds != null) && (
+                    <div className="text-xs text-slate-500 mt-0.5">
+                      {formatRouteDistance(r.distanceMeters)} ·{' '}
+                      {formatRouteDuration(r.durationSeconds)}
+                    </div>
+                  )}
+                </Popup>
               </Polyline>
+              {(r.distanceMeters != null || r.durationSeconds != null) && (
+                <RouteMetricsBadge
+                  geometry={r.points}
+                  distanceMeters={r.distanceMeters}
+                  durationSeconds={r.durationSeconds}
+                />
+              )}
             </Fragment>
           ))}
 
         {/* Polygons */}
         {polygons
-          .filter((p) => p.visible)
-          .map((p) => (
-            <Polygon
-              key={p.id}
-              positions={p.points}
-              pathOptions={{
-                interactive: !drawMode,
-              }}
-            >
-              <Popup>{p.name}</Popup>
-            </Polygon>
-          ))}
+          .filter((p) => p.visible && p.id !== editingOverlayId)
+          .map((p) => {
+            const selected = selectedOverlayId === p.id;
+            return (
+              <Polygon
+                key={p.id}
+                positions={p.points}
+                pathOptions={{
+                  color: selected ? '#5b21b6' : '#7c3aed',
+                  fillColor: selected ? '#7c3aed' : '#8b5cf6',
+                  fillOpacity: selected ? 0.28 : 0.18,
+                  weight: selected ? 3 : 2,
+                  interactive: !mapBusy,
+                }}
+                eventHandlers={{
+                  click: (e) => {
+                    L.DomEvent.stopPropagation(e.originalEvent);
+                    handleOverlaySelect('polygon', p.id);
+                  },
+                }}
+              >
+                <Popup>{p.name}</Popup>
+              </Polygon>
+            );
+          })}
 
-        {/* Pending draw points */}
+        {/* Route via locations preview */}
+        {routePreview && routePreview.geometry.length >= 2 && (
+          <>
+            <Polyline
+              positions={routePreview.geometry}
+              pathOptions={ROUTE_DRAFT}
+            />
+            {routePreview.distanceMeters != null && (
+              <RouteMetricsBadge
+                geometry={routePreview.geometry}
+                distanceMeters={routePreview.distanceMeters}
+                durationSeconds={routePreview.durationSeconds}
+              />
+            )}
+          </>
+        )}
+
+        {/* Pending draw / edit points */}
         {pendingPoints.map((pt, i) => {
+          const isFirst = i === 0 && geometryMode === 'polygon';
           const pendingColor =
-            drawMode === 'route' ? ROUTE_DRAFT.color : '#f59e0b';
+            geometryMode === 'route' ? ROUTE_DRAFT.color : '#8b5cf6';
           return (
             <Marker
               key={`pending-${i}`}
               position={pt}
+              draggable={!!geometryMode && !!onPendingPointsChange}
+              eventHandlers={
+                geometryMode && onPendingPointsChange
+                  ? {
+                      dragend: (e) => {
+                        const m = e.target as L.Marker;
+                        const { lat, lng } = m.getLatLng();
+                        const next = [...pendingPoints];
+                        next[i] = [lat, lng];
+                        onPendingPointsChange(next);
+                      },
+                    }
+                  : undefined
+              }
               icon={L.divIcon({
                 className: 'pending-pt',
-                html: `<div style="width:10px;height:10px;background:${pendingColor};border:2px solid white;border-radius:50%"></div>`,
-                iconSize: [10, 10],
-                iconAnchor: [5, 5],
+                html: `<div style="width:${isFirst ? 14 : 10}px;height:${isFirst ? 14 : 10}px;background:${pendingColor};border:2px solid white;border-radius:50%;box-shadow:0 0 0 ${isFirst ? 2 : 0}px rgba(139,92,246,0.45)"></div>`,
+                iconSize: [isFirst ? 14 : 10, isFirst ? 14 : 10],
+                iconAnchor: [isFirst ? 7 : 5, isFirst ? 7 : 5],
               })}
-              interactive={false}
+              interactive={!!geometryMode}
             />
           );
         })}
-        {pendingPoints.length >= 2 && drawMode === 'route' && (
+        {pendingPoints.length >= 2 && geometryMode === 'route' && (
           <PendingRoutePreview waypoints={pendingPoints} />
         )}
-        {pendingPoints.length >= 2 && drawMode === 'polygon' && (
+        {geometryMode === 'polygon' && polygonPreviewPositions.length >= 2 && (
           <Polygon
-            positions={pendingPoints}
-            pathOptions={{
-              color: '#f59e0b',
-              fillColor: '#f59e0b',
-              fillOpacity: 0.1,
-              weight: 2,
-              dashArray: '6 4',
-            }}
+            positions={
+              polygonPreviewPositions.length >= 3
+                ? polygonPreviewPositions
+                : polygonPreviewPositions
+            }
+            pathOptions={POLYGON_DRAFT}
           />
         )}
+        {geometryMode === 'polygon' &&
+          pendingPoints.length >= 1 &&
+          polygonCursor && (
+            <Polyline
+              positions={[
+                pendingPoints[pendingPoints.length - 1],
+                polygonCursor,
+              ]}
+              pathOptions={{
+                color: '#8b5cf6',
+                weight: 2,
+                dashArray: '4 4',
+                opacity: 0.7,
+              }}
+            />
+          )}
+        {/* Closing hint edge */}
+        {geometryMode === 'polygon' &&
+          pendingPoints.length >= 2 &&
+          polygonCursor && (
+            <Polyline
+              positions={[polygonCursor, pendingPoints[0]]}
+              pathOptions={{
+                color: '#a78bfa',
+                weight: 1.5,
+                dashArray: '2 6',
+                opacity: 0.5,
+              }}
+            />
+          )}
       </MapContainer>
 
       <div className="absolute bottom-4 left-4 z-10 flex flex-col gap-2 items-start">
@@ -840,6 +1246,20 @@ export function MapView({
         <div className="bg-white/95 backdrop-blur-sm px-3 py-1 rounded-full shadow-md text-xs font-medium text-slate-600">
           Véhicules: {vehicles.length}
         </div>
+        <AnimatePresence>
+          {((geometryMode === 'route' && pendingPoints.length >= 2) ||
+            (routePreview && routePreview.distanceMeters != null)) && (
+            <motion.div
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 4 }}
+              transition={{ duration: 0.2 }}
+              className="bg-slate-900/90 text-white px-3 py-1.5 rounded-full shadow-md text-xs font-semibold"
+            >
+              Trajet en cours…
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

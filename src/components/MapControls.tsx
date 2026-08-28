@@ -10,8 +10,15 @@ import {
   MapPinned,
   Pentagon,
   PanelRightClose,
+  Landmark,
+  Undo2,
 } from 'lucide-react';
-import type { BasemapType, DrawMode, MapOverlay } from '../types/map-overlays';
+import type {
+  BasemapType,
+  DrawMode,
+  ManageOverlayKind,
+  MapOverlay,
+} from '../types/map-overlays';
 import { BASEMAP_TILES } from '../types/map-overlays';
 
 type OpenMenu = 'geo' | 'visibility' | 'layers' | 'hide' | null;
@@ -26,6 +33,7 @@ function overlayKindLabel(kind: MapOverlay['kind']): string {
   if (kind === 'geofence') return 'Géopérage';
   if (kind === 'location') return 'Emplacement';
   if (kind === 'route') return 'Route';
+  if (kind === 'defaultZone') return 'Zone';
   return 'Polygone';
 }
 
@@ -64,13 +72,18 @@ interface MapControlsProps {
   clusterLocations: boolean;
   onClusterLocationsChange: (v: boolean) => void;
   drawMode: DrawMode;
+  /** Edit geometry from Manage (polygon/route) without create drawMode */
+  geometryEditKind?: 'polygon' | 'route' | null;
   onStartDraw: (mode: Exclude<DrawMode, null>) => void;
-  onOpenManage: (kind: 'location' | 'route' | 'polygon' | 'geofence') => void;
+  onOpenManage: (kind: ManageOverlayKind) => void;
+  onOpenRouteViaLocations?: () => void;
   overlays: MapOverlay[];
   onSetOverlayVisible: (id: string, visible: boolean) => void;
   pendingPointsCount: number;
   onFinishDraw: () => void;
   onCancelDraw: () => void;
+  onUndoPoint?: () => void;
+  polygonDrawError?: string | null;
 }
 
 export function MapControls({
@@ -81,13 +94,17 @@ export function MapControls({
   clusterLocations,
   onClusterLocationsChange,
   drawMode,
+  geometryEditKind = null,
   onStartDraw,
   onOpenManage,
+  onOpenRouteViaLocations,
   overlays,
   onSetOverlayVisible,
   pendingPointsCount,
   onFinishDraw,
   onCancelDraw,
+  onUndoPoint,
+  polygonDrawError,
 }: MapControlsProps) {
   const [openMenu, setOpenMenu] = useState<OpenMenu>(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -102,7 +119,19 @@ export function MapControls({
         setOpenMenu(null);
       }
     };
-    const handleEscape = (event: KeyboardEvent) => {
+    const handleKey = (event: KeyboardEvent) => {
+      const geoActive = !!drawMode || !!geometryEditKind;
+      if (
+        event.key === 'Backspace' &&
+        geoActive &&
+        pendingPointsCount > 0
+      ) {
+        const tag = (event.target as HTMLElement)?.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+        event.preventDefault();
+        onUndoPoint?.();
+        return;
+      }
       if (event.key !== 'Escape') return;
       if (openMenu) {
         setOpenMenu(null);
@@ -111,12 +140,19 @@ export function MapControls({
       if (drawMode) onCancelDraw();
     };
     document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleEscape);
+    document.addEventListener('keydown', handleKey);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleEscape);
+      document.removeEventListener('keydown', handleKey);
     };
-  }, [drawMode, onCancelDraw, openMenu]);
+  }, [
+    drawMode,
+    geometryEditKind,
+    onCancelDraw,
+    openMenu,
+    onUndoPoint,
+    pendingPointsCount,
+  ]);
 
   const toggleMenu = (menu: OpenMenu) => {
     setOpenMenu((prev) => (prev === menu ? null : menu));
@@ -133,40 +169,83 @@ export function MapControls({
 
   const canFinishRoute = drawMode === 'route' && pendingPointsCount >= 2;
   const canFinishPolygon = drawMode === 'polygon' && pendingPointsCount >= 3;
+  const showCreateBanner = !!drawMode;
+  const showEditBanner = !!geometryEditKind && !drawMode;
 
   return (
     <div
       ref={toolbarRef}
       className="absolute top-4 right-4 z-40 flex flex-col items-end gap-2"
     >
-      {drawMode && (
-        <div className="bg-slate-900/90 text-white text-xs font-medium px-3 py-2 rounded-xl shadow-lg max-w-xs flex items-center gap-2">
-          <span className="flex-1">
-            {drawMode === 'geofence' &&
-              'Maintenez le clic et glissez pour tracer · centre pour déplacer · bord pour le rayon'}
-            {drawMode === 'location' &&
-              'Cliquez sur la carte pour ajouter un emplacement'}
-            {drawMode === 'route' &&
-              `Itinéraire (suit les routes) : ${pendingPointsCount} point(s) — min. 2 · Terminer`}
-            {drawMode === 'polygon' &&
-              `Polygone : ${pendingPointsCount} point(s) — min. 3`}
-          </span>
-          {(canFinishRoute || canFinishPolygon) && (
+      {showEditBanner && (
+        <div className="bg-slate-900/90 text-white text-xs font-medium px-3 py-2 rounded-xl shadow-lg max-w-sm flex flex-col gap-1.5">
+          <div className="flex items-center gap-2">
+            <span className="flex-1">
+              {geometryEditKind === 'polygon' &&
+                `Modification du polygone : ${pendingPointsCount} sommet(s) — déplacez ou ajoutez des points`}
+              {geometryEditKind === 'route' &&
+                `Modification de la route : ${pendingPointsCount} point(s) — déplacez ou ajoutez des waypoints`}
+            </span>
+            {pendingPointsCount > 0 && onUndoPoint && (
+              <button
+                type="button"
+                onClick={onUndoPoint}
+                className="px-2 py-1 rounded-md bg-white/10 hover:bg-white/20 text-xs inline-flex items-center gap-1"
+                title="Annuler le dernier point (Backspace)"
+              >
+                <Undo2 className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+          {polygonDrawError && (
+            <p className="text-amber-300 text-[11px]">{polygonDrawError}</p>
+          )}
+        </div>
+      )}
+
+      {showCreateBanner && (
+        <div className="bg-slate-900/90 text-white text-xs font-medium px-3 py-2 rounded-xl shadow-lg max-w-sm flex flex-col gap-1.5">
+          <div className="flex items-center gap-2">
+            <span className="flex-1">
+              {drawMode === 'geofence' &&
+                'Maintenez le clic et glissez pour tracer · centre pour déplacer · bord pour le rayon'}
+              {drawMode === 'location' &&
+                'Cliquez sur la carte pour ajouter un emplacement'}
+              {drawMode === 'route' &&
+                `Itinéraire : ${pendingPointsCount} point(s) — min. 2`}
+              {drawMode === 'polygon' &&
+                `Polygone : ${pendingPointsCount} point(s) — min. 3 · clic près du 1er point pour fermer`}
+            </span>
+            {pendingPointsCount > 0 && onUndoPoint && (
+              <button
+                type="button"
+                onClick={onUndoPoint}
+                className="px-2 py-1 rounded-md bg-white/10 hover:bg-white/20 text-xs inline-flex items-center gap-1"
+                title="Annuler le dernier point (Backspace)"
+              >
+                <Undo2 className="w-3 h-3" />
+              </button>
+            )}
+            {(canFinishRoute || canFinishPolygon) && (
+              <button
+                type="button"
+                onClick={onFinishDraw}
+                className="px-2 py-1 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold"
+              >
+                Terminer
+              </button>
+            )}
             <button
               type="button"
-              onClick={onFinishDraw}
-              className="px-2 py-1 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold"
+              onClick={onCancelDraw}
+              className="px-2 py-1 rounded-md bg-white/10 hover:bg-white/20 text-xs"
             >
-              Terminer
+              Annuler
             </button>
+          </div>
+          {polygonDrawError && drawMode === 'polygon' && (
+            <p className="text-amber-300 text-[11px]">{polygonDrawError}</p>
           )}
-          <button
-            type="button"
-            onClick={onCancelDraw}
-            className="px-2 py-1 rounded-md bg-white/10 hover:bg-white/20 text-xs"
-          >
-            Annuler
-          </button>
         </div>
       )}
 
@@ -219,6 +298,17 @@ export function MapControls({
                     label="Ajouter un itinéraire"
                     onClick={() => startAndClose('route')}
                   />
+                  {onOpenRouteViaLocations && (
+                    <MenuRow
+                      icon={Route}
+                      chip="bg-sky-50 text-sky-600"
+                      label="Route par emplacements"
+                      onClick={() => {
+                        onOpenRouteViaLocations();
+                        setOpenMenu(null);
+                      }}
+                    />
+                  )}
                   <MenuRow
                     icon={MapPinned}
                     chip="bg-emerald-50 text-emerald-600"
@@ -269,6 +359,15 @@ export function MapControls({
                     label="Gestion des routes"
                     onClick={() => {
                       onOpenManage('route');
+                      setOpenMenu(null);
+                    }}
+                  />
+                  <MenuRow
+                    icon={Landmark}
+                    chip="bg-amber-50 text-amber-600"
+                    label="Gestion des zones par défaut"
+                    onClick={() => {
+                      onOpenManage('defaultZone');
                       setOpenMenu(null);
                     }}
                   />
