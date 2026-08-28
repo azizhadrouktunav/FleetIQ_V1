@@ -132,6 +132,28 @@ export function MapControls({
         onUndoPoint?.();
         return;
       }
+      if (
+        event.key === 'Enter' &&
+        drawMode === 'route' &&
+        pendingPointsCount >= 2
+      ) {
+        const tag = (event.target as HTMLElement)?.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+        event.preventDefault();
+        onFinishDraw();
+        return;
+      }
+      if (
+        event.key === 'Enter' &&
+        drawMode === 'polygon' &&
+        pendingPointsCount >= 3
+      ) {
+        const tag = (event.target as HTMLElement)?.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+        event.preventDefault();
+        onFinishDraw();
+        return;
+      }
       if (event.key !== 'Escape') return;
       if (openMenu) {
         setOpenMenu(null);
@@ -152,6 +174,7 @@ export function MapControls({
     openMenu,
     onUndoPoint,
     pendingPointsCount,
+    onFinishDraw,
   ]);
 
   const toggleMenu = (menu: OpenMenu) => {
@@ -212,9 +235,9 @@ export function MapControls({
               {drawMode === 'location' &&
                 'Cliquez sur la carte pour ajouter un emplacement'}
               {drawMode === 'route' &&
-                `Itinéraire : ${pendingPointsCount} point(s) — min. 2`}
+                `Itinéraire : ${pendingPointsCount} point(s) — min. 2 · Entrée pour terminer`}
               {drawMode === 'polygon' &&
-                `Polygone : ${pendingPointsCount} point(s) — min. 3 · clic près du 1er point pour fermer`}
+                `Polygone : ${pendingPointsCount} point(s) — min. 3 · Entrée ou clic sur le 1er point pour fermer`}
             </span>
             {pendingPointsCount > 0 && onUndoPoint && (
               <button

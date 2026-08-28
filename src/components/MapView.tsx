@@ -18,7 +18,6 @@ import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
-import { motion, AnimatePresence } from 'framer-motion';
 import { MapLegend } from './MapLegend';
 import type {
   BasemapType,
@@ -211,15 +210,10 @@ function PendingRoutePreview({
   waypoints: LatLng[];
 }) {
   const [geometry, setGeometry] = useState<LatLng[]>(waypoints);
-  const [metrics, setMetrics] = useState<{
-    distanceMeters: number;
-    durationSeconds: number;
-  } | null>(null);
 
   useEffect(() => {
     if (waypoints.length < 2) {
       setGeometry(waypoints);
-      setMetrics(null);
       return;
     }
     let cancelled = false;
@@ -227,10 +221,6 @@ function PendingRoutePreview({
       void fetchDrivingRoute(waypoints).then((route) => {
         if (cancelled) return;
         setGeometry(route.geometry);
-        setMetrics({
-          distanceMeters: route.distanceMeters,
-          durationSeconds: route.durationSeconds,
-        });
       });
     }, 250);
     return () => {
@@ -241,18 +231,7 @@ function PendingRoutePreview({
 
   if (geometry.length < 2) return null;
 
-  return (
-    <>
-      <Polyline positions={geometry} pathOptions={ROUTE_DRAFT} />
-      {metrics && (
-        <RouteMetricsBadge
-          geometry={geometry}
-          distanceMeters={metrics.distanceMeters}
-          durationSeconds={metrics.durationSeconds}
-        />
-      )}
-    </>
-  );
+  return <Polyline positions={geometry} pathOptions={ROUTE_DRAFT} />;
 }
 
 function PolygonCursorTracker({
@@ -799,6 +778,10 @@ interface MapViewProps {
     distanceMeters?: number;
     durationSeconds?: number;
   } | null;
+  overlayFormDraft?: {
+    kind: 'polygon' | 'route';
+    points: LatLng[];
+  } | null;
   clusterVehicles?: boolean;
   clusterLocations?: boolean;
   flyToTarget?: LatLng | null;
@@ -844,6 +827,7 @@ export function MapView({
   mapClickEnabled = false,
   draftLocationPosition = null,
   routePreview = null,
+  overlayFormDraft = null,
   clusterVehicles = true,
   clusterLocations = false,
   flyToTarget = null,
@@ -1150,24 +1134,36 @@ export function MapView({
 
         {/* Route via locations preview */}
         {routePreview && routePreview.geometry.length >= 2 && (
-          <>
+          <Polyline
+            positions={routePreview.geometry}
+            pathOptions={ROUTE_DRAFT}
+          />
+        )}
+
+        {/* Overlay form draft (after finish, before save) */}
+        {overlayFormDraft?.kind === 'route' &&
+          overlayFormDraft.points.length >= 2 && (
             <Polyline
-              positions={routePreview.geometry}
+              positions={overlayFormDraft.points}
               pathOptions={ROUTE_DRAFT}
             />
-            {routePreview.distanceMeters != null && (
-              <RouteMetricsBadge
-                geometry={routePreview.geometry}
-                distanceMeters={routePreview.distanceMeters}
-                durationSeconds={routePreview.durationSeconds}
-              />
-            )}
-          </>
-        )}
+          )}
+        {overlayFormDraft?.kind === 'polygon' &&
+          overlayFormDraft.points.length >= 3 && (
+            <Polygon
+              positions={overlayFormDraft.points}
+              pathOptions={POLYGON_DRAFT}
+            />
+          )}
 
         {/* Pending draw / edit points */}
         {pendingPoints.map((pt, i) => {
           const isFirst = i === 0 && geometryMode === 'polygon';
+          const canClosePolygon =
+            isFirst &&
+            geometryMode === 'polygon' &&
+            pendingPoints.length >= 3 &&
+            !!onFinishPolygon;
           const pendingColor =
             geometryMode === 'route' ? ROUTE_DRAFT.color : '#8b5cf6';
           return (
@@ -1175,8 +1171,8 @@ export function MapView({
               key={`pending-${i}`}
               position={pt}
               draggable={!!geometryMode && !!onPendingPointsChange}
-              eventHandlers={
-                geometryMode && onPendingPointsChange
+              eventHandlers={{
+                ...(geometryMode && onPendingPointsChange
                   ? {
                       dragend: (e) => {
                         const m = e.target as L.Marker;
@@ -1186,8 +1182,16 @@ export function MapView({
                         onPendingPointsChange(next);
                       },
                     }
-                  : undefined
-              }
+                  : {}),
+                ...(canClosePolygon
+                  ? {
+                      click: () => {
+                        skipClickRef.current = true;
+                        onFinishPolygon();
+                      },
+                    }
+                  : {}),
+              }}
               icon={L.divIcon({
                 className: 'pending-pt',
                 html: `<div style="width:${isFirst ? 14 : 10}px;height:${isFirst ? 14 : 10}px;background:${pendingColor};border:2px solid white;border-radius:50%;box-shadow:0 0 0 ${isFirst ? 2 : 0}px rgba(139,92,246,0.45)"></div>`,
@@ -1252,20 +1256,6 @@ export function MapView({
         <div className="bg-white/95 backdrop-blur-sm px-3 py-1 rounded-full shadow-md text-xs font-medium text-slate-600">
           Véhicules: {vehicles.length}
         </div>
-        <AnimatePresence>
-          {((geometryMode === 'route' && pendingPoints.length >= 2) ||
-            (routePreview && routePreview.distanceMeters != null)) && (
-            <motion.div
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 4 }}
-              transition={{ duration: 0.2 }}
-              className="bg-slate-900/90 text-white px-3 py-1.5 rounded-full shadow-md text-xs font-semibold"
-            >
-              Trajet en cours…
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
     </div>
   );

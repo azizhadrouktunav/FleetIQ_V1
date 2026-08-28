@@ -436,6 +436,18 @@ export function App() {
                 void mapOverlays.finishMultiPointDraw();
               }}
               routePreview={mapOverlays.routePreview}
+              overlayFormDraft={
+                mapOverlays.overlayForm &&
+                !mapOverlays.drawMode &&
+                !mapOverlays.geometryEditKind &&
+                (mapOverlays.overlayFormKind === 'polygon' ||
+                  mapOverlays.overlayFormKind === 'route')
+                  ? {
+                      kind: mapOverlays.overlayFormKind,
+                      points: mapOverlays.overlayForm.points,
+                    }
+                  : null
+              }
               clusterVehicles={mapOverlays.clusterVehicles}
               clusterLocations={mapOverlays.clusterLocations}
               flyToTarget={mapOverlays.flyToTarget}

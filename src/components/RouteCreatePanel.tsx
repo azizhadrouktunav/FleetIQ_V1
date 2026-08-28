@@ -5,7 +5,9 @@ import type {
   OverlayFormDraft,
 } from '@/types/map-overlays';
 import type { RouteCreateMode } from '@/hooks/useMapOverlays';
+import { useRouteMetrics } from '@/hooks/useRouteMetrics';
 import { MapSidePanel } from '@/components/MapSidePanel';
+import { RouteMetricsSummary } from '@/components/RouteMetricsSummary';
 import { RouteViaLocationsForm } from '@/components/RouteViaLocationsForm';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, MapPin, MapPinned, Route, Undo2 } from 'lucide-react';
@@ -76,6 +78,11 @@ export function RouteCreatePanel({
   onRequestAddLocation,
   onPreviewChange,
 }: RouteCreatePanelProps) {
+  const { metrics, routing } = useRouteMetrics(
+    pendingPoints,
+    open && mode === 'map'
+  );
+
   if (!open) return null;
 
   const handleBack = () => {
@@ -192,6 +199,14 @@ export function RouteCreatePanel({
                 <Undo2 className="w-4 h-4" />
                 Supprimer le dernier point
               </Button>
+            )}
+
+            {(routing || metrics) && pendingPoints.length >= 2 && (
+              <RouteMetricsSummary
+                distanceMeters={metrics?.distanceMeters}
+                durationSeconds={metrics?.durationSeconds}
+                loading={routing}
+              />
             )}
           </div>
 

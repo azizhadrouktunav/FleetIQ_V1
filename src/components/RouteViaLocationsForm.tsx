@@ -7,11 +7,8 @@ import type {
   LocationOverlay,
   OverlayFormDraft,
 } from '@/types/map-overlays';
-import {
-  emptyAssignment,
-  formatRouteDistance,
-  formatRouteDuration,
-} from '@/types/map-overlays';
+import { emptyAssignment } from '@/types/map-overlays';
+import { RouteMetricsSummary } from '@/components/RouteMetricsSummary';
 import { fetchDrivingRoute } from '@/lib/osrm-routing';
 import { GeoAssignmentFields } from '@/components/GeoAssignmentFields';
 import { Badge } from '@/components/ui/badge';
@@ -509,11 +506,11 @@ export function RouteViaLocationsForm({
             </div>
 
             {(metrics || routing) && (
-              <p className="text-xs text-slate-500 bg-sky-50 rounded-lg px-3 py-2 border border-sky-100">
-                {routing
-                  ? 'Calcul du trajet…'
-                  : `Estimation : ${formatRouteDistance(metrics?.distanceMeters)} · ${formatRouteDuration(metrics?.durationSeconds)}`}
-              </p>
+              <RouteMetricsSummary
+                distanceMeters={metrics?.distanceMeters}
+                durationSeconds={metrics?.durationSeconds}
+                loading={routing}
+              />
             )}
 
             <GeoAssignmentFields

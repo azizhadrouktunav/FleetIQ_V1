@@ -7,11 +7,7 @@ import { Label } from '@/components/ui/label';
 import { ArrowLeft, CircleDot, Pencil } from 'lucide-react';
 import { GeoAssignmentFields } from '@/components/GeoAssignmentFields';
 import { MapSidePanel } from '@/components/MapSidePanel';
-import {
-  TUNISIA_PROVINCES,
-  getTunisiaProvince,
-  provinceCentroid,
-} from '@/data/tunisia-provinces';
+import { getTunisiaProvince } from '@/data/tunisia-provinces';
 
 interface GeofenceCreateModalProps {
   open: boolean;
@@ -46,7 +42,6 @@ export function GeofenceCreateModal({
     name?: string;
     assignment?: string;
     radiusKm?: string;
-    provinceId?: string;
   }>({});
 
   useEffect(() => {
@@ -55,7 +50,10 @@ export function GeofenceCreateModal({
 
   if (!open || !draft) return null;
 
-  const isGouvernorat = draft.shapeType === 'gouvernorat';
+  const isLegacyGouvernorat = draft.shapeType === 'gouvernorat';
+  const legacyProvince = draft.provinceId
+    ? getTunisiaProvince(draft.provinceId)
+    : undefined;
   const displayTitle =
     readOnly && title.startsWith('Modifier')
       ? 'Détails du géopérage'
@@ -69,35 +67,11 @@ export function GeofenceCreateModal({
   };
 
   const handleShapeChange = (shapeType: GeofenceDraft['shapeType']) => {
-    if (shapeType === 'gouvernorat') {
-      onDraftChange({
-        ...draft,
-        shapeType,
-        provinceId: undefined,
-      });
-      return;
-    }
     onDraftChange({
       ...draft,
       shapeType,
       provinceId: undefined,
     });
-  };
-
-  const handleProvinceChange = (provinceId: string) => {
-    const province = getTunisiaProvince(provinceId);
-    if (!province) {
-      onDraftChange({ ...draft, provinceId: undefined });
-      return;
-    }
-    const center = provinceCentroid(province.points);
-    onDraftChange({
-      ...draft,
-      provinceId,
-      center,
-      name: draft.name.trim() ? draft.name : province.name,
-    });
-    onFlyTo?.(center, 9);
   };
 
   const handleSave = () => {
@@ -109,11 +83,7 @@ export function GeofenceCreateModal({
           ? 'Sélectionnez au moins un véhicule.'
           : 'Sélectionnez au moins un département.';
     }
-    if (isGouvernorat) {
-      if (!draft.provinceId) {
-        next.provinceId = 'Sélectionnez un gouvernorat.';
-      }
-    } else if (!draft.radiusKm || draft.radiusKm <= 0) {
+    if (!isLegacyGouvernorat && (!draft.radiusKm || draft.radiusKm <= 0)) {
       next.radiusKm = 'Rayon invalide.';
     }
     setErrors(next);
@@ -149,11 +119,17 @@ export function GeofenceCreateModal({
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {!readOnly && (
+        {!readOnly && !isLegacyGouvernorat && (
           <p className="text-xs text-slate-500">
-            {isGouvernorat
-              ? 'Choisissez un gouvernorat pour définir la zone sur la carte.'
-              : 'Maintenez le clic et glissez pour tracer. Déplacez le point central pour repositionner.'}
+            Maintenez le clic et glissez pour tracer. Déplacez le point central
+            pour repositionner.
+          </p>
+        )}
+
+        {isLegacyGouvernorat && (
+          <p className="text-xs text-slate-500 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+            Géopérage existant de type gouvernorat
+            {legacyProvince ? ` : ${legacyProvince.name}` : ''}.
           </p>
         )}
 
@@ -182,45 +158,23 @@ export function GeofenceCreateModal({
           disabled={readOnly}
         />
 
-        <div className="space-y-1.5">
-          <Label htmlFor="gf-shape">Type de géopérage</Label>
-          <select
-            id="gf-shape"
-            value={draft.shapeType}
-            onChange={(e) =>
-              handleShapeChange(
-                e.target.value as GeofenceDraft['shapeType']
-              )
-            }
-            disabled={readOnly}
-            className="w-full h-9 rounded-md border border-slate-200 px-2 text-sm bg-white disabled:bg-slate-50 disabled:text-slate-600"
-          >
-            <option value="circulaire">Circulaire</option>
-            <option value="rectangulaire">Rectangulaire</option>
-            <option value="gouvernorat">Gouvernorat</option>
-          </select>
-        </div>
-
-        {isGouvernorat && (
+        {!isLegacyGouvernorat && (
           <div className="space-y-1.5">
-            <Label htmlFor="gf-province">Gouvernorat</Label>
+            <Label htmlFor="gf-shape">Type de géopérage</Label>
             <select
-              id="gf-province"
-              value={draft.provinceId ?? ''}
-              onChange={(e) => handleProvinceChange(e.target.value)}
+              id="gf-shape"
+              value={draft.shapeType}
+              onChange={(e) =>
+                handleShapeChange(
+                  e.target.value as GeofenceDraft['shapeType']
+                )
+              }
               disabled={readOnly}
               className="w-full h-9 rounded-md border border-slate-200 px-2 text-sm bg-white disabled:bg-slate-50 disabled:text-slate-600"
             >
-              <option value="">Sélectionner un gouvernorat…</option>
-              {TUNISIA_PROVINCES.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
+              <option value="circulaire">Circulaire</option>
+              <option value="rectangulaire">Rectangulaire</option>
             </select>
-            {errors.provinceId && (
-              <p className="text-xs text-rose-600">{errors.provinceId}</p>
-            )}
           </div>
         )}
 
@@ -244,7 +198,7 @@ export function GeofenceCreateModal({
           </select>
         </div>
 
-        {!isGouvernorat && (
+        {!isLegacyGouvernorat && (
           <>
             <div className="space-y-1.5">
               <Label htmlFor="gf-radius">Rayon (km)</Label>
