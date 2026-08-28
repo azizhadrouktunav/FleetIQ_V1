@@ -359,6 +359,14 @@ export function RouteViaLocationsForm({
           </div>
         ) : (
           <>
+            {(metrics || routing) && (
+              <RouteMetricsSummary
+                distanceMeters={metrics?.distanceMeters}
+                durationSeconds={metrics?.durationSeconds}
+                loading={routing}
+              />
+            )}
+
             <div className="space-y-1.5">
               <Label htmlFor="route-via-name">Nom de la route</Label>
               <Input
@@ -504,14 +512,6 @@ export function RouteViaLocationsForm({
                 <p className="text-xs text-rose-600">{errors.waypoints}</p>
               )}
             </div>
-
-            {(metrics || routing) && (
-              <RouteMetricsSummary
-                distanceMeters={metrics?.distanceMeters}
-                durationSeconds={metrics?.durationSeconds}
-                loading={routing}
-              />
-            )}
 
             <GeoAssignmentFields
               assignment={assignment}

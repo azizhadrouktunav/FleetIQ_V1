@@ -153,6 +153,14 @@ export function RouteCreatePanel({
       {mode === 'map' && (
         <>
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {(routing || metrics) && pendingPoints.length >= 2 && (
+              <RouteMetricsSummary
+                distanceMeters={metrics?.distanceMeters}
+                durationSeconds={metrics?.durationSeconds}
+                loading={routing}
+              />
+            )}
+
             <p className="text-sm text-slate-600 leading-relaxed">
               Cliquez sur la carte pour ajouter des points. Minimum 2 points
               pour créer l&apos;itinéraire.
@@ -201,13 +209,6 @@ export function RouteCreatePanel({
               </Button>
             )}
 
-            {(routing || metrics) && pendingPoints.length >= 2 && (
-              <RouteMetricsSummary
-                distanceMeters={metrics?.distanceMeters}
-                durationSeconds={metrics?.durationSeconds}
-                loading={routing}
-              />
-            )}
           </div>
 
           <div className="px-4 py-3 border-t border-slate-100 bg-slate-50 flex gap-2">

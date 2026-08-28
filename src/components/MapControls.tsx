@@ -83,6 +83,9 @@ interface MapControlsProps {
   onFinishDraw: () => void;
   onCancelDraw: () => void;
   onUndoPoint?: () => void;
+  onRedoPoint?: () => void;
+  routeCreateOpen?: boolean;
+  hasOverlayDraft?: boolean;
   polygonDrawError?: string | null;
 }
 
@@ -104,6 +107,9 @@ export function MapControls({
   onFinishDraw,
   onCancelDraw,
   onUndoPoint,
+  onRedoPoint,
+  routeCreateOpen = false,
+  hasOverlayDraft = false,
   polygonDrawError,
 }: MapControlsProps) {
   const [openMenu, setOpenMenu] = useState<OpenMenu>(null);
@@ -120,16 +126,44 @@ export function MapControls({
       }
     };
     const handleKey = (event: KeyboardEvent) => {
+      const isFormFieldFocused = () => {
+        const tag = (event.target as HTMLElement)?.tagName;
+        return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+      };
       const geoActive = !!drawMode || !!geometryEditKind;
+      const mod = event.ctrlKey || event.metaKey;
+      const drawingSessionActive =
+        !!drawMode ||
+        !!geometryEditKind ||
+        routeCreateOpen ||
+        hasOverlayDraft;
+
       if (
         event.key === 'Backspace' &&
         geoActive &&
         pendingPointsCount > 0
       ) {
-        const tag = (event.target as HTMLElement)?.tagName;
-        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+        if (isFormFieldFocused()) return;
         event.preventDefault();
         onUndoPoint?.();
+        return;
+      }
+      if (mod && event.key === 'z' && !event.shiftKey && geoActive) {
+        if (isFormFieldFocused()) return;
+        if (pendingPointsCount > 0) {
+          event.preventDefault();
+          onUndoPoint?.();
+        }
+        return;
+      }
+      if (
+        mod &&
+        geoActive &&
+        (event.key === 'y' || (event.key === 'z' && event.shiftKey))
+      ) {
+        if (isFormFieldFocused()) return;
+        event.preventDefault();
+        onRedoPoint?.();
         return;
       }
       if (
@@ -137,8 +171,7 @@ export function MapControls({
         drawMode === 'route' &&
         pendingPointsCount >= 2
       ) {
-        const tag = (event.target as HTMLElement)?.tagName;
-        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+        if (isFormFieldFocused()) return;
         event.preventDefault();
         onFinishDraw();
         return;
@@ -148,18 +181,20 @@ export function MapControls({
         drawMode === 'polygon' &&
         pendingPointsCount >= 3
       ) {
-        const tag = (event.target as HTMLElement)?.tagName;
-        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+        if (isFormFieldFocused()) return;
         event.preventDefault();
         onFinishDraw();
         return;
       }
-      if (event.key !== 'Escape') return;
-      if (openMenu) {
-        setOpenMenu(null);
-        return;
+      if (event.key === 'Escape') {
+        if (openMenu) {
+          setOpenMenu(null);
+          return;
+        }
+        if (drawingSessionActive) {
+          onCancelDraw();
+        }
       }
-      if (drawMode) onCancelDraw();
     };
     document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('keydown', handleKey);
@@ -170,11 +205,14 @@ export function MapControls({
   }, [
     drawMode,
     geometryEditKind,
+    hasOverlayDraft,
     onCancelDraw,
     openMenu,
+    onRedoPoint,
     onUndoPoint,
     pendingPointsCount,
     onFinishDraw,
+    routeCreateOpen,
   ]);
 
   const toggleMenu = (menu: OpenMenu) => {
@@ -194,6 +232,8 @@ export function MapControls({
   const canFinishPolygon = drawMode === 'polygon' && pendingPointsCount >= 3;
   const showCreateBanner = !!drawMode;
   const showEditBanner = !!geometryEditKind && !drawMode;
+  const shortcutHints =
+    'Échap annuler · Ctrl+Z annuler point · Ctrl+Y rétablir';
 
   return (
     <div
@@ -205,16 +245,16 @@ export function MapControls({
           <div className="flex items-center gap-2">
             <span className="flex-1">
               {geometryEditKind === 'polygon' &&
-                `Modification du polygone : ${pendingPointsCount} sommet(s) — déplacez ou ajoutez des points`}
+                `Modification du polygone : ${pendingPointsCount} sommet(s) — ${shortcutHints}`}
               {geometryEditKind === 'route' &&
-                `Modification de la route : ${pendingPointsCount} point(s) — déplacez ou ajoutez des waypoints`}
+                `Modification de la route : ${pendingPointsCount} point(s) — ${shortcutHints}`}
             </span>
             {pendingPointsCount > 0 && onUndoPoint && (
               <button
                 type="button"
                 onClick={onUndoPoint}
                 className="px-2 py-1 rounded-md bg-white/10 hover:bg-white/20 text-xs inline-flex items-center gap-1"
-                title="Annuler le dernier point (Backspace)"
+                title="Annuler le dernier point (Ctrl+Z)"
               >
                 <Undo2 className="w-3 h-3" />
               </button>
@@ -235,16 +275,16 @@ export function MapControls({
               {drawMode === 'location' &&
                 'Cliquez sur la carte pour ajouter un emplacement'}
               {drawMode === 'route' &&
-                `Itinéraire : ${pendingPointsCount} point(s) — min. 2 · Entrée pour terminer`}
+                `Itinéraire : ${pendingPointsCount} point(s) — min. 2 · Entrée pour terminer · ${shortcutHints}`}
               {drawMode === 'polygon' &&
-                `Polygone : ${pendingPointsCount} point(s) — min. 3 · Entrée ou clic sur le 1er point pour fermer`}
+                `Polygone : ${pendingPointsCount} point(s) — min. 3 · Entrée ou clic sur le 1er point · ${shortcutHints}`}
             </span>
             {pendingPointsCount > 0 && onUndoPoint && (
               <button
                 type="button"
                 onClick={onUndoPoint}
                 className="px-2 py-1 rounded-md bg-white/10 hover:bg-white/20 text-xs inline-flex items-center gap-1"
-                title="Annuler le dernier point (Backspace)"
+                title="Annuler le dernier point (Ctrl+Z)"
               >
                 <Undo2 className="w-3 h-3" />
               </button>

@@ -482,8 +482,16 @@ export function App() {
               onSetOverlayVisible={mapOverlays.setOverlayVisible}
               pendingPointsCount={mapOverlays.pendingPoints.length}
               onFinishDraw={mapOverlays.finishMultiPointDraw}
-              onCancelDraw={mapOverlays.cancelDrawing}
+              onCancelDraw={mapOverlays.cancelMapDrawing}
               onUndoPoint={mapOverlays.undoPendingPoint}
+              onRedoPoint={mapOverlays.redoPendingPoint}
+              routeCreateOpen={mapOverlays.routeCreateOpen}
+              hasOverlayDraft={
+                !!mapOverlays.overlayForm &&
+                !mapOverlays.editTarget &&
+                (mapOverlays.overlayFormKind === 'polygon' ||
+                  mapOverlays.overlayFormKind === 'route')
+              }
               polygonDrawError={mapOverlays.polygonDrawError}
             />
 

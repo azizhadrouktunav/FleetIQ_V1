@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from 'react';
 import type {
   AssignmentScope,
   BasemapType,
@@ -32,6 +40,7 @@ import {
 } from '../lib/polygon-geometry';
 
 const MIN_GEOFENCE_RADIUS_KM = 0.05;
+const MAX_POINT_HISTORY = 50;
 
 export type GeometryEditKind = 'polygon' | 'route';
 
@@ -90,6 +99,7 @@ export interface MapControlsState {
   polygonDrawError: string | null;
   clearPolygonDrawError: () => void;
   undoPendingPoint: () => void;
+  redoPendingPoint: () => void;
   geofenceDraft: GeofenceDraft | null;
   setGeofenceDraft: Dispatch<SetStateAction<GeofenceDraft | null>>;
   geofenceModalOpen: boolean;
@@ -155,6 +165,7 @@ export interface MapControlsState {
   setFitBoundsPoints: (points: LatLng[] | null) => void;
   startDraw: (mode: Exclude<DrawMode, null>) => void;
   cancelDrawing: () => void;
+  cancelMapDrawing: () => void;
   finishMultiPointDraw: () => void | Promise<void>;
   handleMapClick: (latlng: LatLng, mapZoom?: number) => void;
   beginGeofenceAt: (center: LatLng, radiusKm?: number) => void;
@@ -201,6 +212,21 @@ export function useMapOverlays(): MapControlsState {
   const [drawMode, setDrawMode] = useState<DrawMode>(null);
   const [pendingPoints, setPendingPoints] = useState<LatLng[]>([]);
   const [polygonDrawError, setPolygonDrawError] = useState<string | null>(null);
+  const pointUndoStackRef = useRef<LatLng[][]>([]);
+  const pointRedoStackRef = useRef<LatLng[][]>([]);
+
+  const clearPointHistory = useCallback(() => {
+    pointUndoStackRef.current = [];
+    pointRedoStackRef.current = [];
+  }, []);
+
+  const recordPointHistory = useCallback((snapshot: LatLng[]) => {
+    pointUndoStackRef.current.push([...snapshot]);
+    pointRedoStackRef.current = [];
+    if (pointUndoStackRef.current.length > MAX_POINT_HISTORY) {
+      pointUndoStackRef.current.shift();
+    }
+  }, []);
   const [geofenceDraft, setGeofenceDraft] = useState<GeofenceDraft | null>(null);
   const [geofenceModalOpen, setGeofenceModalOpen] = useState(false);
   const [locationForm, setLocationForm] = useState<LocationFormState | null>(
@@ -285,6 +311,7 @@ export function useMapOverlays(): MapControlsState {
   }, []);
 
   const closeEditForms = useCallback(() => {
+    clearPointHistory();
     setEditTarget(null);
     setGeometryEditKind(null);
     setOverlayForm(null);
@@ -298,9 +325,10 @@ export function useMapOverlays(): MapControlsState {
     setRoutePreview(null);
     setOverlayPanelMode('view');
     setHighlightedZoneId(null);
-  }, []);
+  }, [clearPointHistory]);
 
   const cancelDrawing = useCallback(() => {
+    clearPointHistory();
     setDrawMode(null);
     setPendingPoints([]);
     setPolygonDrawError(null);
@@ -314,16 +342,17 @@ export function useMapOverlays(): MapControlsState {
     setGeometryEditKind(null);
     setEditTarget(null);
     setOverlayPanelMode('view');
-  }, []);
+  }, [clearPointHistory]);
 
   const closeRouteCreate = useCallback(() => {
+    clearPointHistory();
     setRouteCreateOpen(false);
     setRouteCreateModeState(null);
     setDrawMode(null);
     setPendingPoints([]);
     setRoutePreview(null);
     setPolygonDrawError(null);
-  }, []);
+  }, [clearPointHistory]);
 
   const openRouteCreate = useCallback((initialMode?: RouteCreateMode) => {
     setEditTarget(null);
@@ -364,17 +393,45 @@ export function useMapOverlays(): MapControlsState {
     (mode: Exclude<DrawMode, null>) => {
       closeEditForms();
       closeRouteCreate();
+      clearPointHistory();
       setRoutePreview(null);
       setPendingPoints([]);
       setPolygonDrawError(null);
       setGeometryEditKind(null);
       setDrawMode(mode);
     },
-    [closeEditForms, closeRouteCreate]
+    [closeEditForms, closeRouteCreate, clearPointHistory]
+  );
+
+  const appendPendingPoint = useCallback(
+    (latlng: LatLng) => {
+      setPendingPoints((prev) => {
+        recordPointHistory(prev);
+        return [...prev, latlng];
+      });
+      setPolygonDrawError(null);
+    },
+    [recordPointHistory]
   );
 
   const undoPendingPoint = useCallback(() => {
-    setPendingPoints((prev) => prev.slice(0, -1));
+    setPendingPoints((prev) => {
+      if (prev.length === 0) return prev;
+      pointRedoStackRef.current.push([...prev]);
+      const previous = pointUndoStackRef.current.pop();
+      if (previous) return previous;
+      return prev.slice(0, -1);
+    });
+    setPolygonDrawError(null);
+  }, []);
+
+  const redoPendingPoint = useCallback(() => {
+    setPendingPoints((prev) => {
+      const next = pointRedoStackRef.current.pop();
+      if (!next) return prev;
+      pointUndoStackRef.current.push([...prev]);
+      return next;
+    });
     setPolygonDrawError(null);
   }, []);
 
@@ -386,6 +443,7 @@ export function useMapOverlays(): MapControlsState {
           ok = false;
           return prev;
         }
+        recordPointHistory(prev);
         return [...prev, latlng];
       });
       if (!ok) {
@@ -397,7 +455,7 @@ export function useMapOverlays(): MapControlsState {
       }
       return ok;
     },
-    []
+    [recordPointHistory]
   );
 
   const addGeofence = useCallback((draft: GeofenceDraft) => {
@@ -660,6 +718,7 @@ export function useMapOverlays(): MapControlsState {
         durationSeconds: result.durationSeconds,
       });
       setOverlayFormKind('route');
+      clearPointHistory();
       setPendingPoints([]);
       setDrawMode(null);
       setRoutePreview(null);
@@ -681,13 +740,62 @@ export function useMapOverlays(): MapControlsState {
         points: [...pendingPoints],
       });
       setOverlayFormKind('polygon');
+      clearPointHistory();
       setPendingPoints([]);
       setDrawMode(null);
       setPolygonDrawError(null);
       setOverlayPanelMode('edit');
       setEditTarget(null);
     }
-  }, [drawMode, pendingPoints]);
+  }, [drawMode, pendingPoints, clearPointHistory]);
+
+  const cancelMapDrawing = useCallback(() => {
+    if (geometryEditKind && editTarget) {
+      clearPointHistory();
+      if (editTarget.kind === 'polygon') {
+        const p = polygons.find((x) => x.id === editTarget.id);
+        if (p) setPendingPoints([...p.points]);
+      } else if (editTarget.kind === 'route') {
+        const r = routes.find((x) => x.id === editTarget.id);
+        if (r) setPendingPoints(routeEditWaypoints(r));
+      }
+      setGeometryEditKind(null);
+      setPolygonDrawError(null);
+      return;
+    }
+
+    if (routeCreateOpen) {
+      closeRouteCreate();
+      return;
+    }
+
+    if (
+      overlayForm &&
+      overlayFormKind &&
+      (overlayFormKind === 'polygon' || overlayFormKind === 'route') &&
+      !editTarget
+    ) {
+      closeEditForms();
+      return;
+    }
+
+    if (drawMode) {
+      cancelDrawing();
+    }
+  }, [
+    geometryEditKind,
+    editTarget,
+    polygons,
+    routes,
+    routeCreateOpen,
+    closeRouteCreate,
+    overlayForm,
+    overlayFormKind,
+    closeEditForms,
+    drawMode,
+    cancelDrawing,
+    clearPointHistory,
+  ]);
 
   const handleMapClick = useCallback(
     (latlng: LatLng, _mapZoom?: number) => {
@@ -699,7 +807,7 @@ export function useMapOverlays(): MapControlsState {
 
       // Geometry edit from Manage → Modifier
       if (geometryEditKind === 'route') {
-        setPendingPoints((prev) => [...prev, latlng]);
+        appendPendingPoint(latlng);
         return;
       }
       if (geometryEditKind === 'polygon') {
@@ -722,7 +830,7 @@ export function useMapOverlays(): MapControlsState {
       }
 
       if (drawMode === 'route') {
-        setPendingPoints((prev) => [...prev, latlng]);
+        appendPendingPoint(latlng);
         return;
       }
 
@@ -731,6 +839,7 @@ export function useMapOverlays(): MapControlsState {
       }
     },
     [
+      appendPendingPoint,
       drawMode,
       geometryEditKind,
       locationForm,
@@ -758,6 +867,7 @@ export function useMapOverlays(): MapControlsState {
 
   const loadOverlayPanel = useCallback(
     (target: NonNullable<EditTarget>, mode: OverlayPanelMode) => {
+      clearPointHistory();
       setDrawMode(null);
       setPendingPoints([]);
       setPolygonDrawError(null);
@@ -863,6 +973,7 @@ export function useMapOverlays(): MapControlsState {
       }
     },
     [
+      clearPointHistory,
       geofences,
       locations,
       polygons,
@@ -889,6 +1000,7 @@ export function useMapOverlays(): MapControlsState {
 
   const startOverlayEdit = useCallback(() => {
     if (!editTarget) return;
+    clearPointHistory();
     setOverlayPanelMode('edit');
 
     if (editTarget.kind === 'polygon') {
@@ -906,7 +1018,7 @@ export function useMapOverlays(): MapControlsState {
       setGeometryEditKind('route');
       setPendingPoints(waypoints);
     }
-  }, [editTarget, polygons, routes]);
+  }, [clearPointHistory, editTarget, polygons, routes]);
 
   const saveGeometryEdit = useCallback(async (): Promise<boolean> => {
     if (!editTarget || !overlayForm) return false;
@@ -1036,6 +1148,7 @@ export function useMapOverlays(): MapControlsState {
     polygonDrawError,
     clearPolygonDrawError,
     undoPendingPoint,
+    redoPendingPoint,
     geofenceDraft,
     setGeofenceDraft,
     geofenceModalOpen,
@@ -1087,6 +1200,7 @@ export function useMapOverlays(): MapControlsState {
     setFitBoundsPoints,
     startDraw,
     cancelDrawing,
+    cancelMapDrawing,
     finishMultiPointDraw,
     handleMapClick,
     beginGeofenceAt,
