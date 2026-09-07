@@ -38,6 +38,12 @@ import { FilterManager } from './FilterManager';
 import { SaveFilterModal } from './SaveFilterModal';
 import { GeneralExpensesContent } from './GeneralExpensesContent';
 import { GestionSinistresContent } from './GestionSinistres';
+import { AddEditVehicleModal } from './AddEditVehicleModal';
+import {
+  getVehicleIconOption,
+  type FleetVehicle,
+} from '@/features/parc/vehicle-types';
+import { vehicleIcon3dMarkup } from '@/features/parc/vehicle-icons-3d';
 import { GestionArticlesStock } from './GestionArticlesStock';
 import { AddEditChauffeurModal, ChauffeurData } from './AddEditChauffeurModal';
 import { SuppliersContent } from './GestionFournisseurs';
@@ -919,65 +925,169 @@ function DriversContent() {
 
 }
 // Vehicles Management Content
+const SEED_FLEET_VEHICLES: FleetVehicle[] = [
+  {
+    id: 'v-1000',
+    matricule: 'TN-SEED-CAR-1000',
+    departmentId: 'dept-tunav',
+    departmentName: 'TUNAV',
+    driverId: 'drv-2',
+    driverName: 'Driver0002 Tunisia0002',
+    speciality: 'Livraison',
+    brand: 'BRAND-SEED-001',
+    model: 'MODEL-SEED-001',
+    year: 2021,
+    commissioningDate: '2022-02-17',
+    retirementDate: '',
+    chassisNumber: 'CHS-TN-001000',
+    fuelType: 'Diesel',
+    seats: 2,
+    fiscalPower: 8,
+    realPower: 130,
+    displacement: 2300,
+    tankCapacity: 120,
+    fuelEstimate: 8.4,
+    iconType: 'camion',
+    mileage: 45230,
+    status: 'active',
+  },
+  {
+    id: 'v-1001',
+    matricule: '8125 TU 226',
+    departmentId: 'dept-latrace',
+    departmentName: 'LATRACE',
+    driverId: 'drv-1',
+    driverName: 'Jean Dupont',
+    speciality: 'Transport',
+    brand: 'Renault',
+    model: 'Master',
+    year: 2022,
+    commissioningDate: '2022-06-01',
+    retirementDate: '',
+    chassisNumber: 'CHS-TN-001001',
+    fuelType: 'Diesel',
+    seats: 3,
+    fiscalPower: 9,
+    realPower: 150,
+    displacement: 2300,
+    tankCapacity: 100,
+    fuelEstimate: 9.1,
+    iconType: 'voiture',
+    mileage: 67890,
+    status: 'maintenance',
+  },
+  {
+    id: 'v-1002',
+    matricule: 'AB-123-CD',
+    departmentId: 'dept-demo',
+    departmentName: 'DEmo2025',
+    driverId: 'drv-3',
+    driverName: 'Marie Martin',
+    speciality: 'Frigo',
+    brand: 'Peugeot',
+    model: 'Partner',
+    year: 2023,
+    commissioningDate: '2023-01-10',
+    retirementDate: '',
+    chassisNumber: 'CHS-TN-001002',
+    fuelType: 'Essence',
+    seats: 5,
+    fiscalPower: 6,
+    realPower: 110,
+    displacement: 1600,
+    tankCapacity: 60,
+    fuelEstimate: 7.2,
+    iconType: 'fourgon',
+    mileage: 12450,
+    status: 'active',
+  },
+  {
+    id: 'v-1003',
+    matricule: 'MN-012-OP',
+    departmentId: 'dept-test',
+    departmentName: 'test',
+    driverId: '',
+    driverName: '',
+    speciality: '',
+    brand: 'Mercedes',
+    model: 'Sprinter',
+    year: 2020,
+    commissioningDate: '2020-09-15',
+    retirementDate: '',
+    chassisNumber: 'CHS-TN-001003',
+    fuelType: 'Diesel',
+    seats: 3,
+    fiscalPower: 10,
+    realPower: 170,
+    displacement: 2200,
+    tankCapacity: 90,
+    fuelEstimate: 10.5,
+    iconType: 'bus',
+    mileage: 98340,
+    status: 'inactive',
+  },
+];
+
+const PARC_DEPARTMENTS = [
+  { id: 'dept-demo', name: 'DEmo2025' },
+  { id: 'dept-latrace', name: 'LATRACE' },
+  { id: 'dept-test', name: 'test' },
+  { id: 'dept-tunav', name: 'TUNAV' },
+];
+
+const PARC_DRIVERS = [
+  { id: 'drv-1', name: 'Jean Dupont' },
+  { id: 'drv-2', name: 'Driver0002 Tunisia0002' },
+  { id: 'drv-3', name: 'Marie Martin' },
+  { id: 'drv-4', name: 'Sophie Bernard' },
+];
+
+const PARC_SPECIALITIES = ['Livraison', 'Transport', 'Frigo', 'Benne'];
+
 function VehiclesContent() {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
-  const vehicles = [
-  {
-    id: 'Fleet-001',
-    brand: 'Renault',
-    model: 'Master',
-    year: 2022,
-    plate: 'AB-123-CD',
-    mileage: 45230,
-    status: 'active'
-  },
-  {
-    id: 'Fleet-002',
-    brand: 'Peugeot',
-    model: 'Partner',
-    year: 2021,
-    plate: 'EF-456-GH',
-    mileage: 67890,
-    status: 'maintenance'
-  },
-  {
-    id: 'Fleet-003',
-    brand: 'Citroën',
-    model: 'Berlingo',
-    year: 2023,
-    plate: 'IJ-789-KL',
-    mileage: 12450,
-    status: 'active'
-  },
-  {
-    id: 'Fleet-004',
-    brand: 'Mercedes',
-    model: 'Sprinter',
-    year: 2020,
-    plate: 'MN-012-OP',
-    mileage: 98340,
-    status: 'inactive'
-  }];
+  const [vehicles, setVehicles] = useState<FleetVehicle[]>(SEED_FLEET_VEHICLES);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<FleetVehicle | null>(null);
 
   const filteredVehicles = vehicles.filter((vehicle) => {
     if (!searchTerm) return true;
     const term = searchTerm.toLowerCase();
     return (
       vehicle.id.toLowerCase().includes(term) ||
+      vehicle.matricule.toLowerCase().includes(term) ||
       vehicle.brand.toLowerCase().includes(term) ||
       vehicle.model.toLowerCase().includes(term) ||
-      vehicle.plate.toLowerCase().includes(term));
-
+      vehicle.driverName.toLowerCase().includes(term) ||
+      vehicle.departmentName.toLowerCase().includes(term)
+    );
   });
   const totalItems = filteredVehicles.length;
-  const totalPages = Math.ceil(totalItems / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedVehicles = filteredVehicles.slice(
     startIndex,
     startIndex + itemsPerPage
   );
+
+  const handleSave = (data: FleetVehicle) => {
+    if (editing) {
+      setVehicles((prev) =>
+        prev.map((v) => (v.id === editing.id ? { ...data, id: editing.id } : v))
+      );
+    } else {
+      const id = `v-${Date.now()}`;
+      setVehicles((prev) => [...prev, { ...data, id }]);
+    }
+    setModalOpen(false);
+    setEditing(null);
+  };
+
+  const handleDelete = (id: string) => {
+    setVehicles((prev) => prev.filter((v) => v.id !== id));
+  };
+
   return (
     <div className="h-full overflow-y-auto p-6">
       <div className="space-y-6">
@@ -990,7 +1100,14 @@ function VehiclesContent() {
               Gérez votre flotte de véhicules
             </p>
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors">
+          <button
+            type="button"
+            onClick={() => {
+              setEditing(null);
+              setModalOpen(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+          >
             <Plus className="w-4 h-4" />
             Ajouter un véhicule
           </button>
@@ -1007,15 +1124,21 @@ function VehiclesContent() {
                   setCurrentPage(1);
                 }}
                 placeholder="Rechercher un véhicule..."
-                className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-              
+                className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
             </div>
             <div className="flex gap-2">
-              <button className="flex items-center gap-2 px-3 py-2 text-slate-600 hover:bg-slate-50 border border-slate-200 rounded-lg text-sm">
+              <button
+                type="button"
+                className="flex items-center gap-2 px-3 py-2 text-slate-600 hover:bg-slate-50 border border-slate-200 rounded-lg text-sm"
+              >
                 <Filter className="w-4 h-4" />
                 Filtrer
               </button>
-              <button className="flex items-center gap-2 px-3 py-2 text-slate-600 hover:bg-slate-50 border border-slate-200 rounded-lg text-sm">
+              <button
+                type="button"
+                className="flex items-center gap-2 px-3 py-2 text-slate-600 hover:bg-slate-50 border border-slate-200 rounded-lg text-sm"
+              >
                 <Download className="w-4 h-4" />
                 Exporter
               </button>
@@ -1026,7 +1149,10 @@ function VehiclesContent() {
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">
-                    ID Véhicule
+                    Matricule
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">
+                    Icône
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">
                     Marque/Modèle
@@ -1035,10 +1161,10 @@ function VehiclesContent() {
                     Année
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">
-                    Plaque
+                    Département
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">
-                    Kilométrage
+                    Chauffeur
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">
                     Statut
@@ -1049,53 +1175,82 @@ function VehiclesContent() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {paginatedVehicles.map((vehicle) =>
-                <tr key={vehicle.id} className="hover:bg-slate-50">
-                    <td className="px-6 py-4 text-sm font-medium text-blue-600">
-                      {vehicle.id}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div>
-                        <p className="text-sm font-medium text-slate-800">
-                          {vehicle.brand}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {vehicle.model}
-                        </p>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-slate-600">
-                      {vehicle.year}
-                    </td>
-                    <td className="px-6 py-4 text-sm font-mono text-slate-800">
-                      {vehicle.plate}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-slate-600">
-                      {vehicle.mileage.toLocaleString()} km
-                    </td>
-                    <td className="px-6 py-4">
-                      <span
-                      className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${vehicle.status === 'active' ? 'bg-emerald-100 text-emerald-700' : vehicle.status === 'maintenance' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
-                      
-                        {vehicle.status === 'active' ?
-                      'Actif' :
-                      vehicle.status === 'maintenance' ?
-                      'Maintenance' :
-                      'Inactif'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <button className="p-1 hover:bg-blue-50 rounded text-blue-600">
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button className="p-1 hover:bg-rose-50 rounded text-rose-600">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                )}
+                {paginatedVehicles.map((vehicle) => {
+                  const icon = getVehicleIconOption(vehicle.iconType);
+                  return (
+                    <tr key={vehicle.id} className="hover:bg-slate-50">
+                      <td className="px-6 py-4 text-sm font-medium text-blue-600 font-mono">
+                        {vehicle.matricule}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span
+                          className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-b from-slate-50 to-slate-100 overflow-hidden shadow-sm"
+                          title={icon.label}
+                          dangerouslySetInnerHTML={{
+                            __html: vehicleIcon3dMarkup(vehicle.iconType, 32),
+                          }}
+                        />
+                      </td>
+                      <td className="px-6 py-4">
+                        <div>
+                          <p className="text-sm font-medium text-slate-800">
+                            {vehicle.brand || '—'}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            {vehicle.model || '—'}
+                          </p>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-600">
+                        {vehicle.year || '—'}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-600">
+                        {vehicle.departmentName || '—'}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-600">
+                        {vehicle.driverName || '—'}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
+                            vehicle.status === 'active'
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : vehicle.status === 'maintenance'
+                                ? 'bg-amber-100 text-amber-700'
+                                : 'bg-slate-100 text-slate-600'
+                          }`}
+                        >
+                          {vehicle.status === 'active'
+                            ? 'Actif'
+                            : vehicle.status === 'maintenance'
+                              ? 'Maintenance'
+                              : 'Inactif'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditing(vehicle);
+                              setModalOpen(true);
+                            }}
+                            className="p-1 hover:bg-blue-50 rounded text-blue-600"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(vehicle.id)}
+                            className="p-1 hover:bg-rose-50 rounded text-rose-600"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -1106,12 +1261,25 @@ function VehiclesContent() {
             onPageChange={setCurrentPage}
             onItemsPerPageChange={setItemsPerPage}
             onExportPdf={() => console.log('Export PDF Vehicles')}
-            onExportExcel={() => console.log('Export Excel Vehicles')} />
-          
+            onExportExcel={() => console.log('Export Excel Vehicles')}
+          />
         </div>
       </div>
-    </div>);
 
+      <AddEditVehicleModal
+        isOpen={modalOpen}
+        onClose={() => {
+          setModalOpen(false);
+          setEditing(null);
+        }}
+        onSave={handleSave}
+        vehicle={editing}
+        departments={PARC_DEPARTMENTS}
+        drivers={PARC_DRIVERS}
+        specialities={PARC_SPECIALITIES}
+      />
+    </div>
+  );
 }
 // Maintenance Content
 function MaintenanceContent() {

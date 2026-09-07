@@ -1,10 +1,12 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import type { MutableRefObject } from 'react';
+import { createPortal } from 'react-dom';
 import {
   MapContainer,
   TileLayer,
   Marker,
   Popup,
+  Tooltip,
   Circle,
   Rectangle,
   Polygon,
@@ -19,6 +21,9 @@ import 'leaflet.markercluster';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import { MapLegend } from './MapLegend';
+import { VehicleMapInfoCard } from './VehicleMapInfoCard';
+import { vehicleIcon3dMarkup } from '@/features/parc/vehicle-icons-3d';
+import type { VehicleIconType } from '@/features/parc/vehicle-types';
 import type {
   BasemapType,
   DefaultZoneOverlay,
@@ -41,6 +46,65 @@ import {
 import { fetchDrivingRoute } from '../lib/osrm-routing';
 import { approxPxDistance } from '../lib/polygon-geometry';
 import { getTunisiaProvince } from '../data/tunisia-provinces';
+
+/** Popup anchored above selected vehicle marker; follows pan/zoom */
+function SelectedVehiclePopupOverlay({
+  vehicle,
+  onClose,
+}: {
+  vehicle: Vehicle;
+  onClose: () => void;
+}) {
+  const map = useMap();
+  const [point, setPoint] = useState(() => {
+    const p = map.latLngToContainerPoint(
+      L.latLng(vehicle.coordinates[0], vehicle.coordinates[1])
+    );
+    return { x: p.x, y: p.y };
+  });
+
+  useEffect(() => {
+    const update = () => {
+      const p = map.latLngToContainerPoint(
+        L.latLng(vehicle.coordinates[0], vehicle.coordinates[1])
+      );
+      setPoint({ x: p.x, y: p.y });
+    };
+    update();
+    map.on('move', update);
+    map.on('zoom', update);
+    map.on('zoomend', update);
+    map.on('viewreset', update);
+    map.on('moveend', update);
+    return () => {
+      map.off('move', update);
+      map.off('zoom', update);
+      map.off('zoomend', update);
+      map.off('viewreset', update);
+      map.off('moveend', update);
+    };
+  }, [map, vehicle.id, vehicle.coordinates[0], vehicle.coordinates[1]]);
+
+  return createPortal(
+    <div
+      className="leaflet-vehicle-info-popup"
+      style={{
+        position: 'absolute',
+        left: point.x,
+        top: point.y,
+        transform: 'translate(-50%, calc(-100% - 16px))',
+        zIndex: 1100,
+        pointerEvents: 'auto',
+      }}
+      onMouseDown={(e) => e.stopPropagation()}
+      onDoubleClick={(e) => e.stopPropagation()}
+      onWheel={(e) => e.stopPropagation()}
+    >
+      <VehicleMapInfoCard vehicle={vehicle} onClose={onClose} />
+    </div>,
+    map.getContainer()
+  );
+}
 
 const MIN_RADIUS_KM = 0.05;
 const MAX_RADIUS_KM = 50;
@@ -552,44 +616,107 @@ function GeofenceDraftEditor({
   );
 }
 
-function createVehicleIcon(status: string, isSelected: boolean) {
-  const color =
+function headingSectorPath(
+  cx: number,
+  cy: number,
+  radius: number,
+  halfAngleDeg: number
+): string {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  // Sector pointing north (up); CSS/SVG rotate(heading) then faces travel direction
+  const start = toRad(-90 - halfAngleDeg);
+  const end = toRad(-90 + halfAngleDeg);
+  const x1 = cx + radius * Math.cos(start);
+  const y1 = cy + radius * Math.sin(start);
+  const x2 = cx + radius * Math.cos(end);
+  const y2 = cy + radius * Math.sin(end);
+  return `M ${cx} ${cy} L ${x1.toFixed(2)} ${y1.toFixed(2)} A ${radius} ${radius} 0 0 1 ${x2.toFixed(2)} ${y2.toFixed(2)} Z`;
+}
+
+function createVehicleIcon(
+  status: string,
+  isSelected: boolean,
+  iconType?: VehicleIconType,
+  heading?: number
+) {
+  const statusColor =
     status === 'active'
       ? '#10b981'
       : status === 'idle'
         ? '#f59e0b'
         : '#f43f5e';
-  const size = isSelected ? 40 : 32;
-  const truckSvg = `
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-white">
-      <path d="M10 17h4V5H2v12h3"></path>
-      <path d="M20 17h2v-3.34a4 4 0 0 0-1.17-2.83L19 9h-5v8h1"></path>
-      <path d="M14 17h1"></path>
-      <circle cx="7.5" cy="17.5" r="2.5"></circle>
-      <circle cx="17.5" cy="17.5" r="2.5"></circle>
-    </svg>
-  `;
+  const size = isSelected ? 52 : 44;
+  const glyphSize = isSelected ? 40 : 34;
+  const glyph = vehicleIcon3dMarkup(iconType, glyphSize);
+  const badge = 12;
+  const box = 96;
+  const cx = box / 2;
+  const cy = box / 2;
+  const coneRadius = 40;
+  const halfAngle = 38;
+  const h = typeof heading === 'number' ? ((heading % 360) + 360) % 360 : 0;
+  const showCone = typeof heading === 'number';
+  const conePath = headingSectorPath(cx, cy, coneRadius, halfAngle);
+  const badgeLeft = (box - size) / 2;
+  const badgeTop = (box - size) / 2;
+
   return L.divIcon({
     className: 'custom-marker',
     html: `
       <div style="
-        background-color: ${color};
-        width: ${size}px;
-        height: ${size}px;
-        border-radius: 50%;
-        border: 2px solid white;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
+        width: ${box}px;
+        height: ${box}px;
+        position: relative;
+        overflow: visible;
       ">
-        ${truckSvg}
+        ${
+          showCone
+            ? `<svg width="${box}" height="${box}" style="position:absolute;inset:0;pointer-events:none;overflow:visible;">
+          <g transform="rotate(${h} ${cx} ${cy})">
+            <path d="${conePath}" fill="#3b82f6" fill-opacity="0.38"/>
+          </g>
+        </svg>`
+            : ''
+        }
+        <div style="
+          position: absolute;
+          left: ${badgeLeft}px;
+          top: ${badgeTop}px;
+          width: ${size}px;
+          height: ${size}px;
+          filter: drop-shadow(0 4px 8px rgba(15,23,42,0.35));
+        ">
+          <div style="
+            width: ${size}px;
+            height: ${size}px;
+            border-radius: 50%;
+            background: #ffffff;
+            border: 3px solid #2563eb;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            box-sizing: border-box;
+          ">
+            ${glyph}
+          </div>
+          <div style="
+            position: absolute;
+            right: 0;
+            bottom: 0;
+            width: ${badge}px;
+            height: ${badge}px;
+            border-radius: 50%;
+            background: ${statusColor};
+            border: 2px solid white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+          "></div>
+        </div>
       </div>
     `,
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
-    popupAnchor: [0, -size / 2],
+    iconSize: [box, box],
+    iconAnchor: [cx, cy],
+    popupAnchor: [0, -size / 2 - 8],
   });
 }
 
@@ -749,6 +876,7 @@ interface MapViewProps {
   vehicles: Vehicle[];
   selectedVehicleId: string | null;
   onSelectVehicle: (vehicle: Vehicle) => void;
+  onDeselectVehicle?: () => void;
   mapCenter?: [number, number] | null;
   onMapCenterChange?: () => void;
   basemap?: BasemapType;
@@ -807,6 +935,7 @@ export function MapView({
   vehicles,
   selectedVehicleId,
   onSelectVehicle,
+  onDeselectVehicle,
   mapCenter = null,
   onMapCenterChange = () => {},
   basemap = 'osm',
@@ -954,7 +1083,9 @@ export function MapView({
               interactive={!mapBusy}
               icon={createVehicleIcon(
                 vehicle.status,
-                selectedVehicleId === vehicle.id
+                selectedVehicleId === vehicle.id,
+                vehicle.iconType,
+                vehicle.heading
               )}
               eventHandlers={{
                 click: () => {
@@ -963,30 +1094,11 @@ export function MapView({
                 },
               }}
             >
-              <Popup className="custom-popup">
-                <div className="p-1">
-                  <h3 className="font-bold text-slate-800">{vehicle.name}</h3>
-                  <p className="text-xs text-slate-500">{vehicle.location}</p>
-                  <div className="mt-2 flex items-center gap-2">
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] text-white font-medium
-                    ${
-                      vehicle.status === 'active'
-                        ? 'bg-emerald-500'
-                        : vehicle.status === 'idle'
-                          ? 'bg-amber-500'
-                          : 'bg-rose-500'
-                    }
-                  `}
-                    >
-                      {vehicle.status.toUpperCase()}
-                    </span>
-                    <span className="text-xs font-mono text-slate-600">
-                      {vehicle.speed} km/h
-                    </span>
-                  </div>
-                </div>
-              </Popup>
+              <Tooltip direction="top" offset={[0, -28]} opacity={0.95}>
+                <span className="text-xs font-semibold">
+                  {vehicle.matricule || vehicle.name}
+                </span>
+              </Tooltip>
             </Marker>
           ))
         )}
@@ -1252,6 +1364,13 @@ export function MapView({
               }}
             />
           )}
+
+        {selectedVehicle && (
+          <SelectedVehiclePopupOverlay
+            vehicle={selectedVehicle}
+            onClose={() => onDeselectVehicle?.()}
+          />
+        )}
       </MapContainer>
 
       <div
@@ -1300,17 +1419,17 @@ function VehicleClusterLayer({
       const marker = L.marker(vehicle.coordinates, {
         icon: createVehicleIcon(
           vehicle.status,
-          selectedVehicleId === vehicle.id
+          selectedVehicleId === vehicle.id,
+          vehicle.iconType,
+          vehicle.heading
         ),
         pane: 'vehicleClusters',
       });
-      marker.bindPopup(`
-        <div class="p-1">
-          <h3 class="font-bold text-slate-800">${vehicle.name}</h3>
-          <p class="text-xs text-slate-500">${vehicle.location}</p>
-          <div class="mt-2 text-xs">${vehicle.speed} km/h</div>
-        </div>
-      `);
+      marker.bindTooltip(vehicle.matricule || vehicle.name, {
+        direction: 'top',
+        offset: [0, -28],
+        opacity: 0.95,
+      });
       marker.on('click', () => {
         if (!drawMode) onSelectVehicle(vehicle);
       });

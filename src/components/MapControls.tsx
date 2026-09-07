@@ -91,6 +91,8 @@ interface MapControlsProps {
   canRedoMapEdit?: boolean;
   hasOverlayDraft?: boolean;
   polygonDrawError?: string | null;
+  onMenuChange?: (menu: OpenMenu) => void;
+  onExpandedChange?: (expanded: boolean) => void;
 }
 
 export function MapControls({
@@ -119,10 +121,20 @@ export function MapControls({
   canRedoMapEdit = false,
   hasOverlayDraft = false,
   polygonDrawError,
+  onMenuChange,
+  onExpandedChange,
 }: MapControlsProps) {
   const [openMenu, setOpenMenu] = useState<OpenMenu>(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const toolbarRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    onExpandedChange?.(!isCollapsed);
+  }, [isCollapsed, onExpandedChange]);
+
+  useEffect(() => {
+    onMenuChange?.(openMenu);
+  }, [openMenu, onMenuChange]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -355,7 +367,9 @@ export function MapControls({
             </button>
 
             {openMenu === 'geo' && (
-              <div className="absolute right-full top-0 mr-2 w-[min(288px,calc(100vw-1rem))] max-h-[calc(100dvh-6rem)] overflow-y-auto bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+              <div
+                className="absolute right-full top-0 mr-2 w-[min(288px,calc(100vw-1rem))] max-h-[calc(100dvh-6rem)] overflow-y-auto bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden"
+              >
                 <div className="px-4 py-3 border-b border-slate-100">
                   <h3 className="text-sm font-semibold text-slate-800">
                     Opérations géographiques
@@ -442,6 +456,7 @@ export function MapControls({
                       setOpenMenu(null);
                     }}
                   />
+
                 </div>
               </div>
             )}

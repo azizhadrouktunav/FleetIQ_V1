@@ -298,9 +298,7 @@ export function MapOverlayManagePanel({
                       type="button"
                       title={item.visible ? 'Masquer' : 'Afficher'}
                       aria-label={item.visible ? 'Masquer' : 'Afficher'}
-                      onClick={() =>
-                        onToggleVisible(item.id, !item.visible)
-                      }
+                      onClick={() => onToggleVisible(item.id, !item.visible)}
                       className={`p-1.5 rounded-md transition-colors ${
                         item.visible
                           ? 'text-blue-600 hover:bg-blue-50'

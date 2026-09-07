@@ -1,3 +1,5 @@
+import type { VehicleIconType } from '@/features/parc/vehicle-types';
+
 export type VehicleStatus = 'active' | 'idle' | 'offline';
 
 export interface Vehicle {
@@ -12,6 +14,10 @@ export interface Vehicle {
   batteryLevel: number;
   departmentId?: string;
   groupIds?: string[];
+  matricule?: string;
+  iconType?: VehicleIconType;
+  /** Degrees 0–360, 0 = north, clockwise */
+  heading?: number;
 }
 
 export type DurationUnit = 'days' | 'weeks' | 'months';

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState, createElement } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, createElement } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
 import { MapView } from './components/MapView';
@@ -18,11 +18,6 @@ import { VehicleListPanel } from './components/VehicleListPanel';
 import { AlertsContent } from './components/AlertsContent';
 import { AIFleetDashboard } from './components/AIFleetDashboard';
 import { MessageSquare } from 'lucide-react';
-import { SuivieFilterBar, SuivieAction } from './components/SuivieFilterBar';
-import { SuivieGeneraleTable } from './components/SuivieGeneraleTable';
-import { StopCirculationTable } from './components/StopCirculationTable';
-import { TrajectoireTable } from './components/TrajectoireTable';
-import { CommandesTable } from './components/CommandesTable';
 import { DashboardAlertsContent } from './components/DashboardAlertsContent';
 import { LoginPage } from './pages/LoginPage';
 import { SignUpPage } from './pages/SignUpPage';
@@ -34,53 +29,280 @@ import { GestionSinistres } from './components/GestionSinistres';
 import { AlertMailSmsContent } from './components/AlertMailSmsContent';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { useMapOverlays } from './hooks/useMapOverlays';
-// Generate 50 mock vehicles
+import { WelcomeScreen } from './components/onboarding/WelcomeScreen';
+import { ModuleSelection } from './components/onboarding/ModuleSelection';
+import type { OnboardingModuleId } from './components/onboarding/module-registry';
+
+type AppPhase = 'welcome' | 'module-selection' | 'login' | 'signup' | 'app';
+// Generate mock vehicles around Tunisia (map center = Tunis)
 const generateMockVehicles = (): Vehicle[] => {
   const statuses: VehicleStatus[] = ['active', 'idle', 'offline'];
   const drivers = [
-  'Jean Dupont',
-  'Marie Martin',
-  'Pierre Durand',
-  'Sophie Bernard',
-  'Lucas Petit',
-  'Emma Thomas',
-  'Antoine Moreau',
-  'Camille Leroy',
-  'Nicolas Simon',
-  'Julie Laurent',
-  'Thomas Blanc',
-  'Sarah Girard',
-  'Alexandre Roux',
-  'Léa Fournier',
-  'Maxime Bonnet',
-  'Chloé Lambert'];
+    'Jean Dupont',
+    'Marie Martin',
+    'Pierre Durand',
+    'Sophie Bernard',
+    'Lucas Petit',
+    'Emma Thomas',
+    'Antoine Moreau',
+    'Camille Leroy',
+    'Nicolas Simon',
+    'Julie Laurent',
+    'Thomas Blanc',
+    'Sarah Girard',
+    'Alexandre Roux',
+    'Léa Fournier',
+    'Maxime Bonnet',
+    'Chloé Lambert',
+    'Driver0002 Tunisia0002',
+  ];
 
   const locations = [
-  'Rue de Rivoli, Paris',
-  'Avenue des Champs-Élysées',
-  'Boulevard Haussmann',
-  'Gare de Lyon',
-  'Périphérique Nord',
-  'Montmartre',
-  'La Défense',
-  'Bercy',
-  'Nation',
-  'République',
-  'Bastille',
-  'Opéra',
-  'Châtelet',
-  'Saint-Germain',
-  'Marais',
-  'Belleville',
-  'Ménilmontant',
-  'Oberkampf'];
+    'Avenue Habib Bourguiba, Tunis',
+    'La Marsa',
+    'Lac 1, Tunis',
+    'Ariana',
+    'Ben Arous',
+    'Bizerte',
+    'Sousse Médina',
+    'Sfax Centre',
+    'Nabeul',
+    'Hammamet',
+    'Monastir',
+    'Kairouan',
+    'Ras Jebel',
+    'BEN HAMED DECO Ras Jebel',
+    'Aéroport Tunis-Carthage',
+    'La Goulette',
+    'Le Kram',
+    'Carthage',
+  ];
 
-  const vehicles: Vehicle[] = [];
-  for (let i = 1; i <= 50; i++) {
+  const departments = ['DEmo2025', 'LATRACE', 'test', 'TUNAV'];
+  const iconTypes = [
+    'voiture',
+    'moto',
+    'fourgon',
+    'pickup',
+    'camion',
+    'bus',
+    'taxi',
+    'tracteur',
+    'ambulance',
+    'police',
+    'camion_pompier',
+    'livraison',
+  ] as const;
+
+  const TUNIS: [number, number] = [36.8065, 10.1815];
+  const RAS_JEBEL: [number, number] = [37.2145, 10.1238];
+
+  const showcase: Vehicle[] = [
+    {
+      id: 'v-1000',
+      name: 'Fleet-SEED-1000',
+      status: 'active',
+      speed: 62,
+      location: 'Avenue Habib Bourguiba, Tunis',
+      coordinates: [36.7992, 10.1805],
+      lastUpdate: "À l'instant",
+      driver: 'Driver0002 Tunisia0002',
+      batteryLevel: 88,
+      departmentId: 'TUNAV',
+      matricule: 'TN-SEED-CAR-1000',
+      iconType: 'camion',
+      heading: 45,
+    },
+    {
+      id: 'v-1001',
+      name: 'Fleet-8125',
+      status: 'idle',
+      speed: 0,
+      location: 'BEN HAMED DECO Ras Jebel',
+      coordinates: [37.2145, 10.1238],
+      lastUpdate: 'Il y a 12 min',
+      driver: 'Jean Dupont',
+      batteryLevel: 64,
+      departmentId: 'LATRACE',
+      matricule: '8125 TU 226',
+      iconType: 'voiture',
+      heading: 315,
+    },
+    {
+      id: 'v-1002',
+      name: 'Fleet-AB123',
+      status: 'active',
+      speed: 48,
+      location: 'La Marsa',
+      coordinates: [36.8781, 10.3247],
+      lastUpdate: "À l'instant",
+      driver: 'Marie Martin',
+      batteryLevel: 72,
+      departmentId: 'DEmo2025',
+      matricule: 'AB-123-CD',
+      iconType: 'fourgon',
+      heading: 90,
+    },
+    {
+      id: 'v-1003',
+      name: 'Fleet-MN012',
+      status: 'offline',
+      speed: 0,
+      location: 'Sousse Médina',
+      coordinates: [35.8256, 10.6411],
+      lastUpdate: 'Il y a 3h',
+      driver: 'Sophie Bernard',
+      batteryLevel: 0,
+      departmentId: 'test',
+      matricule: 'MN-012-OP',
+      iconType: 'bus',
+      heading: 180,
+    },
+    {
+      id: 'v-1004',
+      name: 'Fleet-AMB-01',
+      status: 'active',
+      speed: 75,
+      location: 'Aéroport Tunis-Carthage',
+      coordinates: [36.851, 10.227],
+      lastUpdate: "À l'instant",
+      driver: 'Lucas Petit',
+      batteryLevel: 91,
+      departmentId: 'TUNAV',
+      matricule: '3341 TU 118',
+      iconType: 'ambulance',
+      heading: 120,
+    },
+    {
+      id: 'v-1005',
+      name: 'Fleet-TAXI-07',
+      status: 'idle',
+      speed: 0,
+      location: 'Lac 1, Tunis',
+      coordinates: [36.835, 10.238],
+      lastUpdate: 'Il y a 5 min',
+      driver: 'Emma Thomas',
+      batteryLevel: 55,
+      departmentId: 'LATRACE',
+      matricule: '5560 TU 204',
+      iconType: 'taxi',
+      heading: 270,
+    },
+    {
+      id: 'v-1006',
+      name: 'Fleet-POL-02',
+      status: 'active',
+      speed: 55,
+      location: 'Bizerte',
+      coordinates: [37.2744, 9.8739],
+      lastUpdate: "À l'instant",
+      driver: 'Antoine Moreau',
+      batteryLevel: 80,
+      departmentId: 'TUNAV',
+      matricule: '2210 TU 155',
+      iconType: 'police',
+      heading: 30,
+    },
+    {
+      id: 'v-1007',
+      name: 'Fleet-FIRE-01',
+      status: 'active',
+      speed: 40,
+      location: 'Sfax Centre',
+      coordinates: [34.7406, 10.7603],
+      lastUpdate: "À l'instant",
+      driver: 'Camille Leroy',
+      batteryLevel: 70,
+      departmentId: 'DEmo2025',
+      matricule: '9901 TU 088',
+      iconType: 'camion_pompier',
+      heading: 200,
+    },
+    // Cluster near Ras Jebel — several cones visible when zoomed in
+    {
+      id: 'v-rj-01',
+      name: 'Fleet-RJ-01',
+      status: 'active',
+      speed: 38,
+      location: 'Ras Jebel',
+      coordinates: [RAS_JEBEL[0] + 0.0012, RAS_JEBEL[1] - 0.0015],
+      lastUpdate: "À l'instant",
+      driver: 'Nicolas Simon',
+      batteryLevel: 77,
+      departmentId: 'LATRACE',
+      matricule: '4102 TU 301',
+      iconType: 'voiture',
+      heading: 300,
+    },
+    {
+      id: 'v-rj-02',
+      name: 'Fleet-RJ-02',
+      status: 'active',
+      speed: 52,
+      location: 'Ras Jebel',
+      coordinates: [RAS_JEBEL[0] - 0.0008, RAS_JEBEL[1] + 0.0018],
+      lastUpdate: "À l'instant",
+      driver: 'Julie Laurent',
+      batteryLevel: 85,
+      departmentId: 'TUNAV',
+      matricule: '4103 TU 302',
+      iconType: 'pickup',
+      heading: 45,
+    },
+    {
+      id: 'v-rj-03',
+      name: 'Fleet-RJ-03',
+      status: 'active',
+      speed: 28,
+      location: 'Ras Jebel Centre',
+      coordinates: [RAS_JEBEL[0] + 0.002, RAS_JEBEL[1] + 0.0006],
+      lastUpdate: "À l'instant",
+      driver: 'Thomas Blanc',
+      batteryLevel: 69,
+      departmentId: 'DEmo2025',
+      matricule: '4104 TU 303',
+      iconType: 'fourgon',
+      heading: 160,
+    },
+    {
+      id: 'v-rj-04',
+      name: 'Fleet-RJ-04',
+      status: 'idle',
+      speed: 0,
+      location: 'Ras Jebel Port',
+      coordinates: [RAS_JEBEL[0] - 0.0015, RAS_JEBEL[1] - 0.0009],
+      lastUpdate: 'Il y a 8 min',
+      driver: 'Sarah Girard',
+      batteryLevel: 42,
+      departmentId: 'LATRACE',
+      matricule: '4105 TU 304',
+      iconType: 'taxi',
+      heading: 220,
+    },
+    {
+      id: 'v-rj-05',
+      name: 'Fleet-RJ-05',
+      status: 'active',
+      speed: 61,
+      location: 'Route Ras Jebel',
+      coordinates: [RAS_JEBEL[0] + 0.0004, RAS_JEBEL[1] + 0.0024],
+      lastUpdate: "À l'instant",
+      driver: 'Alexandre Roux',
+      batteryLevel: 93,
+      departmentId: 'TUNAV',
+      matricule: '4106 TU 305',
+      iconType: 'moto',
+      heading: 10,
+    },
+  ];
+
+  const vehicles: Vehicle[] = [...showcase];
+  for (let i = showcase.length + 1; i <= 50 + 5; i++) {
     const status = statuses[Math.floor(Math.random() * statuses.length)];
     const speed = status === 'active' ? Math.floor(Math.random() * 80) + 20 : 0;
     const batteryLevel =
-    status === 'offline' ? 0 : Math.floor(Math.random() * 100);
+      status === 'offline' ? 0 : Math.floor(Math.random() * 100);
+    const plateNum = 1000 + i * 17;
     vehicles.push({
       id: `${i}`,
       name: `Fleet-${String(i).padStart(3, '0')}`,
@@ -88,17 +310,21 @@ const generateMockVehicles = (): Vehicle[] => {
       speed,
       location: locations[Math.floor(Math.random() * locations.length)],
       coordinates: [
-      48.8566 + (Math.random() - 0.5) * 0.1,
-      2.3522 + (Math.random() - 0.5) * 0.1],
-
+        TUNIS[0] + (Math.random() - 0.5) * 0.3,
+        TUNIS[1] + (Math.random() - 0.5) * 0.3,
+      ],
       lastUpdate:
-      status === 'active' ?
-      "À l'instant" :
-      status === 'idle' ?
-      `Il y a ${Math.floor(Math.random() * 30)} min` :
-      `Il y a ${Math.floor(Math.random() * 5) + 1}h`,
+        status === 'active'
+          ? "À l'instant"
+          : status === 'idle'
+            ? `Il y a ${Math.floor(Math.random() * 30)} min`
+            : `Il y a ${Math.floor(Math.random() * 5) + 1}h`,
       driver: drivers[Math.floor(Math.random() * drivers.length)],
-      batteryLevel
+      batteryLevel,
+      departmentId: departments[(i - 1) % departments.length],
+      matricule: `${String(plateNum).padStart(4, '0')} TU ${String(100 + (i % 90)).padStart(3, '0')}`,
+      iconType: iconTypes[(i - 1) % iconTypes.length],
+      heading: Math.floor(Math.random() * 360),
     });
   }
   return vehicles;
@@ -154,10 +380,15 @@ const recentAlerts = [
 
 // Calculate unread alerts count (fallback for non-alert sections)
 const defaultUnreadAlertsCount = recentAlerts.filter((a) => !a.isRead).length;
+
 export function App() {
-  // Auth States
-  const [isAuthenticated, setIsAuthenticated] = useState(true);
-  const [authPage, setAuthPage] = useState<'login' | 'signup'>('login');
+  return <AppShell />;
+}
+
+function AppShell() {
+  const [phase, setPhase] = useState<AppPhase>('welcome');
+  // Auth States (set on login; reserved for future gated features)
+  const [, setIsAuthenticated] = useState(false);
   const [activeSection, setActiveSection] = useState('suivie');
   const [alertUnreadCount, setAlertUnreadCount] = useState(defaultUnreadAlertsCount);
   const [historyVehicleIds, setHistoryVehicleIds] = useState<string[]>([]);
@@ -167,11 +398,26 @@ export function App() {
   );
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isVehicleListCollapsed, setIsVehicleListCollapsed] = useState(false);
+  const [suivieFilteredVehicleIds, setSuivieFilteredVehicleIds] = useState<
+    string[] | null
+  >(null);
+  const mapVehicles = useMemo(() => {
+    if (!suivieFilteredVehicleIds) return MOCK_VEHICLES;
+    const idSet = new Set(suivieFilteredVehicleIds);
+    return MOCK_VEHICLES.filter((v) => idSet.has(v.id));
+  }, [suivieFilteredVehicleIds]);
   const [isMonitoringCollapsed, setIsMonitoringCollapsed] = useState(false);
   const [mapCenter, setMapCenter] = useState<[number, number] | null>(null);
   const [isAIChatOpen, setIsAIChatOpen] = useState(false);
   const [hideBadges, setHideBadges] = useState(false);
   const mapOverlays = useMapOverlays();
+
+  const handleModuleSelect = useCallback((_moduleId: OnboardingModuleId) => {
+    setPhase('app');
+    setActiveSection('suivie');
+    setIsVehicleListCollapsed(true);
+    setIsMonitoringCollapsed(true);
+  }, []);
 
   const hasOverlayPanel =
     mapOverlays.overlayForm &&
@@ -231,20 +477,6 @@ export function App() {
     setIsVehicleListCollapsed(true);
   }, [hasOverlayPanel, mapOverlays]);
 
-  // Suivie Filter States
-  const [suivieStartDate, setSuivieStartDate] = useState('');
-  const [suivieEndDate, setSuivieEndDate] = useState('');
-  const [suivieAction, setSuivieAction] =
-  useState<SuivieAction>('suivie_generale');
-  const [selectedVehicles, setSelectedVehicles] = useState<Set<string>>(
-    new Set()
-  );
-  const [selectedDepartments, setSelectedDepartments] = useState<Set<string>>(
-    new Set()
-  );
-  const [selectedAlertTypes, setSelectedAlertTypes] = useState<Set<string>>(
-    new Set()
-  );
   // Inject Leaflet CSS
   useEffect(() => {
     const link = document.createElement('link');
@@ -255,6 +487,50 @@ export function App() {
       document.head.removeChild(link);
     };
   }, []);
+
+  if (phase === 'welcome') {
+    return (
+      <WelcomeScreen
+        onExplore={() => setPhase('app')}
+        onStartTutorial={() => setPhase('module-selection')}
+        onLogin={() => setPhase('login')}
+      />
+    );
+  }
+
+  if (phase === 'module-selection') {
+    return (
+      <ModuleSelection
+        onBack={() => setPhase('welcome')}
+        onSelectModule={handleModuleSelect}
+      />
+    );
+  }
+
+  if (phase === 'login') {
+    return (
+      <LoginPage
+        onLogin={() => {
+          setIsAuthenticated(true);
+          setPhase('welcome');
+        }}
+        onNavigateToSignUp={() => setPhase('signup')}
+      />
+    );
+  }
+
+  if (phase === 'signup') {
+    return (
+      <SignUpPage
+        onSignUp={() => {
+          setIsAuthenticated(true);
+          setPhase('welcome');
+        }}
+        onNavigateToLogin={() => setPhase('login')}
+      />
+    );
+  }
+
   const handleVehicleSelect = (vehicle: Vehicle) => {
     setSelectedVehicleId(vehicle.id);
   };
@@ -292,22 +568,7 @@ export function App() {
   };
   // Determine sidebar mode based on active section
   const sidebarMode = activeSection === 'rapports' ? 'rapports' : 'monitoring';
-  if (!isAuthenticated) {
-    if (authPage === 'signup') {
-      return (
-        <SignUpPage
-          onSignUp={() => setIsAuthenticated(true)}
-          onNavigateToLogin={() => setAuthPage('login')} />);
 
-
-    }
-    return (
-      <LoginPage
-        onLogin={() => setIsAuthenticated(true)}
-        onNavigateToSignUp={() => setAuthPage('signup')} />);
-
-
-  }
   // 404 Page - rendered without any navbar or sidebar
   if (activeSection === '404') {
     return (
@@ -395,9 +656,10 @@ export function App() {
             {/* Full Screen Map Background */}
             <div className="absolute inset-0 z-0">
               <MapView
-              vehicles={MOCK_VEHICLES}
+              vehicles={mapVehicles}
               selectedVehicleId={selectedVehicleId}
               onSelectVehicle={handleVehicleSelect}
+              onDeselectVehicle={() => setSelectedVehicleId(null)}
               mapCenter={mapCenter}
               onMapCenterChange={() => setMapCenter(null)}
               basemap={mapOverlays.basemap}
@@ -575,7 +837,9 @@ export function App() {
                   }
                   onSave={() => {
                     if (!mapOverlays.geofenceDraft) return;
-                    if (mapOverlays.editTarget?.kind === 'geofence') {
+                    const isEdit =
+                      mapOverlays.editTarget?.kind === 'geofence';
+                    if (isEdit && mapOverlays.editTarget) {
                       mapOverlays.updateGeofence(
                         mapOverlays.editTarget.id,
                         mapOverlays.geofenceDraft
@@ -761,6 +1025,7 @@ export function App() {
                   onSelectVehicle={handleVehicleSelect}
                   isCollapsed={isVehicleListCollapsed}
                   onToggleCollapse={handleToggleVehicleList}
+                  onFilteredVehicleIdsChange={setSuivieFilteredVehicleIds}
                 />
               )}
             </div>
@@ -821,5 +1086,4 @@ export function App() {
         }
       </div>
     </div>);
-
 }
