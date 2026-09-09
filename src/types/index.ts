@@ -15,6 +15,8 @@ export interface Vehicle {
   departmentId?: string;
   groupIds?: string[];
   matricule?: string;
+  /** Equipment IMEI */
+  imei?: string;
   iconType?: VehicleIconType;
   /** Degrees 0–360, 0 = north, clockwise */
   heading?: number;

@@ -33,52 +33,75 @@ import { WelcomeScreen } from './components/onboarding/WelcomeScreen';
 import { ModuleSelection } from './components/onboarding/ModuleSelection';
 import type { OnboardingModuleId } from './components/onboarding/module-registry';
 
+import { SUIVIE_DEPARTMENTS } from './features/suivie/column-defs';
+
 type AppPhase = 'welcome' | 'module-selection' | 'login' | 'signup' | 'app';
+
+/** Deterministic PRNG for stable demo fleets */
+function seededRandom(seed: string): () => number {
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return () => {
+    h += 0x6d2b79f5;
+    let t = Math.imul(h ^ (h >>> 15), 1 | h);
+    t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function pickSeeded<T>(rand: () => number, arr: readonly T[]): T {
+  return arr[Math.floor(rand() * arr.length)];
+}
+
 // Generate mock vehicles around Tunisia (map center = Tunis)
 const generateMockVehicles = (): Vehicle[] => {
   const statuses: VehicleStatus[] = ['active', 'idle', 'offline'];
   const drivers = [
-    'Jean Dupont',
-    'Marie Martin',
-    'Pierre Durand',
-    'Sophie Bernard',
-    'Lucas Petit',
-    'Emma Thomas',
-    'Antoine Moreau',
-    'Camille Leroy',
-    'Nicolas Simon',
-    'Julie Laurent',
-    'Thomas Blanc',
-    'Sarah Girard',
-    'Alexandre Roux',
-    'Léa Fournier',
-    'Maxime Bonnet',
-    'Chloé Lambert',
+    'Mohamed Ben Ali',
+    'Fatma Trabelsi',
+    'Karim Gharbi',
+    'Sonia Mejri',
+    'Youssef Hammami',
+    'Amira Bouazizi',
+    'Hichem Jebali',
+    'Nour Chérif',
+    'Sami Khelifi',
+    'Inès Mansouri',
+    'Anis Belhadj',
+    'Rania Sassi',
+    'Walid Messaoudi',
+    'Leila Ben Amor',
+    'Tarek Dridi',
+    'Salma Ayari',
     'Driver0002 Tunisia0002',
   ];
 
-  const locations = [
-    'Avenue Habib Bourguiba, Tunis',
-    'La Marsa',
-    'Lac 1, Tunis',
-    'Ariana',
-    'Ben Arous',
-    'Bizerte',
-    'Sousse Médina',
-    'Sfax Centre',
-    'Nabeul',
-    'Hammamet',
-    'Monastir',
-    'Kairouan',
-    'Ras Jebel',
-    'BEN HAMED DECO Ras Jebel',
-    'Aéroport Tunis-Carthage',
-    'La Goulette',
-    'Le Kram',
-    'Carthage',
+  const locations: { address: string; coords: [number, number] }[] = [
+    { address: 'Avenue Habib Bourguiba, Tunis', coords: [36.7992, 10.1805] },
+    { address: 'La Marsa', coords: [36.8781, 10.3247] },
+    { address: 'Lac 1, Tunis', coords: [36.835, 10.238] },
+    { address: 'Ariana Centre', coords: [36.8601, 10.1934] },
+    { address: 'Ben Arous', coords: [36.7531, 10.2189] },
+    { address: 'Bizerte Port', coords: [37.2744, 9.8739] },
+    { address: 'Sousse Médina', coords: [35.8256, 10.6411] },
+    { address: 'Sfax Centre', coords: [34.7406, 10.7603] },
+    { address: 'Nabeul', coords: [36.4561, 10.7376] },
+    { address: 'Hammamet', coords: [36.4, 10.6167] },
+    { address: 'Monastir', coords: [35.777, 10.826] },
+    { address: 'Kairouan', coords: [35.6711, 10.1008] },
+    { address: 'Ras Jebel', coords: [37.2145, 10.1238] },
+    { address: 'BEN HAMED DECO Ras Jebel', coords: [37.2145, 10.1238] },
+    { address: 'Aéroport Tunis-Carthage', coords: [36.851, 10.227] },
+    { address: 'La Goulette', coords: [36.818, 10.305] },
+    { address: 'Le Kram', coords: [36.84, 10.315] },
+    { address: 'Carthage', coords: [36.852, 10.323] },
+    { address: 'Route GP1, Sousse', coords: [35.84, 10.59] },
+    { address: 'Zone industrielle Charguia', coords: [36.84, 10.2] },
   ];
 
-  const departments = ['DEmo2025', 'LATRACE', 'test', 'TUNAV'];
   const iconTypes = [
     'voiture',
     'moto',
@@ -94,8 +117,44 @@ const generateMockVehicles = (): Vehicle[] => {
     'livraison',
   ] as const;
 
-  const TUNIS: [number, number] = [36.8065, 10.1815];
   const RAS_JEBEL: [number, number] = [37.2145, 10.1238];
+
+  const makeImei = (n: number) =>
+    `35693803${String(Math.abs(n)).padStart(7, '0').slice(-7)}`;
+
+  const makeMatricule = (rand: () => number, n: number) => {
+    const serial = String(1000 + ((n * 17) % 9000)).padStart(4, '0');
+    const series = String(100 + Math.floor(rand() * 90)).padStart(3, '0');
+    return `${serial} TU ${series}`;
+  };
+
+  const statusMetrics = (
+    status: VehicleStatus,
+    rand: () => number
+  ): Pick<Vehicle, 'speed' | 'batteryLevel' | 'lastUpdate'> => {
+    if (status === 'active') {
+      return {
+        speed: 20 + Math.floor(rand() * 90),
+        batteryLevel: 35 + Math.floor(rand() * 65),
+        lastUpdate:
+          rand() > 0.35
+            ? "À l'instant"
+            : `Il y a ${1 + Math.floor(rand() * 4)} min`,
+      };
+    }
+    if (status === 'idle') {
+      return {
+        speed: 0,
+        batteryLevel: 20 + Math.floor(rand() * 80),
+        lastUpdate: `Il y a ${5 + Math.floor(rand() * 45)} min`,
+      };
+    }
+    return {
+      speed: 0,
+      batteryLevel: 0,
+      lastUpdate: `Il y a ${2 + Math.floor(rand() * 10)}h`,
+    };
+  };
 
   const showcase: Vehicle[] = [
     {
@@ -103,13 +162,14 @@ const generateMockVehicles = (): Vehicle[] => {
       name: 'Fleet-SEED-1000',
       status: 'active',
       speed: 62,
+      batteryLevel: 88,
+      lastUpdate: "À l'instant",
       location: 'Avenue Habib Bourguiba, Tunis',
       coordinates: [36.7992, 10.1805],
-      lastUpdate: "À l'instant",
       driver: 'Driver0002 Tunisia0002',
-      batteryLevel: 88,
       departmentId: 'TUNAV',
-      matricule: 'TN-SEED-CAR-1000',
+      matricule: '1000 TU 100',
+      imei: makeImei(1000),
       iconType: 'camion',
       heading: 45,
     },
@@ -118,43 +178,46 @@ const generateMockVehicles = (): Vehicle[] => {
       name: 'Fleet-8125',
       status: 'idle',
       speed: 0,
+      batteryLevel: 64,
+      lastUpdate: 'Il y a 12 min',
       location: 'BEN HAMED DECO Ras Jebel',
       coordinates: [37.2145, 10.1238],
-      lastUpdate: 'Il y a 12 min',
-      driver: 'Jean Dupont',
-      batteryLevel: 64,
+      driver: 'Mohamed Ben Ali',
       departmentId: 'LATRACE',
       matricule: '8125 TU 226',
+      imei: makeImei(1001),
       iconType: 'voiture',
       heading: 315,
     },
     {
       id: 'v-1002',
-      name: 'Fleet-AB123',
+      name: 'Fleet-2148',
       status: 'active',
       speed: 48,
+      batteryLevel: 72,
+      lastUpdate: "À l'instant",
       location: 'La Marsa',
       coordinates: [36.8781, 10.3247],
-      lastUpdate: "À l'instant",
-      driver: 'Marie Martin',
-      batteryLevel: 72,
+      driver: 'Fatma Trabelsi',
       departmentId: 'DEmo2025',
-      matricule: 'AB-123-CD',
+      matricule: '2148 TU 157',
+      imei: makeImei(1002),
       iconType: 'fourgon',
       heading: 90,
     },
     {
       id: 'v-1003',
-      name: 'Fleet-MN012',
+      name: 'Fleet-3091',
       status: 'offline',
       speed: 0,
+      batteryLevel: 0,
+      lastUpdate: 'Il y a 3h',
       location: 'Sousse Médina',
       coordinates: [35.8256, 10.6411],
-      lastUpdate: 'Il y a 3h',
-      driver: 'Sophie Bernard',
-      batteryLevel: 0,
+      driver: 'Sonia Mejri',
       departmentId: 'test',
-      matricule: 'MN-012-OP',
+      matricule: '3091 TU 042',
+      imei: makeImei(1003),
       iconType: 'bus',
       heading: 180,
     },
@@ -163,13 +226,14 @@ const generateMockVehicles = (): Vehicle[] => {
       name: 'Fleet-AMB-01',
       status: 'active',
       speed: 75,
+      batteryLevel: 91,
+      lastUpdate: "À l'instant",
       location: 'Aéroport Tunis-Carthage',
       coordinates: [36.851, 10.227],
-      lastUpdate: "À l'instant",
-      driver: 'Lucas Petit',
-      batteryLevel: 91,
+      driver: 'Youssef Hammami',
       departmentId: 'TUNAV',
       matricule: '3341 TU 118',
+      imei: makeImei(1004),
       iconType: 'ambulance',
       heading: 120,
     },
@@ -178,13 +242,14 @@ const generateMockVehicles = (): Vehicle[] => {
       name: 'Fleet-TAXI-07',
       status: 'idle',
       speed: 0,
+      batteryLevel: 55,
+      lastUpdate: 'Il y a 5 min',
       location: 'Lac 1, Tunis',
       coordinates: [36.835, 10.238],
-      lastUpdate: 'Il y a 5 min',
-      driver: 'Emma Thomas',
-      batteryLevel: 55,
+      driver: 'Amira Bouazizi',
       departmentId: 'LATRACE',
       matricule: '5560 TU 204',
+      imei: makeImei(1005),
       iconType: 'taxi',
       heading: 270,
     },
@@ -193,13 +258,14 @@ const generateMockVehicles = (): Vehicle[] => {
       name: 'Fleet-POL-02',
       status: 'active',
       speed: 55,
-      location: 'Bizerte',
-      coordinates: [37.2744, 9.8739],
-      lastUpdate: "À l'instant",
-      driver: 'Antoine Moreau',
       batteryLevel: 80,
+      lastUpdate: "À l'instant",
+      location: 'Bizerte Port',
+      coordinates: [37.2744, 9.8739],
+      driver: 'Hichem Jebali',
       departmentId: 'TUNAV',
       matricule: '2210 TU 155',
+      imei: makeImei(1006),
       iconType: 'police',
       heading: 30,
     },
@@ -208,29 +274,30 @@ const generateMockVehicles = (): Vehicle[] => {
       name: 'Fleet-FIRE-01',
       status: 'active',
       speed: 40,
+      batteryLevel: 70,
+      lastUpdate: "À l'instant",
       location: 'Sfax Centre',
       coordinates: [34.7406, 10.7603],
-      lastUpdate: "À l'instant",
-      driver: 'Camille Leroy',
-      batteryLevel: 70,
+      driver: 'Nour Chérif',
       departmentId: 'DEmo2025',
       matricule: '9901 TU 088',
+      imei: makeImei(1007),
       iconType: 'camion_pompier',
       heading: 200,
     },
-    // Cluster near Ras Jebel — several cones visible when zoomed in
     {
       id: 'v-rj-01',
       name: 'Fleet-RJ-01',
       status: 'active',
       speed: 38,
+      batteryLevel: 77,
+      lastUpdate: "À l'instant",
       location: 'Ras Jebel',
       coordinates: [RAS_JEBEL[0] + 0.0012, RAS_JEBEL[1] - 0.0015],
-      lastUpdate: "À l'instant",
-      driver: 'Nicolas Simon',
-      batteryLevel: 77,
+      driver: 'Sami Khelifi',
       departmentId: 'LATRACE',
       matricule: '4102 TU 301',
+      imei: makeImei(2001),
       iconType: 'voiture',
       heading: 300,
     },
@@ -239,13 +306,14 @@ const generateMockVehicles = (): Vehicle[] => {
       name: 'Fleet-RJ-02',
       status: 'active',
       speed: 52,
+      batteryLevel: 85,
+      lastUpdate: "À l'instant",
       location: 'Ras Jebel',
       coordinates: [RAS_JEBEL[0] - 0.0008, RAS_JEBEL[1] + 0.0018],
-      lastUpdate: "À l'instant",
-      driver: 'Julie Laurent',
-      batteryLevel: 85,
+      driver: 'Inès Mansouri',
       departmentId: 'TUNAV',
       matricule: '4103 TU 302',
+      imei: makeImei(2002),
       iconType: 'pickup',
       heading: 45,
     },
@@ -254,13 +322,14 @@ const generateMockVehicles = (): Vehicle[] => {
       name: 'Fleet-RJ-03',
       status: 'active',
       speed: 28,
+      batteryLevel: 69,
+      lastUpdate: "À l'instant",
       location: 'Ras Jebel Centre',
       coordinates: [RAS_JEBEL[0] + 0.002, RAS_JEBEL[1] + 0.0006],
-      lastUpdate: "À l'instant",
-      driver: 'Thomas Blanc',
-      batteryLevel: 69,
+      driver: 'Anis Belhadj',
       departmentId: 'DEmo2025',
       matricule: '4104 TU 303',
+      imei: makeImei(2003),
       iconType: 'fourgon',
       heading: 160,
     },
@@ -269,13 +338,14 @@ const generateMockVehicles = (): Vehicle[] => {
       name: 'Fleet-RJ-04',
       status: 'idle',
       speed: 0,
+      batteryLevel: 42,
+      lastUpdate: 'Il y a 8 min',
       location: 'Ras Jebel Port',
       coordinates: [RAS_JEBEL[0] - 0.0015, RAS_JEBEL[1] - 0.0009],
-      lastUpdate: 'Il y a 8 min',
-      driver: 'Sarah Girard',
-      batteryLevel: 42,
+      driver: 'Rania Sassi',
       departmentId: 'LATRACE',
       matricule: '4105 TU 304',
+      imei: makeImei(2004),
       iconType: 'taxi',
       heading: 220,
     },
@@ -284,51 +354,45 @@ const generateMockVehicles = (): Vehicle[] => {
       name: 'Fleet-RJ-05',
       status: 'active',
       speed: 61,
+      batteryLevel: 93,
+      lastUpdate: "À l'instant",
       location: 'Route Ras Jebel',
       coordinates: [RAS_JEBEL[0] + 0.0004, RAS_JEBEL[1] + 0.0024],
-      lastUpdate: "À l'instant",
-      driver: 'Alexandre Roux',
-      batteryLevel: 93,
+      driver: 'Walid Messaoudi',
       departmentId: 'TUNAV',
       matricule: '4106 TU 305',
+      imei: makeImei(2005),
       iconType: 'moto',
       heading: 10,
     },
   ];
 
   const vehicles: Vehicle[] = [...showcase];
-  for (let i = showcase.length + 1; i <= 50 + 5; i++) {
-    const status = statuses[Math.floor(Math.random() * statuses.length)];
-    const speed = status === 'active' ? Math.floor(Math.random() * 80) + 20 : 0;
-    const batteryLevel =
-      status === 'offline' ? 0 : Math.floor(Math.random() * 100);
-    const plateNum = 1000 + i * 17;
+  for (let i = showcase.length + 1; i <= 55; i++) {
+    const rand = seededRandom(`fleetiq-vehicle-${i}`);
+    const status = pickSeeded(rand, statuses);
+    const metrics = statusMetrics(status, rand);
+    const place = pickSeeded(rand, locations);
+    const jitterLat = (rand() - 0.5) * 0.04;
+    const jitterLng = (rand() - 0.5) * 0.04;
     vehicles.push({
       id: `${i}`,
       name: `Fleet-${String(i).padStart(3, '0')}`,
       status,
-      speed,
-      location: locations[Math.floor(Math.random() * locations.length)],
-      coordinates: [
-        TUNIS[0] + (Math.random() - 0.5) * 0.3,
-        TUNIS[1] + (Math.random() - 0.5) * 0.3,
-      ],
-      lastUpdate:
-        status === 'active'
-          ? "À l'instant"
-          : status === 'idle'
-            ? `Il y a ${Math.floor(Math.random() * 30)} min`
-            : `Il y a ${Math.floor(Math.random() * 5) + 1}h`,
-      driver: drivers[Math.floor(Math.random() * drivers.length)],
-      batteryLevel,
-      departmentId: departments[(i - 1) % departments.length],
-      matricule: `${String(plateNum).padStart(4, '0')} TU ${String(100 + (i % 90)).padStart(3, '0')}`,
+      ...metrics,
+      location: place.address,
+      coordinates: [place.coords[0] + jitterLat, place.coords[1] + jitterLng],
+      driver: pickSeeded(rand, drivers),
+      departmentId: SUIVIE_DEPARTMENTS[(i - 1) % SUIVIE_DEPARTMENTS.length],
+      matricule: makeMatricule(rand, i),
+      imei: makeImei(3000 + i),
       iconType: iconTypes[(i - 1) % iconTypes.length],
-      heading: Math.floor(Math.random() * 360),
+      heading: Math.floor(rand() * 360),
     });
   }
   return vehicles;
 };
+
 const MOCK_VEHICLES = generateMockVehicles();
 // Mock alerts data (same as in Dashboard)
 const recentAlerts = [
@@ -401,11 +465,39 @@ function AppShell() {
   const [suivieFilteredVehicleIds, setSuivieFilteredVehicleIds] = useState<
     string[] | null
   >(null);
+  const [statusFilter, setStatusFilter] = useState<Set<VehicleStatus>>(
+    () => new Set()
+  );
+  const statusCounts = useMemo(() => {
+    const counts: Record<VehicleStatus, number> = {
+      active: 0,
+      idle: 0,
+      offline: 0,
+    };
+    for (const v of MOCK_VEHICLES) {
+      counts[v.status] += 1;
+    }
+    return counts;
+  }, []);
+  const toggleStatusFilter = useCallback((status: VehicleStatus) => {
+    setStatusFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(status)) next.delete(status);
+      else next.add(status);
+      return next;
+    });
+  }, []);
   const mapVehicles = useMemo(() => {
-    if (!suivieFilteredVehicleIds) return MOCK_VEHICLES;
-    const idSet = new Set(suivieFilteredVehicleIds);
-    return MOCK_VEHICLES.filter((v) => idSet.has(v.id));
-  }, [suivieFilteredVehicleIds]);
+    let list = MOCK_VEHICLES;
+    if (suivieFilteredVehicleIds) {
+      const idSet = new Set(suivieFilteredVehicleIds);
+      list = list.filter((v) => idSet.has(v.id));
+    }
+    if (statusFilter.size > 0) {
+      list = list.filter((v) => statusFilter.has(v.status));
+    }
+    return list;
+  }, [suivieFilteredVehicleIds, statusFilter]);
   const [isMonitoringCollapsed, setIsMonitoringCollapsed] = useState(false);
   const [mapCenter, setMapCenter] = useState<[number, number] | null>(null);
   const [isAIChatOpen, setIsAIChatOpen] = useState(false);
@@ -1026,6 +1118,7 @@ function AppShell() {
                   isCollapsed={isVehicleListCollapsed}
                   onToggleCollapse={handleToggleVehicleList}
                   onFilteredVehicleIdsChange={setSuivieFilteredVehicleIds}
+                  statusFilter={statusFilter}
                 />
               )}
             </div>
@@ -1038,7 +1131,10 @@ function AppShell() {
               mode={sidebarMode}
               isCollapsed={isMonitoringCollapsed}
               onToggleCollapse={handleToggleMonitoring}
-              position="floating-right" />
+              position="floating-right"
+              statusFilter={statusFilter}
+              statusCounts={statusCounts}
+              onToggleStatusFilter={toggleStatusFilter} />
             
             </div>
 

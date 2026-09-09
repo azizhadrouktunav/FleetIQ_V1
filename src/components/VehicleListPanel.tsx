@@ -6,9 +6,9 @@ import React, {
   useState,
   Fragment,
 } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Search,
-  Filter,
   ChevronLeft,
   ChevronRight,
   MoreVertical,
@@ -30,8 +30,11 @@ import {
   Check,
   GripVertical,
   RotateCcw,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
 } from 'lucide-react';
-import { Vehicle } from '../types';
+import { Vehicle, type VehicleStatus } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DateTimePicker } from './DateTimePicker';
 import {
@@ -62,6 +65,12 @@ import {
   type SuivieRow,
 } from '@/features/suivie/mock-data';
 import { useColumnPreferences } from '@/features/suivie/useColumnPreferences';
+import {
+  nextSortState,
+  sortSuivieRows,
+  type ColumnSortState,
+  type SortDir,
+} from '@/features/suivie/sort-rows';
 
 interface VehicleListPanelProps {
   vehicles: Vehicle[];
@@ -70,14 +79,21 @@ interface VehicleListPanelProps {
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
   onFilteredVehicleIdsChange?: (ids: string[] | null) => void;
+  statusFilter?: Set<VehicleStatus>;
 }
+
+const EMPTY_STATUS_FILTER = new Set<VehicleStatus>();
 
 function SortableHeader({
   id,
   label,
+  sortDir,
+  onSortClick,
 }: {
   id: string;
   label: string;
+  sortDir: SortDir | null;
+  onSortClick: (columnId: string) => void;
 }) {
   const {
     attributes,
@@ -95,26 +111,100 @@ function SortableHeader({
     zIndex: isDragging ? 20 : undefined,
   };
 
+  const ariaSort =
+    sortDir === 'asc'
+      ? 'ascending'
+      : sortDir === 'desc'
+        ? 'descending'
+        : 'none';
+
+  const SortIcon =
+    sortDir === 'asc' ? ArrowUp : sortDir === 'desc' ? ArrowDown : ArrowUpDown;
+
   return (
     <th
       ref={setNodeRef}
       style={style}
+      aria-sort={ariaSort}
       className="px-2 py-2.5 text-xs font-bold text-white uppercase tracking-wider border-b border-blue-700 whitespace-nowrap select-none"
       {...attributes}
     >
       <div className="flex items-center gap-1">
         <button
           type="button"
-          className="p-0.5 rounded hover:bg-blue-500/50 cursor-grab active:cursor-grabbing touch-none"
+          className="p-0.5 rounded hover:bg-blue-500/50 cursor-grab active:cursor-grabbing touch-none shrink-0"
           aria-label={`Réordonner ${label}`}
           {...listeners}
         >
           <GripVertical className="w-3.5 h-3.5 text-blue-100" />
         </button>
-        <span>{label}</span>
+        <button
+          type="button"
+          onClick={() => onSortClick(id)}
+          className={`flex items-center gap-1 min-w-0 rounded px-1 py-0.5 cursor-pointer hover:bg-blue-500/40 transition-colors ${
+            sortDir ? 'bg-blue-500/30' : ''
+          }`}
+          title={`Trier par ${label}`}
+        >
+          <span className="truncate">{label}</span>
+          <SortIcon
+            className={`w-3.5 h-3.5 shrink-0 ${
+              sortDir ? 'text-white' : 'text-blue-200/80'
+            }`}
+          />
+        </button>
       </div>
     </th>
   );
+}
+
+function FilterBulkActions({
+  onSelectAll,
+  onClear,
+}: {
+  onSelectAll: () => void;
+  onClear: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <button
+        type="button"
+        onClick={onSelectAll}
+        className="px-2 py-1 rounded-md text-[11px] font-medium text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 hover:border-blue-300 transition-colors"
+      >
+        Tout sélectionner
+      </button>
+      <button
+        type="button"
+        onClick={onClear}
+        className="px-2 py-1 rounded-md text-[11px] font-medium text-slate-700 bg-slate-100 border border-slate-300 hover:bg-slate-200 hover:border-slate-400 transition-colors"
+      >
+        Tout désélectionner
+      </button>
+    </div>
+  );
+}
+
+type OpenActionMenu = {
+  rowId: string;
+  vehicleId: string;
+  x: number;
+  y: number;
+} | null;
+
+function clampMenuPosition(
+  x: number,
+  y: number,
+  menuWidth = 256,
+  menuHeight = 320
+) {
+  const pad = 8;
+  const maxX = window.innerWidth - menuWidth - pad;
+  const maxY = window.innerHeight - menuHeight - pad;
+  return {
+    x: Math.max(pad, Math.min(x, maxX)),
+    y: Math.max(pad, Math.min(y, maxY)),
+  };
 }
 
 function cellClassFor(columnId: string, value: string): string {
@@ -225,6 +315,7 @@ export function VehicleListPanel({
   isCollapsed = false,
   onToggleCollapse,
   onFilteredVehicleIdsChange,
+  statusFilter = EMPTY_STATUS_FILTER,
 }: VehicleListPanelProps) {
   const [width, setWidth] = useState(() =>
     typeof window !== 'undefined'
@@ -235,7 +326,12 @@ export function VehicleListPanel({
     () => typeof window !== 'undefined' && window.innerWidth >= 1024
   );
   const [isResizing, setIsResizing] = useState(false);
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [openMenu, setOpenMenu] = useState<OpenActionMenu>(null);
+  const [sort, setSort] = useState<ColumnSortState | null>(null);
+  const [groupByDepartment, setGroupByDepartment] = useState(true);
+  const [visibleDepartments, setVisibleDepartments] = useState<Set<string>>(
+    () => new Set(SUIVIE_DEPARTMENTS)
+  );
   const [collapsedDepartments, setCollapsedDepartments] = useState<Set<string>>(
     new Set()
   );
@@ -246,9 +342,6 @@ export function VehicleListPanel({
   const [draftAction, setDraftAction] =
     useState<SuivieAction>('suivie_generale');
   const [draftVehicles, setDraftVehicles] = useState<Set<string>>(new Set());
-  const [draftDepartments, setDraftDepartments] = useState<Set<string>>(
-    new Set()
-  );
   const [draftAlertTypes, setDraftAlertTypes] = useState<Set<string>>(
     new Set()
   );
@@ -260,10 +353,8 @@ export function VehicleListPanel({
   const [isActionDropdownOpen, setIsActionDropdownOpen] = useState(false);
   const [isAlertDropdownOpen, setIsAlertDropdownOpen] = useState(false);
   const [isColumnSettingsOpen, setIsColumnSettingsOpen] = useState(false);
-  const [vehicleTab, setVehicleTab] = useState<'vehicles' | 'departments'>(
-    'vehicles'
-  );
   const [vehicleSearch, setVehicleSearch] = useState('');
+  const [tableSearch, setTableSearch] = useState('');
 
   const panelRef = useRef<HTMLDivElement>(null);
   const vehicleDropdownRef = useRef<HTMLDivElement>(null);
@@ -338,8 +429,8 @@ export function VehicleListPanel({
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (openMenuId && !(e.target as Element).closest('.action-menu')) {
-        setOpenMenuId(null);
+      if (openMenu && !(e.target as Element).closest('.action-menu')) {
+        setOpenMenu(null);
       }
       if (
         vehicleDropdownRef.current &&
@@ -368,54 +459,186 @@ export function VehicleListPanel({
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [openMenuId]);
-
-  const tableRows = useMemo(() => {
-    if (!applied) return [] as SuivieRow[];
-    const all = buildRowsForAction(applied.action, vehicles);
-    return applySuivieFilters(all, applied);
-  }, [applied, vehicles]);
+  }, [openMenu]);
 
   useEffect(() => {
-    if (!onFilteredVehicleIdsChange || !applied) return;
-    const hasScope =
-      applied.vehicleIds.size > 0 || applied.departments.size > 0;
-    if (!hasScope) {
-      onFilteredVehicleIdsChange(null);
-      return;
+    setSort(null);
+    setTableSearch('');
+    if (activeAction === 'suivie_generale') {
+      setVisibleDepartments(new Set(SUIVIE_DEPARTMENTS));
+      setGroupByDepartment(true);
     }
-    onFilteredVehicleIdsChange(getFilteredVehicleIds(tableRows));
-  }, [applied, tableRows, onFilteredVehicleIdsChange]);
+  }, [activeAction]);
 
-  const rowsByDepartment = useMemo(() => {
-    if (activeAction !== 'suivie_generale') return null;
-    const grouped: Record<string, SuivieRow[]> = {};
-    for (const dept of SUIVIE_DEPARTMENTS) grouped[dept] = [];
-    for (const row of tableRows) {
-      if (!grouped[row.department]) grouped[row.department] = [];
-      grouped[row.department].push(row);
-    }
-    return Object.fromEntries(
-      Object.entries(grouped).filter(([, rows]) => rows.length > 0)
-    );
-  }, [activeAction, tableRows]);
+  const toggleSort = useCallback((columnId: string) => {
+    setSort((prev) => nextSortState(prev, columnId));
+  }, []);
+
+  const toggleVisibleDepartment = useCallback((dept: string) => {
+    setVisibleDepartments((prev) => {
+      const next = new Set(prev);
+      if (next.has(dept)) next.delete(dept);
+      else next.add(dept);
+      return next;
+    });
+  }, []);
+
+  const selectAllVisibleDepartments = useCallback(() => {
+    setVisibleDepartments(new Set(SUIVIE_DEPARTMENTS));
+  }, []);
+
+  const clearVisibleDepartments = useCallback(() => {
+    setVisibleDepartments(new Set());
+  }, []);
 
   const vehicleById = useMemo(
     () => Object.fromEntries(vehicles.map((v) => [v.id, v])),
     [vehicles]
   );
 
-  const filteredVehiclesList = vehicles.filter(
-    (v) =>
-      v.name.toLowerCase().includes(vehicleSearch.toLowerCase()) ||
-      v.id.toLowerCase().includes(vehicleSearch.toLowerCase())
+  const scopedRows = useMemo(() => {
+    if (!applied) return [] as SuivieRow[];
+    const all = buildRowsForAction(applied.action, vehicles);
+    return applySuivieFilters(all, applied);
+  }, [applied, vehicles]);
+
+  const tableRows = useMemo(() => {
+    let rows = scopedRows;
+    if (
+      activeAction === 'suivie_generale' &&
+      statusFilter.size > 0
+    ) {
+      rows = rows.filter((row) => {
+        const status = vehicleById[row.vehicleId]?.status;
+        return status != null && statusFilter.has(status);
+      });
+    }
+    if (
+      activeAction === 'suivie_generale' &&
+      groupByDepartment &&
+      visibleDepartments.size < SUIVIE_DEPARTMENTS.length
+    ) {
+      rows = rows.filter((row) => visibleDepartments.has(row.department));
+    }
+    // Flat list when not grouping (or non-générale): apply global sort
+    if (activeAction === 'suivie_generale' && groupByDepartment) {
+      return rows;
+    }
+    return sortSuivieRows(rows, sort);
+  }, [
+    scopedRows,
+    activeAction,
+    statusFilter,
+    vehicleById,
+    sort,
+    groupByDepartment,
+    visibleDepartments,
+  ]);
+
+  useEffect(() => {
+    if (!onFilteredVehicleIdsChange || !applied) return;
+    const hasScope =
+      applied.vehicleIds.size > 0 || applied.departments.size > 0;
+    const hasDeptVisibility =
+      activeAction === 'suivie_generale' &&
+      groupByDepartment &&
+      visibleDepartments.size < SUIVIE_DEPARTMENTS.length;
+    if (!hasScope && !hasDeptVisibility) {
+      onFilteredVehicleIdsChange(null);
+      return;
+    }
+    onFilteredVehicleIdsChange(getFilteredVehicleIds(tableRows));
+  }, [
+    applied,
+    tableRows,
+    onFilteredVehicleIdsChange,
+    activeAction,
+    groupByDepartment,
+    visibleDepartments,
+  ]);
+
+  const rowsByDepartment = useMemo(() => {
+    if (activeAction !== 'suivie_generale' || !groupByDepartment) return null;
+    const grouped: Record<string, SuivieRow[]> = {};
+    for (const dept of SUIVIE_DEPARTMENTS) {
+      if (!visibleDepartments.has(dept)) continue;
+      grouped[dept] = [];
+    }
+    for (const row of tableRows) {
+      if (!visibleDepartments.has(row.department)) continue;
+      if (!grouped[row.department]) grouped[row.department] = [];
+      grouped[row.department].push(row);
+    }
+    const entries = Object.entries(grouped).filter(([, rows]) => rows.length > 0);
+    return Object.fromEntries(
+      entries.map(([dept, rows]) => [dept, sortSuivieRows(rows, sort)])
+    );
+  }, [
+    activeAction,
+    tableRows,
+    sort,
+    groupByDepartment,
+    visibleDepartments,
+  ]);
+
+  const rowMatchesTableSearch = useCallback(
+    (row: SuivieRow, query: string) => {
+      if (!query) return true;
+      const parts: string[] = [
+        row.vehicleName,
+        row.department,
+        row.vehicleId,
+        row.id,
+      ];
+      for (const col of visibleColumns) {
+        const raw = row[col.id];
+        if (raw !== undefined && raw !== null) parts.push(String(raw));
+      }
+      return parts.join(' ').toLowerCase().includes(query);
+    },
+    [visibleColumns]
   );
 
-  const applyFilters = useCallback(() => {
+  const displayTableRows = useMemo(() => {
+    const q = tableSearch.trim().toLowerCase();
+    if (!q) return tableRows;
+    return tableRows.filter((row) => rowMatchesTableSearch(row, q));
+  }, [tableRows, tableSearch, rowMatchesTableSearch]);
+
+  const displayRowsByDepartment = useMemo(() => {
+    if (!rowsByDepartment) return null;
+    const q = tableSearch.trim().toLowerCase();
+    if (!q) return rowsByDepartment;
+    const filtered: Record<string, SuivieRow[]> = {};
+    for (const [dept, rows] of Object.entries(rowsByDepartment)) {
+      const matched = rows.filter((row) => rowMatchesTableSearch(row, q));
+      if (matched.length > 0) filtered[dept] = matched;
+    }
+    return filtered;
+  }, [rowsByDepartment, tableSearch, rowMatchesTableSearch]);
+
+  const filteredVehiclesList = useMemo(() => {
+    const q = vehicleSearch.trim().toLowerCase();
+    if (!q) return vehicles;
+    return vehicles.filter((v) => {
+      const haystack = [
+        v.name,
+        v.id,
+        v.matricule ?? '',
+        v.imei ?? '',
+        v.driver,
+      ]
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [vehicles, vehicleSearch]);
+
+  useEffect(() => {
     setApplied({
       action: draftAction,
       vehicleIds: new Set(draftVehicles),
-      departments: new Set(draftDepartments),
+      departments: new Set(),
       startDate: draftStartDate,
       endDate: draftEndDate,
       alertTypes: new Set(draftAlertTypes),
@@ -423,7 +646,6 @@ export function VehicleListPanel({
   }, [
     draftAction,
     draftVehicles,
-    draftDepartments,
     draftStartDate,
     draftEndDate,
     draftAlertTypes,
@@ -434,15 +656,6 @@ export function VehicleListPanel({
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
-      return next;
-    });
-  };
-
-  const toggleDepartment = (dept: string) => {
-    setDraftDepartments((prev) => {
-      const next = new Set(prev);
-      if (next.has(dept)) next.delete(dept);
-      else next.add(dept);
       return next;
     });
   };
@@ -458,12 +671,12 @@ export function VehicleListPanel({
 
   const getVehicleButtonText = () => {
     const vCount = draftVehicles.size;
-    const dCount = draftDepartments.size;
-    if (vCount === 0 && dCount === 0) return 'Sélectionner véhicules';
-    const parts: string[] = [];
-    if (vCount > 0) parts.push(`${vCount} véh.`);
-    if (dCount > 0) parts.push(`${dCount} dép.`);
-    return parts.join(', ');
+    if (vCount === 0) return 'Sélectionner des véhicules';
+    if (vCount === 1) {
+      const v = vehicles.find((x) => x.id === [...draftVehicles][0]);
+      return v?.matricule || v?.name || '1 véhicule';
+    }
+    return `${vCount} véhicules`;
   };
 
   const toggleDepartmentCollapse = (dept: string) => {
@@ -491,7 +704,21 @@ export function VehicleListPanel({
     if (action === 'Afficher sur la carte' && vehicle) {
       onSelectVehicle(vehicle);
     }
-    setOpenMenuId(null);
+    setOpenMenu(null);
+  };
+
+  const openActionMenuAt = (
+    e: React.MouseEvent,
+    rowId: string,
+    vehicleId: string
+  ) => {
+    e.stopPropagation();
+    if (openMenu?.rowId === rowId) {
+      setOpenMenu(null);
+      return;
+    }
+    const { x, y } = clampMenuPosition(e.clientX, e.clientY);
+    setOpenMenu({ rowId, vehicleId, x, y });
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -514,73 +741,44 @@ export function VehicleListPanel({
       selectedVehicleId === row.vehicleId
         ? 'bg-blue-50'
         : 'bg-white hover:bg-slate-50'
-    }${isGenerale ? ' action-menu' : ''}`;
-
-    const actionMenu =
-      isGenerale && openMenuId === row.id ? (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: -10 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: -10 }}
-          transition={{ duration: 0.15 }}
-          className="absolute left-0 top-full mt-0.5 w-64 bg-white rounded-xl shadow-2xl border border-slate-200 py-1 z-50 overflow-hidden"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {menuItems.map((item, idx) => {
-            const Icon = item.icon;
-            return (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => handleMenuAction(item.label, row.vehicleId)}
-                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors text-left group"
-              >
-                <Icon className="w-4 h-4 text-slate-500 group-hover:text-blue-600 transition-colors flex-shrink-0" />
-                <span className="text-sm text-slate-700 group-hover:text-slate-900">
-                  {item.label}
-                </span>
-              </button>
-            );
-          })}
-        </motion.div>
-      ) : null;
+    }${isGenerale ? ' cursor-pointer' : ''}`;
 
     return (
       <tr
         key={row.id}
         className={commonClasses}
-        onClick={() => {
+        onMouseDown={(e) => {
+          if (isGenerale) e.stopPropagation();
+        }}
+        onClick={(e) => {
           if (isGenerale) {
-            setOpenMenuId(openMenuId === row.id ? null : row.id);
+            openActionMenuAt(e, row.id, row.vehicleId);
           } else {
             selectRowVehicle(row);
           }
         }}
       >
-        {visibleColumns.map((col, colIndex) => {
+        {visibleColumns.map((col) => {
           const raw = row[col.id];
           const value =
             raw === undefined || raw === null ? '—' : String(raw);
           return (
-            <td
-              key={col.id}
-              className={`${cellClassFor(col.id, value)}${
-                colIndex === 0 ? ' relative' : ''
-              }`}
-            >
-              {colIndex === 0 && actionMenu}
+            <td key={col.id} className={cellClassFor(col.id, value)}>
               {renderCellContent(col.id, value, row)}
             </td>
           );
         })}
         {isGenerale && (
-          <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+          <td className="px-3 py-2">
             <button
               type="button"
-              onClick={() =>
-                setOpenMenuId(openMenuId === row.id ? null : row.id)
-              }
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                openActionMenuAt(e, row.id, row.vehicleId);
+              }}
               className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors"
+              aria-label="Actions véhicule"
             >
               <MoreVertical className="w-4 h-4 text-slate-600" />
             </button>
@@ -624,7 +822,7 @@ export function VehicleListPanel({
                 >
                   <label className="text-xs font-semibold text-slate-700 mb-1 block flex items-center gap-1.5">
                     <Car className="w-3.5 h-3.5 text-blue-600" />
-                    Véhicules / Départements
+                    Véhicules
                   </label>
                   <button
                     type="button"
@@ -635,7 +833,7 @@ export function VehicleListPanel({
                   >
                     <span
                       className={`truncate ${
-                        draftVehicles.size > 0 || draftDepartments.size > 0
+                        draftVehicles.size > 0
                           ? 'text-slate-900 font-medium'
                           : 'text-slate-500'
                       }`}
@@ -655,157 +853,84 @@ export function VehicleListPanel({
                         initial={{ opacity: 0, y: 5 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 5 }}
-                        className="absolute top-full left-0 mt-1 bg-white rounded-xl shadow-xl border border-slate-200 z-50 overflow-hidden flex flex-col max-h-[400px] w-full max-w-[min(320px,calc(100vw-2rem))]"
+                        className="absolute top-full left-0 mt-1 bg-white rounded-xl shadow-xl border border-slate-200 z-50 overflow-hidden flex flex-col max-h-[400px] w-full max-w-[min(360px,calc(100vw-2rem))]"
                       >
-                        <div className="flex border-b border-slate-100">
-                          <button
-                            type="button"
-                            onClick={() => setVehicleTab('vehicles')}
-                            className={`flex-1 py-2 text-xs font-medium text-center transition-colors ${
-                              vehicleTab === 'vehicles'
-                                ? 'text-blue-600 bg-blue-50/50 border-b-2 border-blue-600'
-                                : 'text-slate-600 hover:bg-slate-50'
-                            }`}
-                          >
-                            Véhicules ({draftVehicles.size})
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setVehicleTab('departments')}
-                            className={`flex-1 py-2 text-xs font-medium text-center transition-colors ${
-                              vehicleTab === 'departments'
-                                ? 'text-blue-600 bg-blue-50/50 border-b-2 border-blue-600'
-                                : 'text-slate-600 hover:bg-slate-50'
-                            }`}
-                          >
-                            Départements ({draftDepartments.size})
-                          </button>
+                        <div className="p-2 border-b border-slate-100">
+                          <div className="relative">
+                            <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+                            <input
+                              type="text"
+                              placeholder="Matricule, IMEI, nom…"
+                              value={vehicleSearch}
+                              onChange={(e) =>
+                                setVehicleSearch(e.target.value)
+                              }
+                              className="w-full pl-7 pr-2 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500"
+                            />
+                          </div>
+                          <div className="flex items-center justify-between mt-1.5 px-1">
+                            <FilterBulkActions
+                              onSelectAll={() =>
+                                setDraftVehicles(
+                                  new Set(
+                                    filteredVehiclesList.map((v) => v.id)
+                                  )
+                                )
+                              }
+                              onClear={() => setDraftVehicles(new Set())}
+                            />
+                          </div>
+                          <p className="mt-1 px-1 text-[10px] text-slate-500">
+                            {draftVehicles.size} sélectionné
+                            {draftVehicles.size === 1 ? '' : 's'}
+                            {vehicleSearch.trim()
+                              ? ` · ${filteredVehiclesList.length} résultat${filteredVehiclesList.length === 1 ? '' : 's'}`
+                              : ''}
+                          </p>
                         </div>
-
-                        <div className="flex-1 overflow-hidden flex flex-col">
-                          {vehicleTab === 'vehicles' ? (
-                            <>
-                              <div className="p-2 border-b border-slate-100">
-                                <div className="relative">
-                                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
-                                  <input
-                                    type="text"
-                                    placeholder="Rechercher..."
-                                    value={vehicleSearch}
-                                    onChange={(e) =>
-                                      setVehicleSearch(e.target.value)
-                                    }
-                                    className="w-full pl-7 pr-2 py-1 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500"
-                                  />
-                                </div>
-                                <div className="flex items-center justify-between mt-1.5 px-1">
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setDraftVehicles(
-                                        new Set(vehicles.map((v) => v.id))
-                                      )
-                                    }
-                                    className="text-[9px] text-blue-600 hover:underline font-medium"
-                                  >
-                                    Tout
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => setDraftVehicles(new Set())}
-                                    className="text-[9px] text-slate-500 hover:underline"
-                                  >
-                                    Rien
-                                  </button>
-                                </div>
-                              </div>
-                              <div className="overflow-y-auto flex-1 p-1">
-                                {filteredVehiclesList.map((vehicle) => (
-                                  <label
-                                    key={vehicle.id}
-                                    className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-50 rounded-lg cursor-pointer group transition-colors"
-                                  >
-                                    <div
-                                      className={`w-3 h-3 rounded border flex items-center justify-center transition-colors ${
-                                        draftVehicles.has(vehicle.id)
-                                          ? 'bg-blue-600 border-blue-600'
-                                          : 'border-slate-300 bg-white group-hover:border-blue-400'
-                                      }`}
-                                    >
-                                      {draftVehicles.has(vehicle.id) && (
-                                        <Check className="w-2 h-2 text-white" />
-                                      )}
-                                    </div>
-                                    <input
-                                      type="checkbox"
-                                      className="sr-only"
-                                      checked={draftVehicles.has(vehicle.id)}
-                                      onChange={() => toggleVehicle(vehicle.id)}
-                                    />
-                                    <div className="flex-1 min-w-0">
-                                      <div className="text-xs font-medium text-slate-700 truncate">
-                                        {vehicle.name}
-                                      </div>
-                                      <div className="text-[10px] text-slate-500 truncate">
-                                        {vehicle.driver}
-                                      </div>
-                                    </div>
-                                  </label>
-                                ))}
-                              </div>
-                            </>
+                        <div className="overflow-y-auto flex-1 p-1">
+                          {filteredVehiclesList.length === 0 ? (
+                            <p className="px-3 py-6 text-center text-xs text-slate-500">
+                              Aucun véhicule trouvé
+                            </p>
                           ) : (
-                            <div className="flex-1 overflow-y-auto p-1">
-                              <div className="flex items-center justify-between mb-1.5 px-2 pt-1">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setDraftDepartments(
-                                      new Set([...SUIVIE_DEPARTMENTS])
-                                    )
-                                  }
-                                  className="text-[9px] text-blue-600 hover:underline font-medium"
+                            filteredVehiclesList.map((vehicle) => (
+                              <label
+                                key={vehicle.id}
+                                className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-50 rounded-lg cursor-pointer group transition-colors"
+                              >
+                                <div
+                                  className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-colors shrink-0 ${
+                                    draftVehicles.has(vehicle.id)
+                                      ? 'bg-blue-600 border-blue-600'
+                                      : 'border-slate-300 bg-white group-hover:border-blue-400'
+                                  }`}
                                 >
-                                  Tout
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setDraftDepartments(new Set())
-                                  }
-                                  className="text-[9px] text-slate-500 hover:underline"
-                                >
-                                  Rien
-                                </button>
-                              </div>
-                              {SUIVIE_DEPARTMENTS.map((dept) => (
-                                <label
-                                  key={dept}
-                                  className="flex items-center gap-2 px-2 py-2 hover:bg-slate-50 rounded-lg cursor-pointer group transition-colors"
-                                >
-                                  <div
-                                    className={`w-3 h-3 rounded border flex items-center justify-center transition-colors ${
-                                      draftDepartments.has(dept)
-                                        ? 'bg-blue-600 border-blue-600'
-                                        : 'border-slate-300 bg-white group-hover:border-blue-400'
-                                    }`}
-                                  >
-                                    {draftDepartments.has(dept) && (
-                                      <Check className="w-2 h-2 text-white" />
-                                    )}
+                                  {draftVehicles.has(vehicle.id) && (
+                                    <Check className="w-2.5 h-2.5 text-white" />
+                                  )}
+                                </div>
+                                <input
+                                  type="checkbox"
+                                  className="sr-only"
+                                  checked={draftVehicles.has(vehicle.id)}
+                                  onChange={() => toggleVehicle(vehicle.id)}
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-xs font-semibold text-slate-800 truncate">
+                                    {vehicle.matricule || vehicle.name}
                                   </div>
-                                  <input
-                                    type="checkbox"
-                                    className="sr-only"
-                                    checked={draftDepartments.has(dept)}
-                                    onChange={() => toggleDepartment(dept)}
-                                  />
-                                  <span className="text-xs font-medium text-slate-700">
-                                    {dept}
-                                  </span>
-                                </label>
-                              ))}
-                            </div>
+                                  <div className="text-[10px] text-slate-500 truncate font-mono">
+                                    IMEI {vehicle.imei || '—'}
+                                  </div>
+                                  {vehicle.matricule && (
+                                    <div className="text-[10px] text-slate-400 truncate">
+                                      {vehicle.name}
+                                    </div>
+                                  )}
+                                </div>
+                              </label>
+                            ))
                           )}
                         </div>
                       </motion.div>
@@ -893,7 +1018,7 @@ export function VehicleListPanel({
                                     : {
                                         action: action.id,
                                         vehicleIds: new Set(draftVehicles),
-                                        departments: new Set(draftDepartments),
+                                        departments: new Set(),
                                         startDate: draftStartDate,
                                         endDate: draftEndDate,
                                         alertTypes: new Set(draftAlertTypes),
@@ -953,23 +1078,13 @@ export function VehicleListPanel({
                           exit={{ opacity: 0, y: 5 }}
                           className="absolute top-full left-0 mt-1 bg-white rounded-xl shadow-xl border border-slate-200 z-50 overflow-hidden w-full min-w-[220px] max-h-[280px] flex flex-col"
                         >
-                          <div className="p-1.5 border-b border-slate-100 flex justify-between">
-                            <button
-                              type="button"
-                              onClick={() =>
+                          <div className="p-1.5 border-b border-slate-100 flex justify-between gap-1.5">
+                            <FilterBulkActions
+                              onSelectAll={() =>
                                 setDraftAlertTypes(new Set([...ALERT_TYPES]))
                               }
-                              className="text-[9px] text-blue-600 hover:underline font-medium"
-                            >
-                              Tout
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setDraftAlertTypes(new Set())}
-                              className="text-[9px] text-slate-500 hover:underline"
-                            >
-                              Rien
-                            </button>
+                              onClear={() => setDraftAlertTypes(new Set())}
+                            />
                           </div>
                           <div className="overflow-y-auto p-1">
                             {ALERT_TYPES.map((type) => (
@@ -996,9 +1111,83 @@ export function VehicleListPanel({
                 )}
                 </div>
               </div>
+            </div>
+          </div>
 
-              {/* Actions cluster */}
-              <div className="w-full flex items-center gap-1.5">
+          {activeAction === 'suivie_generale' && (
+            <div className="shrink-0 border-b border-slate-200 bg-white px-3 py-2 space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={groupByDepartment}
+                    onClick={() => setGroupByDepartment((v) => !v)}
+                    className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+                      groupByDepartment ? 'bg-blue-600' : 'bg-slate-300'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                        groupByDepartment ? 'translate-x-4' : 'translate-x-0.5'
+                      }`}
+                    />
+                  </button>
+                  <span className="text-xs font-semibold text-slate-700">
+                    Classer par département
+                  </span>
+                </label>
+                {groupByDepartment && (
+                  <FilterBulkActions
+                    onSelectAll={selectAllVisibleDepartments}
+                    onClear={clearVisibleDepartments}
+                  />
+                )}
+              </div>
+              {groupByDepartment && (
+                <div className="flex flex-wrap gap-1.5">
+                  {SUIVIE_DEPARTMENTS.map((dept) => {
+                    const selected = visibleDepartments.has(dept);
+                    return (
+                      <button
+                        key={dept}
+                        type="button"
+                        onClick={() => toggleVisibleDepartment(dept)}
+                        aria-pressed={selected}
+                        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                          selected
+                            ? 'bg-blue-50 border-blue-300 text-blue-800'
+                            : 'bg-slate-50 border-slate-200 text-slate-400 hover:border-slate-300'
+                        }`}
+                      >
+                        <span
+                          className={`h-1.5 w-1.5 rounded-full ${
+                            selected ? 'bg-blue-500' : 'bg-slate-300'
+                          }`}
+                        />
+                        {dept}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="shrink-0 border-b border-slate-200 bg-white px-3 py-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative flex-1 min-w-[160px]">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                <input
+                  type="text"
+                  value={tableSearch}
+                  onChange={(e) => setTableSearch(e.target.value)}
+                  placeholder="Rechercher dans le tableau…"
+                  className="w-full h-8 pl-8 pr-3 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 focus:bg-white transition-colors"
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center gap-1.5 shrink-0">
                 <div className="relative shrink-0" ref={columnSettingsRef}>
                   <button
                     type="button"
@@ -1017,7 +1206,7 @@ export function VehicleListPanel({
                         initial={{ opacity: 0, y: -4 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -4 }}
-                        className="absolute top-full mt-2 left-0 w-72 max-h-80 bg-white rounded-xl shadow-xl border border-slate-200 z-[100] flex flex-col overflow-hidden"
+                        className="absolute top-full mt-2 right-0 w-72 max-h-80 bg-white rounded-xl shadow-xl border border-slate-200 z-[100] flex flex-col overflow-hidden"
                       >
                         <div className="px-3 py-2 border-b border-slate-100 flex items-center justify-between">
                           <span className="text-xs font-semibold text-slate-800">
@@ -1067,31 +1256,28 @@ export function VehicleListPanel({
 
                 <button
                   type="button"
-                  className="flex-1 h-8 flex items-center justify-center gap-1.5 px-2.5 text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-lg text-xs font-medium transition-all shadow-sm"
+                  className="h-8 flex items-center justify-center gap-1.5 px-2.5 text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-lg text-xs font-medium transition-all shadow-sm"
                 >
                   <Download className="w-3.5 h-3.5" />
                   <span>PDF</span>
                 </button>
                 <button
                   type="button"
-                  className="flex-1 h-8 flex items-center justify-center gap-1.5 px-2.5 text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-lg text-xs font-medium transition-all shadow-sm"
+                  className="h-8 flex items-center justify-center gap-1.5 px-2.5 text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-lg text-xs font-medium transition-all shadow-sm"
                 >
                   <Download className="w-3.5 h-3.5" />
                   <span>Excel</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={applyFilters}
-                  className="flex-1 h-8 px-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-1.5 font-semibold text-xs"
-                >
-                  <Filter className="w-3.5 h-3.5" />
-                  Appliquer
                 </button>
               </div>
             </div>
           </div>
 
-          <div className="flex-1 overflow-x-auto overflow-y-auto bg-white min-w-0">
+          <div
+            className="flex-1 overflow-x-auto overflow-y-auto bg-white min-w-0"
+            onScroll={() => {
+              if (openMenu) setOpenMenu(null);
+            }}
+          >
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}
@@ -1109,6 +1295,10 @@ export function VehicleListPanel({
                         key={col.id}
                         id={col.id}
                         label={col.label}
+                        sortDir={
+                          sort?.columnId === col.id ? sort.dir : null
+                        }
+                        onSortClick={toggleSort}
                       />
                     ))}
                   </SortableContext>
@@ -1120,18 +1310,25 @@ export function VehicleListPanel({
                 </tr>
               </thead>
               <tbody>
-                {tableRows.length === 0 ? (
+                {displayTableRows.length === 0 ? (
                   <tr>
                     <td
                       colSpan={Math.max(colCount, 1)}
                       className="px-4 py-12 text-center text-sm text-slate-500"
                     >
-                      Aucun résultat pour ces filtres. Modifiez la sélection
-                      puis cliquez sur Appliquer.
+                      {tableSearch.trim()
+                        ? 'Aucun résultat pour cette recherche dans le tableau.'
+                        : activeAction === 'suivie_generale' &&
+                            groupByDepartment &&
+                            visibleDepartments.size === 0
+                          ? 'Aucun département sélectionné. Activez au moins un département ci-dessus.'
+                          : 'Aucun résultat pour ces filtres.'}
                     </td>
                   </tr>
-                ) : activeAction === 'suivie_generale' && rowsByDepartment ? (
-                  Object.entries(rowsByDepartment).map(([dept, rows]) => {
+                ) : activeAction === 'suivie_generale' &&
+                  groupByDepartment &&
+                  displayRowsByDepartment ? (
+                  Object.entries(displayRowsByDepartment).map(([dept, rows]) => {
                     const isCollapsedDept = collapsedDepartments.has(dept);
                     return (
                       <Fragment key={dept}>
@@ -1161,12 +1358,51 @@ export function VehicleListPanel({
                     );
                   })
                 ) : (
-                  tableRows.map((row) => renderDataRow(row))
+                  displayTableRows.map((row) => renderDataRow(row))
                 )}
               </tbody>
             </table>
             </DndContext>
           </div>
+
+          {typeof document !== 'undefined' &&
+            createPortal(
+              <AnimatePresence>
+                {openMenu && (
+                  <motion.div
+                    key={openMenu.rowId}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.12 }}
+                    className="action-menu fixed w-64 bg-white rounded-xl shadow-2xl border border-slate-200 py-1 z-[9999] overflow-hidden"
+                    style={{ left: openMenu.x, top: openMenu.y }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {menuItems.map((item, idx) => {
+                      const Icon = item.icon;
+                      return (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() =>
+                            handleMenuAction(item.label, openMenu.vehicleId)
+                          }
+                          className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors text-left group"
+                        >
+                          <Icon className="w-4 h-4 text-slate-500 group-hover:text-blue-600 transition-colors flex-shrink-0" />
+                          <span className="text-sm text-slate-700 group-hover:text-slate-900">
+                            {item.label}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </motion.div>
+                )}
+              </AnimatePresence>,
+              document.body
+            )}
 
           <div
             onMouseDown={() => setIsResizing(true)}

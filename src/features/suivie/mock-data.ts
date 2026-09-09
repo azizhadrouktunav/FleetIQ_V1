@@ -98,8 +98,6 @@ export const ALERT_TYPES = [
   'Inconnu',
 ] as const;
 
-const ALERT_TYPES_CONCRETE = ALERT_TYPES.filter((t) => t !== 'Toutes les alertes');
-
 const COMMAND_TYPES = [
   'Demande position',
   'Arrêt à distance',
@@ -260,17 +258,68 @@ function enrichVehicleMeta(vehicle: Vehicle, index: number) {
   return { department, rand, acquisition };
 }
 
+function vehicleSpeedKmh(vehicle: Vehicle, rand: () => number): number {
+  if (vehicle.status === 'offline' || vehicle.status === 'idle') return 0;
+  if (vehicle.speed > 0) return vehicle.speed;
+  return 20 + Math.floor(rand() * 80);
+}
+
+function lastAlertForVehicle(vehicle: Vehicle, speedVal: number, rand: () => number): string {
+  if (vehicle.status === 'offline') {
+    return pick(rand, ['Signal GPS détecté/perdu', 'Batterie débranchée', 'Stop de longue durée']);
+  }
+  if (vehicle.status === 'idle') {
+    return pick(rand, ['Stop', 'Stop de longue durée', '—', 'Contact On/Off']);
+  }
+  if (speedVal >= 110) return 'Dépassement de vitesse';
+  if (vehicle.batteryLevel > 0 && vehicle.batteryLevel < 25) return 'Batterie débranchée';
+  return pick(rand, ['—', '—', 'Conduite agressive', 'Alerte de carburant']);
+}
+
+function alertTypesForVehicle(vehicle: Vehicle, speedVal: number): readonly string[] {
+  if (vehicle.status === 'offline') {
+    return ['Signal GPS détecté/perdu', 'Batterie débranchée', 'Stop de longue durée', 'Enlèvement'];
+  }
+  if (vehicle.status === 'idle') {
+    return ['Stop', 'Stop de longue durée', 'Contact On/Off', 'Alerte de parc'];
+  }
+  const types = [
+    'Conduite agressive',
+    'Alerte de carburant',
+    'Alerte de température',
+    'Tous les geofences',
+    "Entrée/Sortie de l'itineraire",
+  ];
+  if (speedVal >= 90) return ['Dépassement de vitesse', ...types];
+  return types;
+}
+
+function commandStatusForVehicle(
+  vehicle: Vehicle,
+  rand: () => number
+): (typeof COMMAND_STATUSES)[number] {
+  if (vehicle.status === 'offline') {
+    return pick(rand, ['Échouée', 'Expirée', 'En attente'] as const);
+  }
+  if (vehicle.status === 'idle') {
+    return pick(rand, ['Exécutée', 'Exécutée', 'En attente'] as const);
+  }
+  return pick(rand, ['Exécutée', 'Exécutée', 'Exécutée', 'En attente'] as const);
+}
+
 export function buildTrackingRows(vehicles: Vehicle[]): TrackingRow[] {
   return vehicles.map((vehicle, index) => {
     const { department, rand, acquisition } = enrichVehicleMeta(vehicle, index);
-    const speedVal =
-      vehicle.status === 'active'
-        ? vehicle.speed || Math.floor(rand() * 80) + 20
-        : 0;
+    const speedVal = vehicleSpeedKmh(vehicle, rand);
     const mileage = Math.floor(rand() * 80000) + 12000;
     const engineH = Math.floor(rand() * 3000) + 300;
-    const fuel = Math.floor(rand() * 100);
+    const fuel =
+      vehicle.status === 'offline'
+        ? Math.floor(rand() * 40)
+        : Math.floor(25 + rand() * 75);
     const [lat, lng] = vehicle.coordinates;
+    const contactOn = vehicle.status === 'active' || (vehicle.status === 'idle' && rand() > 0.35);
+    const engineOn = vehicle.status === 'active' || (vehicle.status === 'idle' && rand() > 0.5);
 
     return {
       id: `trk-${vehicle.id}`,
@@ -278,30 +327,27 @@ export function buildTrackingRows(vehicles: Vehicle[]): TrackingRow[] {
       vehicleName: vehicle.name,
       department,
       filterDate: acquisition.toISOString(),
-      name: vehicle.name,
+      name: vehicle.matricule || vehicle.name,
       positionAddress: vehicle.location,
       date: formatDisplay(acquisition),
-      horodatage: computeHorodatage(acquisition),
+      horodatage: vehicle.lastUpdate || computeHorodatage(acquisition),
       speed: `${speedVal} km/h`,
       Mileage: `${mileage} km`,
       engineHours: `${engineH}:${pad(Math.floor(rand() * 60))}:${pad(Math.floor(rand() * 60))}`,
-      LastAlert: pick(rand, [
-        '—',
-        'Dépassement de vitesse',
-        'Batterie débranchée',
-        'Stop de longue durée',
-      ]),
-      Contact: rand() > 0.4 ? 'ON' : 'OFF',
-      engine: vehicle.status === 'active' ? 'ON' : 'OFF',
+      LastAlert: lastAlertForVehicle(vehicle, speedVal, rand),
+      Contact: contactOn ? 'ON' : 'OFF',
+      engine: engineOn ? 'ON' : 'OFF',
       FuelLevel: `${fuel}%`,
       Temperature: `${(15 + rand() * 20).toFixed(1)} °C`,
-      EngineTemperature: `${Math.floor(70 + rand() * 40)} °C`,
+      EngineTemperature: `${Math.floor(
+        engineOn ? 70 + rand() * 40 : 25 + rand() * 20
+      )} °C`,
       driver: vehicle.driver || '—',
       Department: department,
-      Equipment: `EQ-${pad(Number(vehicle.id) || index + 1, 4)}`,
+      Equipment: `EQ-${pad(Number(vehicle.id.replace(/\D/g, '')) || index + 1, 4)}`,
       SimCardNumber: `216${Math.floor(10000000 + rand() * 89999999)}`,
       ChassisNumber: `VIN${pad(1000 + index, 4)}`,
-      BatteryLevel: `${vehicle.batteryLevel ?? Math.floor(rand() * 100)}%`,
+      BatteryLevel: `${vehicle.batteryLevel}%`,
       HumidityLevel: `${Math.floor(30 + rand() * 50)}%`,
       ElockBattery: `${Math.floor(rand() * 100)}%`,
       LockStatus: rand() > 0.5 ? 'Verrouillé' : 'Déverrouillé',
@@ -316,16 +362,25 @@ export function buildTrackingRows(vehicles: Vehicle[]): TrackingRow[] {
       VolumeSonde1: `${(rand() * 200).toFixed(1)} L`,
       TemperatureSonde1: `${(10 + rand() * 15).toFixed(1)} °C`,
       BatteryLevelSonde1: `${Math.floor(rand() * 100)}%`,
-      StatusConnectedSonde1: rand() > 0.2 ? 'Connectée' : 'Déconnectée',
+      StatusConnectedSonde1:
+        vehicle.status === 'offline'
+          ? 'Déconnectée'
+          : rand() > 0.15
+            ? 'Connectée'
+            : 'Déconnectée',
       AdBlueLevel: `${Math.floor(rand() * 100)}%`,
       AxleWeight1st: `${Math.floor(2000 + rand() * 3000)} kg`,
       AxleWeight: `${Math.floor(3000 + rand() * 4000)} kg`,
       AxleWeight3rd: `${Math.floor(2500 + rand() * 3500)} kg`,
       AxleWeight4th: `${Math.floor(2000 + rand() * 3000)} kg`,
-      RapidBrackings: String(Math.floor(rand() * 12)),
-      RapidAccelerations: String(Math.floor(rand() * 15)),
+      RapidBrackings: String(
+        vehicle.status === 'active' ? Math.floor(rand() * 12) : Math.floor(rand() * 3)
+      ),
+      RapidAccelerations: String(
+        vehicle.status === 'active' ? Math.floor(rand() * 15) : Math.floor(rand() * 3)
+      ),
       SpecialityName: pick(rand, ['Livraison', 'Transport', 'Frigo', 'Benne']),
-      Dashboard: pick(rand, ['OK', 'Maint.', 'Doc.', '—']),
+      Dashboard: vehicle.status === 'offline' ? '—' : pick(rand, ['OK', 'Maint.', 'Doc.', 'OK']),
     };
   });
 }
@@ -334,21 +389,27 @@ export function buildAlertRows(vehicles: Vehicle[]): AlertRow[] {
   const rows: AlertRow[] = [];
   vehicles.forEach((vehicle, index) => {
     const { department, rand } = enrichVehicleMeta(vehicle, index);
-    const count = 1 + Math.floor(rand() * 3);
+    const speedVal = vehicleSpeedKmh(vehicle, rand);
+    const types = alertTypesForVehicle(vehicle, speedVal);
+    const count =
+      vehicle.status === 'offline'
+        ? 1 + Math.floor(rand() * 2)
+        : 1 + Math.floor(rand() * 3);
     for (let i = 0; i < count; i++) {
-      const when = hoursAgo(rand, 20);
-      const type = pick(rand, ALERT_TYPES_CONCRETE);
+      const when =
+        vehicle.status === 'offline' ? hoursAgo(rand, 48) : hoursAgo(rand, 20);
+      const type = pick(rand, types);
       const speed =
-        vehicle.status === 'active'
-          ? Math.floor(40 + rand() * 100)
-          : Math.floor(rand() * 30);
+        type === 'Dépassement de vitesse'
+          ? Math.max(speedVal, 110 + Math.floor(rand() * 40))
+          : speedVal;
       rows.push({
         id: `alt-${vehicle.id}-${i}`,
         vehicleId: vehicle.id,
         vehicleName: vehicle.name,
         department,
         filterDate: when.toISOString(),
-        Vehicle: vehicle.name,
+        Vehicle: vehicle.matricule || vehicle.name,
         Date: formatDisplay(when),
         Type: type,
         Address: vehicle.location,
@@ -366,11 +427,23 @@ export function buildRunStopRows(vehicles: Vehicle[]): RunStopRow[] {
   const rows: RunStopRow[] = [];
   vehicles.forEach((vehicle, index) => {
     const { department, rand } = enrichVehicleMeta(vehicle, index);
+    const speedVal = vehicleSpeedKmh(vehicle, rand);
     const count = 1 + Math.floor(rand() * 2);
     for (let i = 0; i < count; i++) {
       const begin = hoursAgo(rand, 20);
-      const isRun = rand() > 0.45;
-      const periodMin = 15 + Math.floor(rand() * 180);
+      // Latest segment matches current status; older ones may vary for history
+      const isRun =
+        i === 0
+          ? vehicle.status === 'active'
+          : vehicle.status === 'offline'
+            ? false
+            : rand() > 0.45;
+      const periodMin = isRun
+        ? 15 + Math.floor(rand() * 120)
+        : 20 + Math.floor(rand() * 180);
+      const avgSpeed = isRun
+        ? Math.max(15, Math.floor(speedVal * (0.7 + rand() * 0.4)) || 20 + Math.floor(rand() * 50))
+        : 0;
       rows.push({
         id: `rs-${vehicle.id}-${i}`,
         vehicleId: vehicle.id,
@@ -378,12 +451,12 @@ export function buildRunStopRows(vehicles: Vehicle[]): RunStopRow[] {
         department,
         filterDate: begin.toISOString(),
         Status: isRun ? 'Circulation' : 'Stop',
-        Matricule: vehicle.name,
+        Matricule: vehicle.matricule || vehicle.name,
         Place: vehicle.location,
-        Distance: `${Math.floor(5 + rand() * 400)} km`,
+        Distance: `${isRun ? Math.floor(5 + rand() * 400) : Math.floor(rand() * 3)} km`,
         Period: `${periodMin} min`,
         StartDate: formatDisplay(begin),
-        AvgSpeed: `${Math.floor(20 + rand() * 60)} km/h`,
+        AvgSpeed: `${avgSpeed} km/h`,
         Action: 'Zoom',
       });
     }
@@ -395,13 +468,23 @@ export function buildTrajectoryRows(vehicles: Vehicle[]): TrajectoryRow[] {
   const rows: TrajectoryRow[] = [];
   vehicles.forEach((vehicle, index) => {
     const { department, rand } = enrichVehicleMeta(vehicle, index);
+    const speedVal = vehicleSpeedKmh(vehicle, rand);
     const count = 2 + Math.floor(rand() * 3);
     for (let i = 0; i < count; i++) {
       const begin = hoursAgo(rand, 20);
-      const isRun = rand() > 0.4;
+      const isRun =
+        i === 0
+          ? vehicle.status === 'active'
+          : vehicle.status === 'offline'
+            ? false
+            : rand() > 0.4;
       const [lat, lng] = vehicle.coordinates;
-      const fuelLow = rand() > 0.85;
+      const fuelLow = vehicle.status === 'offline' ? rand() > 0.5 : rand() > 0.85;
       const fuelPct = fuelLow ? Math.floor(rand() * 15) : Math.floor(20 + rand() * 80);
+      const battery =
+        vehicle.status === 'offline'
+          ? 0
+          : Math.max(5, Math.min(100, vehicle.batteryLevel + Math.floor((rand() - 0.5) * 10)));
       rows.push({
         id: `trj-${vehicle.id}-${i}`,
         vehicleId: vehicle.id,
@@ -409,23 +492,33 @@ export function buildTrajectoryRows(vehicles: Vehicle[]): TrajectoryRow[] {
         department,
         filterDate: begin.toISOString(),
         StopRun: isRun ? 'Circulation' : 'Stop',
-        AlertIcon: rand() > 0.75 ? '⚠' : '—',
-        OtherInfo: pick(rand, ['—', 'GPS OK', 'Ignition', 'Idle']),
+        AlertIcon:
+          vehicle.status === 'offline' || (isRun && speedVal >= 110) || fuelLow
+            ? '⚠'
+            : rand() > 0.85
+              ? '⚠'
+              : '—',
+        OtherInfo:
+          vehicle.status === 'offline'
+            ? 'GPS perdu'
+            : isRun
+              ? pick(rand, ['GPS OK', 'Ignition', 'En route'])
+              : pick(rand, ['Idle', 'Stop', 'Ignition']),
         StartDate: formatDisplay(begin),
         Period: `${10 + Math.floor(rand() * 120)} min`,
-        Speed: `${isRun ? Math.floor(20 + rand() * 80) : 0} km/h`,
-        Distance: `${(rand() * 50).toFixed(1)} km`,
+        Speed: `${isRun ? (i === 0 ? speedVal : Math.floor(20 + rand() * 80)) : 0} km/h`,
+        Distance: `${(isRun ? rand() * 50 : rand() * 2).toFixed(1)} km`,
         Place: vehicle.location,
         Fuel: fuelLow ? `${fuelPct}% ↓` : `${fuelPct}%`,
-        BatteryLevel: `${Math.floor(rand() * 100)}%`,
-        IgnOn: rand() > 0.4 ? 'ON' : 'OFF',
+        BatteryLevel: `${battery}%`,
+        IgnOn: isRun || vehicle.status === 'idle' ? 'ON' : 'OFF',
         FuelConsumptionAvgInL100Km: `${(5 + rand() * 12).toFixed(1)}`,
-        Direction: `${Math.floor(rand() * 360)}°`,
+        Direction: `${Math.floor(vehicle.heading ?? rand() * 360)}°`,
         CentralLock: rand() > 0.5 ? 'ON' : 'OFF',
         Temperature: `${(12 + rand() * 25).toFixed(1)} °C`,
         EngineHours: `${Math.floor(200 + rand() * 2000)} h`,
-        EngineTemperature: `${Math.floor(70 + rand() * 40)} °C`,
-        RPM: String(Math.floor(rand() * 4000)),
+        EngineTemperature: `${Math.floor(isRun ? 70 + rand() * 40 : 25 + rand() * 20)} °C`,
+        RPM: String(isRun ? Math.floor(800 + rand() * 3200) : Math.floor(rand() * 200)),
         Latitude: (lat + (rand() - 0.5) * 0.02).toFixed(6),
         Longitude: (lng + (rand() - 0.5) * 0.02).toFixed(6),
         Report_Reason: pick(rand, ['Timer', 'Ignition', 'Distance', 'Alert']),
@@ -437,15 +530,20 @@ export function buildTrajectoryRows(vehicles: Vehicle[]): TrajectoryRow[] {
         AxleWeight: `${Math.floor(3000 + rand() * 4000)} kg`,
         AxleWeight3rd: `${Math.floor(2500 + rand() * 3500)} kg`,
         AxleWeight4th: `${Math.floor(2000 + rand() * 3000)} kg`,
-        RapidBrackings: String(Math.floor(rand() * 8)),
-        RapidAccelerations: String(Math.floor(rand() * 10)),
+        RapidBrackings: String(isRun ? Math.floor(rand() * 8) : 0),
+        RapidAccelerations: String(isRun ? Math.floor(rand() * 10) : 0),
         AdBlueLevel: `${Math.floor(rand() * 100)}%`,
         HumidityLevel: `${Math.floor(30 + rand() * 50)}%`,
         SNSonde1: `SN${Math.floor(100000 + rand() * 900000)}`,
         VolumeSonde1: `${(rand() * 200).toFixed(1)} L`,
         TemperatureSonde1: `${(10 + rand() * 15).toFixed(1)} °C`,
         BatteryLevelSonde1: `${Math.floor(rand() * 100)}%`,
-        StatusConnectedSonde1: rand() > 0.2 ? 'Connectée' : 'Déconnectée',
+        StatusConnectedSonde1:
+          vehicle.status === 'offline'
+            ? 'Déconnectée'
+            : rand() > 0.2
+              ? 'Connectée'
+              : 'Déconnectée',
         waterdetected1: rand() > 0.85 ? 'Oui' : 'Non',
       });
     }
@@ -460,6 +558,11 @@ export function buildCommandRows(vehicles: Vehicle[]): CommandRow[] {
     const count = 1 + Math.floor(rand() * 2);
     for (let i = 0; i < count; i++) {
       const when = hoursAgo(rand, 20);
+      const status = commandStatusForVehicle(vehicle, rand);
+      const type =
+        vehicle.status === 'offline'
+          ? pick(rand, ['Demande position', 'Réinitialisation GPS'] as const)
+          : pick(rand, COMMAND_TYPES);
       rows.push({
         id: `cmd-${vehicle.id}-${i}`,
         vehicleId: vehicle.id,
@@ -467,9 +570,9 @@ export function buildCommandRows(vehicles: Vehicle[]): CommandRow[] {
         department,
         filterDate: when.toISOString(),
         SendDate: formatDisplay(when),
-        Vehicle: vehicle.name,
-        CommandType: pick(rand, COMMAND_TYPES),
-        Status: pick(rand, COMMAND_STATUSES),
+        Vehicle: vehicle.matricule || vehicle.name,
+        CommandType: type,
+        Status: status,
       });
     }
   });

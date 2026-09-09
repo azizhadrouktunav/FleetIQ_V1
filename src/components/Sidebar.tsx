@@ -21,12 +21,14 @@ import {
   Weight,
   Car,
   StopCircle,
-  Gauge,
+  WifiOff,
   LayoutDashboard,
   Eye,
   Truck,
   Bell } from
 'lucide-react';
+import type { VehicleStatus } from '../types';
+
 interface SidebarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
@@ -34,14 +36,28 @@ interface SidebarProps {
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
   position?: 'left' | 'right' | 'bottom-left' | 'floating-right';
+  statusFilter?: Set<VehicleStatus>;
+  statusCounts?: Record<VehicleStatus, number>;
+  onToggleStatusFilter?: (status: VehicleStatus) => void;
 }
+
+const EMPTY_STATUS_FILTER = new Set<VehicleStatus>();
+const DEFAULT_STATUS_COUNTS: Record<VehicleStatus, number> = {
+  active: 0,
+  idle: 0,
+  offline: 0,
+};
+
 export function Sidebar({
   activeTab,
   setActiveTab,
   mode = 'monitoring',
   isCollapsed = false,
   onToggleCollapse,
-  position = 'left'
+  position = 'left',
+  statusFilter = EMPTY_STATUS_FILTER,
+  statusCounts = DEFAULT_STATUS_COUNTS,
+  onToggleStatusFilter,
 }: SidebarProps) {
   const [width, setWidth] = useState(320);
   const [isResizing, setIsResizing] = useState(false);
@@ -166,13 +182,9 @@ export function Sidebar({
     icon: Weight
   }];
 
-  // Mock vehicle counts
-  const vehicleStats = {
-    enMouvement: 23,
-    enStop: 18,
-    vitesseBasse: 14,
-    total: 55
-  };
+  const totalVehicles =
+    statusCounts.active + statusCounts.idle + statusCounts.offline;
+
   // Render Reports Sidebar
   if (mode === 'rapports') {
     return (
@@ -258,45 +270,61 @@ export function Sidebar({
                   Total Véhicules
                 </span>
                 <span className="bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded-md">
-                  {vehicleStats.total}
+                  {totalVehicles}
                 </span>
               </div>
             </div>
 
             {/* Vehicle Status Groups */}
             <div className="p-4 space-y-2 max-h-[calc(100dvh-8rem)] lg:max-h-[calc(100vh-300px)] overflow-y-auto">
-              {/* En Mouvement */}
-              <button className="w-full flex items-center justify-between py-2.5 px-3 bg-gradient-to-r from-emerald-50 to-emerald-100/50 hover:from-emerald-100 hover:to-emerald-100 rounded-lg border border-emerald-200 group transition-all">
+              <button
+                type="button"
+                onClick={() => onToggleStatusFilter?.('active')}
+                aria-pressed={statusFilter.has('active')}
+                className={`w-full flex items-center justify-between py-2.5 px-3 rounded-lg border group transition-all ${
+                  statusFilter.has('active')
+                    ? 'bg-gradient-to-r from-emerald-100 to-emerald-50 border-emerald-400 ring-2 ring-emerald-200'
+                    : 'bg-gradient-to-r from-emerald-50 to-emerald-100/50 hover:from-emerald-100 hover:to-emerald-100 border-emerald-200'
+                }`}
+              >
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center">
                     <Car className="w-4 h-4 text-white" />
                   </div>
                   <div className="text-left">
                     <div className="text-xs font-semibold text-emerald-900">
-                      En Mouvement
+                      Circulation
                     </div>
                     <div className="text-[10px] text-emerald-600">
-                      Véhicules actifs
+                      Véhicules en mouvement
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="text-xl font-bold text-emerald-700">
-                    {vehicleStats.enMouvement}
+                    {statusCounts.active}
                   </span>
                   <Circle className="w-1.5 h-1.5 fill-emerald-500 text-emerald-500 animate-pulse" />
                 </div>
               </button>
 
-              {/* En Stop */}
-              <button className="w-full flex items-center justify-between py-2.5 px-3 bg-gradient-to-r from-rose-50 to-rose-100/50 hover:from-rose-100 hover:to-rose-100 rounded-lg border border-rose-200 group transition-all">
+              <button
+                type="button"
+                onClick={() => onToggleStatusFilter?.('idle')}
+                aria-pressed={statusFilter.has('idle')}
+                className={`w-full flex items-center justify-between py-2.5 px-3 rounded-lg border group transition-all ${
+                  statusFilter.has('idle')
+                    ? 'bg-gradient-to-r from-rose-100 to-rose-50 border-rose-400 ring-2 ring-rose-200'
+                    : 'bg-gradient-to-r from-rose-50 to-rose-100/50 hover:from-rose-100 hover:to-rose-100 border-rose-200'
+                }`}
+              >
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 bg-rose-500 rounded-lg flex items-center justify-center">
                     <StopCircle className="w-4 h-4 text-white" />
                   </div>
                   <div className="text-left">
                     <div className="text-xs font-semibold text-rose-900">
-                      En Stop
+                      Stop
                     </div>
                     <div className="text-[10px] text-rose-600">
                       Véhicules arrêtés
@@ -305,32 +333,40 @@ export function Sidebar({
                 </div>
                 <div className="flex items-center gap-1.5">
                   <span className="text-xl font-bold text-rose-700">
-                    {vehicleStats.enStop}
+                    {statusCounts.idle}
                   </span>
                   <Circle className="w-1.5 h-1.5 fill-rose-500 text-rose-500" />
                 </div>
               </button>
 
-              {/* Vitesse Basse */}
-              <button className="w-full flex items-center justify-between py-2.5 px-3 bg-gradient-to-r from-amber-50 to-amber-100/50 hover:from-amber-100 hover:to-amber-100 rounded-lg border border-amber-200 group transition-all">
+              <button
+                type="button"
+                onClick={() => onToggleStatusFilter?.('offline')}
+                aria-pressed={statusFilter.has('offline')}
+                className={`w-full flex items-center justify-between py-2.5 px-3 rounded-lg border group transition-all ${
+                  statusFilter.has('offline')
+                    ? 'bg-gradient-to-r from-slate-200 to-slate-100 border-slate-400 ring-2 ring-slate-300'
+                    : 'bg-gradient-to-r from-slate-50 to-slate-100/50 hover:from-slate-100 hover:to-slate-100 border-slate-200'
+                }`}
+              >
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center">
-                    <Gauge className="w-4 h-4 text-white" />
+                  <div className="w-8 h-8 bg-slate-500 rounded-lg flex items-center justify-center">
+                    <WifiOff className="w-4 h-4 text-white" />
                   </div>
                   <div className="text-left">
-                    <div className="text-xs font-semibold text-amber-900">
-                      Vitesse Basse
+                    <div className="text-xs font-semibold text-slate-900">
+                      Hors connexion
                     </div>
-                    <div className="text-[10px] text-amber-600">
-                      Circulation lente
+                    <div className="text-[10px] text-slate-600">
+                      Véhicules offline
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-xl font-bold text-amber-700">
-                    {vehicleStats.vitesseBasse}
+                  <span className="text-xl font-bold text-slate-700">
+                    {statusCounts.offline}
                   </span>
-                  <Circle className="w-1.5 h-1.5 fill-amber-500 text-amber-500 animate-pulse" />
+                  <Circle className="w-1.5 h-1.5 fill-slate-500 text-slate-500" />
                 </div>
               </button>
             </div>
@@ -387,45 +423,61 @@ export function Sidebar({
                 Tous les Véhicules
               </span>
               <span className="bg-blue-600 text-white text-xs font-bold px-2.5 py-1 rounded-md shadow-sm">
-                {vehicleStats.total}
+                {totalVehicles}
               </span>
             </div>
           </div>
 
           {/* Vehicle Status Groups */}
           <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-            {/* En Mouvement */}
-            <button className="w-full flex items-center justify-between py-3 px-4 bg-gradient-to-r from-emerald-600/20 to-emerald-600/10 hover:from-emerald-600/30 hover:to-emerald-600/20 rounded-xl border border-emerald-500/30 group transition-all">
+            <button
+              type="button"
+              onClick={() => onToggleStatusFilter?.('active')}
+              aria-pressed={statusFilter.has('active')}
+              className={`w-full flex items-center justify-between py-3 px-4 rounded-xl border group transition-all ${
+                statusFilter.has('active')
+                  ? 'bg-gradient-to-r from-emerald-600/40 to-emerald-600/20 border-emerald-400/60 ring-2 ring-emerald-500/40'
+                  : 'bg-gradient-to-r from-emerald-600/20 to-emerald-600/10 hover:from-emerald-600/30 hover:to-emerald-600/20 border-emerald-500/30'
+              }`}
+            >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-emerald-500/20 rounded-lg flex items-center justify-center border border-emerald-500/30">
                   <Car className="w-5 h-5 text-emerald-400" />
                 </div>
                 <div className="text-left">
                   <div className="text-sm font-semibold text-emerald-100">
-                    En Mouvement
+                    Circulation
                   </div>
                   <div className="text-xs text-emerald-300/70">
-                    Véhicules actifs
+                    Véhicules en mouvement
                   </div>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-2xl font-bold text-emerald-400">
-                  {vehicleStats.enMouvement}
+                  {statusCounts.active}
                 </span>
                 <Circle className="w-2 h-2 fill-emerald-500 text-emerald-500 animate-pulse" />
               </div>
             </button>
 
-            {/* En Stop */}
-            <button className="w-full flex items-center justify-between py-3 px-4 bg-gradient-to-r from-rose-600/20 to-rose-600/10 hover:from-rose-600/30 hover:to-rose-600/20 rounded-xl border border-rose-500/30 group transition-all">
+            <button
+              type="button"
+              onClick={() => onToggleStatusFilter?.('idle')}
+              aria-pressed={statusFilter.has('idle')}
+              className={`w-full flex items-center justify-between py-3 px-4 rounded-xl border group transition-all ${
+                statusFilter.has('idle')
+                  ? 'bg-gradient-to-r from-rose-600/40 to-rose-600/20 border-rose-400/60 ring-2 ring-rose-500/40'
+                  : 'bg-gradient-to-r from-rose-600/20 to-rose-600/10 hover:from-rose-600/30 hover:to-rose-600/20 border-rose-500/30'
+              }`}
+            >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-rose-500/20 rounded-lg flex items-center justify-center border border-rose-500/30">
                   <StopCircle className="w-5 h-5 text-rose-400" />
                 </div>
                 <div className="text-left">
                   <div className="text-sm font-semibold text-rose-100">
-                    En Stop
+                    Stop
                   </div>
                   <div className="text-xs text-rose-300/70">
                     Véhicules arrêtés
@@ -434,32 +486,40 @@ export function Sidebar({
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-2xl font-bold text-rose-400">
-                  {vehicleStats.enStop}
+                  {statusCounts.idle}
                 </span>
                 <Circle className="w-2 h-2 fill-rose-500 text-rose-500" />
               </div>
             </button>
 
-            {/* Vitesse Basse */}
-            <button className="w-full flex items-center justify-between py-3 px-4 bg-gradient-to-r from-amber-600/20 to-amber-600/10 hover:from-amber-600/30 hover:to-amber-600/20 rounded-xl border border-amber-500/30 group transition-all">
+            <button
+              type="button"
+              onClick={() => onToggleStatusFilter?.('offline')}
+              aria-pressed={statusFilter.has('offline')}
+              className={`w-full flex items-center justify-between py-3 px-4 rounded-xl border group transition-all ${
+                statusFilter.has('offline')
+                  ? 'bg-gradient-to-r from-slate-600/40 to-slate-600/20 border-slate-400/60 ring-2 ring-slate-500/40'
+                  : 'bg-gradient-to-r from-slate-600/20 to-slate-600/10 hover:from-slate-600/30 hover:to-slate-600/20 border-slate-500/30'
+              }`}
+            >
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-amber-500/20 rounded-lg flex items-center justify-center border border-amber-500/30">
-                  <Gauge className="w-5 h-5 text-amber-400" />
+                <div className="w-10 h-10 bg-slate-500/20 rounded-lg flex items-center justify-center border border-slate-500/30">
+                  <WifiOff className="w-5 h-5 text-slate-300" />
                 </div>
                 <div className="text-left">
-                  <div className="text-sm font-semibold text-amber-100">
-                    Vitesse Basse
+                  <div className="text-sm font-semibold text-slate-100">
+                    Hors connexion
                   </div>
-                  <div className="text-xs text-amber-300/70">
-                    Circulation lente
+                  <div className="text-xs text-slate-400">
+                    Véhicules offline
                   </div>
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-2xl font-bold text-amber-400">
-                  {vehicleStats.vitesseBasse}
+                <span className="text-2xl font-bold text-slate-300">
+                  {statusCounts.offline}
                 </span>
-                <Circle className="w-2 h-2 fill-amber-500 text-amber-500 animate-pulse" />
+                <Circle className="w-2 h-2 fill-slate-400 text-slate-400" />
               </div>
             </button>
           </div>
