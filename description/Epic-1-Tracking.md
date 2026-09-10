@@ -1,9 +1,11 @@
 # Epic 1 – Tracking (Suivi)
 
 **Produit** : FleetIQ  
-**Version document** : 1.0  
-**Date** : 7 septembre 2026  
+**Version document** : 1.1  
+**Date** : 10 septembre 2026  
 **Objectif** : Décrire l'ensemble des fonctionnalités du module Suivi / Tracking pour permettre à l'équipe de comprendre les user stories, les critères d'acceptation et de répartir le travail en tâches.
+
+> **Changelog 1.1** : panneau gauche (auto-apply filtres, groupement par colonne, rappels Dashboard, tri/drag headers), menu Actions branché (8 actions), monitoring filtrant par statut, marqueurs/légende colorés, focus carte + popup, trajectoire polyline mock.
 
 ---
 
@@ -39,10 +41,11 @@
 
 L'Epic 1 – Tracking permet aux gestionnaires et opérateurs de flotte de :
 
-- **Surveiller la flotte en temps réel** sur une carte plein écran (positions, statut, sélection véhicule).
-- **Consulter et filtrer les données télémétriques** via un panneau gauche multi-modes (Suivi général, Alertes, Stop & Circulation, Trajectoire, Commandes).
-- **Inspecter un véhicule** via une fiche ancrée sur la carte.
-- **Suivre des indicateurs de monitoring** (total, en mouvement, en stop, vitesse basse).
+- **Surveiller la flotte en temps réel** sur une carte plein écran (positions, statut coloré, sélection véhicule, popup infos).
+- **Consulter et filtrer les données télémétriques** via un panneau gauche multi-modes (Suivi général, Alertes, Stop & Circulation, Trajectoire, Commandes), avec filtres auto-appliqués.
+- **Inspecter un véhicule** via une fiche ancrée sur la carte et des rappels parc (colonne Dashboard).
+- **Filtrer la flotte par statut** depuis le Centre de monitoring (Circulation / Stop / Hors connexion).
+- **Agir depuis le menu contextuel** (carte, trajectoire, stop/run, rapport, excès, commandes, AAD, config alertes).
 - **Enchaîner depuis d'autres modules** (Dashboard, Centre d'alertes) vers le Suivi avec centrage carte.
 
 ### Principe de rédaction
@@ -117,9 +120,9 @@ flowchart TB
 | Couche | Persistance | Composants clés |
 |--------|-------------|-----------------|
 | **Shell / navigation** | État React (`activeSection`) | `App.tsx`, `TopBar.tsx` |
-| **Panneau données** | Préférences colonnes → `localStorage` (`fleetiq.suivie.columns.{action}`) ; données → mock | `VehicleListPanel.tsx`, `column-defs.ts`, `mock-data.ts`, `useColumnPreferences.ts` |
-| **Carte live** | État React (sélection, centre, clusters, overlays) | `MapView.tsx`, `MapControls.tsx`, `VehicleMapInfoCard.tsx` |
-| **Monitoring** | Valeurs hardcodées | `Sidebar.tsx` (`mode="monitoring"`) |
+| **Panneau données** | Préférences colonnes → `localStorage` (`fleetiq.suivie.columns.{action}`) ; données → mock | `VehicleListPanel.tsx`, `column-defs.ts`, `mock-data.ts`, `fleet-reminders.ts`, `vehicle-row-actions.ts`, `useColumnPreferences.ts` |
+| **Carte live** | État React (sélection, centre, zoom, clusters, `trackingPath`, overlays) | `MapView.tsx`, `MapControls.tsx`, `MapLegend.tsx`, `VehicleMapInfoCard.tsx` |
+| **Monitoring** | Compteurs dérivés de la flotte + `statusFilter` | `Sidebar.tsx` (`mode="monitoring"`), `App.tsx` |
 | **Geofencing** | Voir Epic 8 | `MapControls`, `useMapOverlays` |
 
 > **Important** : Les tables legacy (`SuivieFilterBar`, `SuivieGeneraleTable`, `TrajectoireTable`, `StopCirculationTable`) existent encore dans le repo mais **ne sont plus branchées**. Toute la logique filtres + tableaux est absorbée par `VehicleListPanel`.
@@ -134,13 +137,15 @@ flowchart TB
 | **Action (mode)** | Mode d'affichage du tableau : `suivie_generale`, `alertes`, `stop_circulation`, `trajectoire`, `commandes`. |
 | **Suivi général** | Vue temps réel des véhicules (position, vitesse, chauffeur, département, télémétrie optionnelle). |
 | **Horodatage** | Âge relatif de la dernière position (ex. `12 mn`, `3 h`, `2 j`). |
-| **Stop / Circulation** | Segment d'immobilisation (`Stop`) ou de mouvement (`Circulation`) sur une période. |
-| **Trajectoire** | Historique de segments de parcours d'un ou plusieurs véhicules sur une période. |
+| **Stop / Circulation / Ralenti** | Segment d'immobilisation (`Stop`), de mouvement (`Circulation`) ou de ralenti (`Ralenti`) sur une période. |
+| **Trajectoire** | Historique de segments de parcours d'un ou plusieurs véhicules sur une période ; aperçu carte via polyligne mock (`trackingPath`). |
 | **Commande** | Ordre distant envoyé à un équipement (demande position, AAD, photo, etc.). |
-| **Filtres appliqués** | Ensemble validé via « Appliquer » (`AppliedSuivieFilters`) ; distinct des valeurs brouillon (`draft*`). |
+| **Filtres appliqués** | Ensemble `AppliedSuivieFilters` synchronisé automatiquement depuis les valeurs brouillon (`draft*`) — plus de bouton « Appliquer ». |
+| **Rappels parc (Dashboard)** | Colonne Suivi général à 5 icônes (entretien, documents, sinistre, paiement, contrat expiré) ; gris = inactif, coloré + dialog placeholder si actif. |
 | **Clustering** | Regroupement des marqueurs carte (véhicules ou emplacements) pour alléger l'affichage. |
 | **Fiche véhicule** | Popup / carte d'info ancrée sur le marqueur sélectionné (`VehicleMapInfoCard`). |
-| **Centre de monitoring** | Panneau flottant droit avec KPIs de statut flotte. |
+| **Centre de monitoring** | Panneau flottant droit avec compteurs de statut flotte et filtres toggle (active / idle / offline). |
+| **Capacités équipement** | Flags véhicule mock : `imei`, `supportsCurrentPosition`, `supportsAad`, `supportsAadForced` — pilotent la visibilité de certaines actions menu. |
 
 ---
 
@@ -202,11 +207,11 @@ flowchart TB
 
 ### Feature 2 — Filtres flotte
 
-**Description** : Sélection brouillon puis application des filtres véhicules / départements / dates / types d'alerte, avec synchronisation des marqueurs carte.
+**Description** : Filtres véhicules / départements / dates / types d'alerte auto-appliqués (draft → `applied`), plus filtre statut flotte depuis le Centre de monitoring, avec synchronisation des marqueurs carte.
 
-**Composants** : `VehicleListPanel.tsx`, `mock-data.ts` (`applySuivieFilters`, `getFilteredVehicleIds`), `App.tsx` (`mapVehicles`)
+**Composants** : `VehicleListPanel.tsx`, `mock-data.ts` (`applySuivieFilters`, `getFilteredVehicleIds`), `App.tsx` (`mapVehicles`, `statusFilter`)
 
-**Référencée par** : Features 4–8, 10
+**Référencée par** : Features 4–8, 10, 12
 
 ---
 
@@ -224,6 +229,7 @@ flowchart TB
 - [ ] Libellé bouton résumé : ex. `3 véh., 1 dép.` ou « Sélectionner véhicules ».
 - [ ] Départements disponibles (mock) : `DEmo2025`, `LATRACE`, `test`, `TUNAV`.
 - [ ] Logique de filtre : union (véhicule **OU** département si les deux sont renseignés).
+- [ ] Toute modification met à jour `applied` automatiquement (pas de bouton Appliquer).
 
 ---
 
@@ -237,37 +243,38 @@ flowchart TB
 
 - [ ] Deux `DateTimePicker` (début / fin) visibles lorsque l'action ≠ `suivie_generale`.
 - [ ] En mode Suivi général, la plage de dates n'est pas affichée / non appliquée.
-- [ ] Le filtre date s'applique sur `filterDate` des lignes après « Appliquer ».
+- [ ] Le filtre date s'applique sur `filterDate` des lignes dès que les drafts changent.
 
 ---
 
-#### US-2.3 — Appliquer les filtres
+#### US-2.3 — Auto-appliquer les filtres et synchroniser la carte
 
 **En tant que** opérateur,  
-**je veux** valider explicitement mes filtres,  
-**afin de** contrôler quand le tableau et la carte se mettent à jour.
+**je veux** que mes filtres s'appliquent dès que je les change,  
+**afin de** mettre à jour le tableau et la carte sans étape supplémentaire.
 
 **Critères d'acceptation :**
 
-- [ ] Bouton « Appliquer » copie l'état draft vers `applied` (`applyFilters`).
-- [ ] Tant qu'aucun filtre n'est appliqué, un message invite à sélectionner puis cliquer Appliquer.
-- [ ] Après application, les lignes affichées passent par `applySuivieFilters`.
+- [ ] Les états draft (`draftVehicles`, `draftAction`, dates, `draftAlertTypes`) synchronisent `applied` via effet / handlers.
+- [ ] Les lignes affichées passent par `applySuivieFilters`.
 - [ ] Les IDs véhicules filtrés sont poussés via `onFilteredVehicleIdsChange` → `mapVehicles` dans `App.tsx`.
-- [ ] Si aucun filtre véhicule/département : tous les véhicules restent sur la carte (`null`).
+- [ ] Si aucun filtre véhicule/département : tous les véhicules restent sur la carte (`null`), sous réserve du `statusFilter` monitoring.
+- [ ] Le filtre statut (Feature 12) restreint aussi `mapVehicles` et le tableau Suivi général.
 
 ---
 
-#### User Flow — Appliquer un filtre flotte
+#### User Flow — Filtrer la flotte
 
 ```mermaid
 flowchart TD
   A[Ouvrir panneau Suivi] --> B[Sélectionner véhicules / départements]
   B --> C{Mode historique ?}
   C -- Oui --> D[Choisir dates début / fin]
-  C -- Non --> E[Clic Appliquer]
+  C -- Non --> E[Auto-apply applied]
   D --> E
   E --> F[Tableau filtré]
   E --> G[Marqueurs carte mis à jour]
+  H[Toggle statut Monitoring] --> E
 ```
 
 ---
@@ -298,7 +305,7 @@ flowchart TD
 | `trajectoire` | Trajectoire |
 | `commandes` | Commandes |
 
-- [ ] Le changement de mode met à jour **immédiatement** `applied.action` (sans attendre Appliquer).
+- [ ] Le changement de mode met à jour **immédiatement** `applied.action` (auto-apply).
 - [ ] Les colonnes basculent selon `COLUMN_DEFS[action]`.
 - [ ] Les lignes sont reconstruites via `buildRowsForAction(action, vehicles)`.
 - [ ] Le mode Alertes affiche le filtre types d'alerte (Feature 5).
@@ -308,9 +315,9 @@ flowchart TD
 
 ### Feature 4 — Suivi général
 
-**Description** : Tableau temps réel des véhicules, groupé par département, avec colonnes télémétrie.
+**Description** : Tableau temps réel des véhicules, avec rappels parc (Dashboard), groupement par colonne, tri/réordonnancement des headers.
 
-**Composants** : `VehicleListPanel.tsx`, `mock-data.ts` (`buildTrackingRows`), `column-defs.ts` (`trackingColumns`)
+**Composants** : `VehicleListPanel.tsx`, `mock-data.ts` (`buildTrackingRows`), `column-defs.ts` (`trackingColumns`), `FleetReminderCell.tsx`, `fleet-reminders.ts`
 
 **Dépend de** : Feature 2, Feature 3, Feature 9
 
@@ -324,24 +331,27 @@ flowchart TD
 
 **Critères d'acceptation :**
 
-- [ ] Colonnes visibles par défaut : Véhicule, Date / heure, Vitesse, Adresse, Chauffeur, Département.
+- [ ] Colonnes visibles par défaut : Véhicule, Date / heure, Vitesse, Adresse, Chauffeur, Département, **Dashboard**.
+- [ ] Colonne **Dashboard** : 5 icônes rappels parc (entretien, documents, sinistre, paiement, contrat expiré) — gris inactif ; coloré + dialog placeholder si actif (`FleetReminderCell`).
 - [ ] Colonnes optionnelles disponibles (télémétrie, sondes, essieux, e-lock, etc.) via Feature 9.
 - [ ] Cellules vitesse / statut / horodatage stylées (`cellClassFor`, `renderCellContent`).
-- [ ] Données actuelles : mock déterministe à partir de `Vehicle`.
+- [ ] Données actuelles : mock déterministe à partir de `Vehicle` (+ `fleetReminders`).
 
 ---
 
-#### US-4.2 — Grouper par département
+#### US-4.2 — Regrouper les lignes par colonne
 
 **En tant que** gestionnaire de flotte,  
-**je veux** voir les véhicules groupés par département,  
-**afin de** parcourir la flotte par organisation.
+**je veux** regrouper le tableau en glissant une colonne vers la zone « Regrouper »,  
+**afin de** parcourir la flotte par dimension métier (département, chauffeur, etc.).
 
 **Critères d'acceptation :**
 
-- [ ] En mode `suivie_generale`, les lignes sont regroupées (`rowsByDepartment`).
-- [ ] Chaque groupe a un en-tête collapsible (`toggleDepartmentCollapse`).
-- [ ] Collapse masque les lignes du département sans les retirer du filtre carte.
+- [ ] Zone drop « Regrouper » dans la toolbar (`GroupByDropZone` / `GROUP_BY_DROP_ID`).
+- [ ] Drag d'un header de colonne vers la zone active le groupement (`groupByColumnId`).
+- [ ] La colonne groupée est masquée du tableau ; en-têtes de groupes collapsibles.
+- [ ] Tri du groupement A→Z / Z→A (`groupBySortDir`).
+- [ ] Bouton clear pour retirer le regroupement.
 
 ---
 
@@ -354,8 +364,9 @@ flowchart TD
 **Critères d'acceptation :**
 
 - [ ] Icône kebab (`MoreVertical`) visible uniquement en mode Suivi général.
-- [ ] Clic sur la ligne (hors actions) ouvre/ferme le menu (`openMenuId`).
-- [ ] Dans les autres modes, un clic sur la ligne sélectionne le véhicule sur la carte (`selectRowVehicle`).
+- [ ] **Seul** le clic sur ⋮ ouvre/ferme le menu (`openActionMenuAt`) — pas le clic sur la ligne.
+- [ ] Clic sur la ligne sélectionne le véhicule sur la carte (`selectRowVehicle`), tous modes confondus.
+- [ ] Interactions colonne Dashboard (icônes / dialog) ne déclenchent pas le menu Actions.
 
 ---
 
@@ -398,13 +409,13 @@ flowchart TD
   - Entrée/Sortie de l'itinéraire, Remorquage, Batterie débranchée
   - SOS, Température, Carburant, Conduite agressive, Stop longue durée, etc.
 - [ ] Option « Toutes les alertes » ; le filtre concret ignore cette valeur sentinelle.
-- [ ] Filtre appliqué via « Appliquer » (Feature 2.3).
+- [ ] Filtre appliqué automatiquement (Feature 2.3).
 
 ---
 
 ### Feature 6 — Stop & Circulation
 
-**Description** : Segments d'arrêt et de circulation pour analyser l'activité sur une période.
+**Description** : Segments d'arrêt, circulation et ralenti pour analyser l'activité sur une période.
 
 **Composants** : `VehicleListPanel.tsx`, `mock-data.ts` (`buildRunStopRows`)
 
@@ -415,14 +426,16 @@ flowchart TD
 #### US-6.1 — Consulter Stop & Circulation
 
 **En tant que** gestionnaire de flotte,  
-**je veux** voir les périodes de stop et de circulation,  
+**je veux** voir les périodes de stop, circulation et ralenti,  
 **afin d'** évaluer l'utilisation des véhicules.
 
 **Critères d'acceptation :**
 
 - [ ] Colonnes par défaut : État, Matricule, Emplacement, Distance, Période, Date début.
 - [ ] Colonnes optionnelles : Vitesse moy., Action.
-- [ ] État affiché : `Stop` ou `Circulation`.
+- [ ] État affiché avec pastilles : `Stop` (rouge), `Circulation` (vert), `Ralenti` (orange).
+- [ ] Footer **Total distances** (somme des km des lignes affichées).
+- [ ] Action **Zoom** → focus carte véhicule (zoom ~16).
 - [ ] Filtre dates disponible (Feature 2.2).
 - [ ] Clic ligne → sélection véhicule sur la carte.
 
@@ -430,11 +443,11 @@ flowchart TD
 
 ### Feature 7 — Trajectoire
 
-**Description** : Historique de segments de parcours avec télémétrie avancée.
+**Description** : Historique de segments de parcours avec télémétrie avancée et aperçu polyligne sur la carte.
 
-**Composants** : `VehicleListPanel.tsx`, `mock-data.ts` (`buildTrajectoryRows`)
+**Composants** : `VehicleListPanel.tsx`, `mock-data.ts` (`buildTrajectoryRows`), `MapView.tsx` (`trackingPath`), `vehicle-row-actions.ts` (`buildMockTrajectoryPath`)
 
-**Dépend de** : Feature 2, Feature 3, Feature 9
+**Dépend de** : Feature 2, Feature 3, Feature 9, Feature 10
 
 ---
 
@@ -450,7 +463,7 @@ flowchart TD
 - [ ] Colonnes optionnelles : alerte, carburant, batterie, contact, conso. L/100km, direction, RPM, lat/lng, sondes, essieux, etc.
 - [ ] Filtre dates disponible.
 - [ ] Clic ligne → sélection véhicule sur la carte.
-- [ ] **État actuel** : données mock tabulaires ; pas encore de tracé polyligne trajectoire dédié sur la carte (hors Epic 8 routes).
+- [ ] Après action menu « Afficher trajectoire » : polyligne mock `trackingPath` affichée sur la carte (MVP — pas d'animation / export / infos générales avancées).
 
 ---
 
@@ -510,15 +523,18 @@ flowchart TD
 
 ---
 
-#### US-9.2 — Réordonner les colonnes par glisser-déposer
+#### US-9.2 — Trier et réordonner les colonnes
 
 **En tant que** opérateur,  
-**je veux** réordonner les en-têtes de colonnes,  
-**afin d'** adapter la lecture du tableau.
+**je veux** trier en cliquant un header et réordonner en le glissant,  
+**afin d'** adapter la lecture du tableau sans poignée dédiée.
 
 **Critères d'acceptation :**
 
-- [ ] Drag-and-drop des headers visibles (`reorder` via `@dnd-kit`).
+- [ ] **Clic court** sur le libellé de colonne → cycle de tri asc / desc / none (`nextSortState`).
+- [ ] **Maintenir + glisser** le même header → reorder (`reorder` via `@dnd-kit`) ; drop possible sur zone Regrouper (Feature 4.2).
+- [ ] Pas de poignée grip séparée ; `PointerSensor` `activationConstraint.distance = 10`.
+- [ ] Après un drag, le clic de tri est ignoré (`suppressSortClickRef`).
 - [ ] L'ordre est persisté dans localStorage.
 - [ ] Les colonnes masquées restent en fin d'ordre relatif.
 
@@ -556,8 +572,11 @@ flowchart TD
 **Critères d'acceptation :**
 
 - [ ] Marqueurs véhicule (icônes 3D) pour chaque entrée de `mapVehicles`.
-- [ ] Filtrage panneau synchronisé (Feature 2.3).
-- [ ] Légende : En ligne / Hors ligne / Sélectionné (`MapLegend`).
+- [ ] Filtrage panneau + monitoring synchronisé (Features 2.3, 12).
+- [ ] Couleurs de statut marqueur / légende :
+  - **active (Circulation)** → vert `#10b981`
+  - **idle (Stop)** → rouge `#f43f5e`
+  - **offline (Hors connexion)** → gris `#94a3b8`
 - [ ] Carte centrée sur la Tunisie (données mock flotte).
 
 ---
@@ -571,7 +590,8 @@ flowchart TD
 **Critères d'acceptation :**
 
 - [ ] Clic marqueur → `onSelectVehicle(vehicle)`.
-- [ ] La carte `flyTo` vers les coordonnées (zoom ~15).
+- [ ] La carte `flyTo` vers les coordonnées (zoom ~15 en sélection simple).
+- [ ] Focus depuis menu / Zoom : `mapCenter` + zoom **~16** + **popup** Leaflet (matricule/nom, lieu, vitesse, horodatage).
 - [ ] La sélection est bloquée pendant un mode dessin geofencing (`drawMode` — Epic 8).
 - [ ] Fermeture de la fiche → `onDeselectVehicle`.
 
@@ -658,24 +678,24 @@ sequenceDiagram
 
 ### Feature 12 — Centre de monitoring
 
-**Description** : Overlay droit de KPIs statut flotte.
+**Description** : Overlay droit de compteurs statut flotte avec filtres toggle synchronisés carte + tableau.
 
-**Composants** : `Sidebar.tsx` (`mode="monitoring"`, `position="floating-right"`), `App.tsx`
+**Composants** : `Sidebar.tsx` (`mode="monitoring"`, `position="floating-right"`), `App.tsx` (`statusCounts`, `statusFilter`)
 
 ---
 
-#### US-12.1 — Consulter les KPIs monitoring
+#### US-12.1 — Consulter et filtrer par statut
 
 **En tant que** opérateur,  
-**je veux** voir d'un coup d'œil le résumé statut de la flotte,  
-**afin de** repérer les anomalies (trop de stops, vitesse basse…).
+**je veux** voir d'un coup d'œil le résumé statut de la flotte et filtrer dessus,  
+**afin de** me concentrer sur Circulation, Stop ou Hors connexion.
 
 **Critères d'acceptation :**
 
 - [ ] Panneau flottant droit collapsible.
-- [ ] KPIs affichés : **Total Véhicules**, **En Mouvement**, **En Stop**, **Vitesse Basse**.
-- [ ] **État actuel** : valeurs mock hardcodées (`total: 55`, `enMouvement: 23`, `enStop: 18`, `vitesseBasse: 14`).
-- [ ] Boutons / tuiles de statut sont **affichage seul** (pas de filtre carte branché).
+- [ ] Compteurs dérivés de `MOCK_VEHICLES` : **Total**, **Circulation** (`active`), **Stop** (`idle`), **Hors connexion** (`offline`).
+- [ ] Clic sur une tuile de statut = toggle `statusFilter` → filtre `mapVehicles` et tableau Suivi général.
+- [ ] Plusieurs statuts peuvent être actifs simultanément (union).
 
 ---
 
@@ -694,11 +714,11 @@ sequenceDiagram
 
 ### Feature 13 — Actions contextuelles véhicule
 
-**Description** : Menu kebab du Suivi général listant les actions rapides sur un véhicule.
+**Description** : Menu kebab du Suivi général listant les actions rapides sur un véhicule (visibilité selon admin / capacités équipement).
 
-**Composants** : `VehicleListPanel.tsx` (`menuItems`, `handleMenuAction`)
+**Composants** : `VehicleListPanel.tsx`, `vehicle-row-actions.ts`, `RemoteStopDialog.tsx`, `GeneralReportDetailsPage.tsx`, `AlertConfigurationPage.tsx`, `App.tsx`
 
-**Dépend de** : Feature 4
+**Dépend de** : Feature 4, Feature 10
 
 ---
 
@@ -710,35 +730,30 @@ sequenceDiagram
 
 **Critères d'acceptation :**
 
-- [ ] Action « Afficher sur la carte » appelle `onSelectVehicle(vehicle)`.
-- [ ] Déclenche flyTo + fiche véhicule (Features 10–11).
-- [ ] **Seule action actuellement branchée** du menu.
+- [ ] Action « Afficher sur la carte » → `onFocusVehicleOnMap` (sélection + `mapCenter` zoom ~16 + popup).
+- [ ] Si aucun `imei` (équipement non assigné) → dialog d'avertissement, pas de centrage.
+- [ ] Reste sur l'onglet État général.
 
 ---
 
-#### US-13.2 — Accéder aux autres actions véhicule (cible produit)
+#### US-13.2 — Enchaîner les actions métier depuis le menu
 
 **En tant que** opérateur,  
-**je veux** lancer trajectoire, rapport, AAD ou paramétrage alertes depuis le menu,  
-**afin d'** agir sans quitter le Suivi.
+**je veux** lancer trajectoire, stop/run, rapport, excès, commandes, AAD ou paramétrage alertes depuis le menu,  
+**afin d'** agir sans quitter le parcours Suivi.
 
 **Critères d'acceptation :**
 
-- [ ] Entrées menu présentes dans l'UI :
-  - Afficher trajectoire
-  - Afficher Stop/Circulation
-  - Afficher le rapport détaillé
-  - Afficher les excès de vitesse
-  - Demande position actuelle
-  - Arrêt à distance (AAD)
-  - Paramétrage des alertes
-- [ ] **État actuel (stub)** : sélection d'une de ces entrées ferme le menu sans effet métier.
-- [ ] **Cible future** :
-  - [ ] Afficher trajectoire → bascule mode `trajectoire` + filtre véhicule + (idéal) tracé carte
-  - [ ] Afficher Stop/Circulation → bascule mode `stop_circulation` + filtre véhicule
-  - [ ] Rapport détaillé / excès de vitesse → navigation rapports ou panneau dédié
-  - [ ] Demande position / AAD → création commande (Feature 8) via API
-  - [ ] Paramétrage des alertes → Centre d'alertes / config scope véhicule
+- [ ] Entrées typées (`VehicleRowActionId`) filtrées par visibilité :
+  - Afficher trajectoire → mode `trajectoire` + véhicule + polyligne mock
+  - Afficher Stop/Circulation → mode `stop_circulation` + véhicule
+  - Afficher le rapport détaillé → section `rapport_detail` (`GeneralReportDetailsPage`, export Excel/PDF stub)
+  - Afficher les excès de vitesse → mode `alertes` + type « Dépassement de vitesse » + période jour
+  - Demande position actuelle → visible si `supportsCurrentPosition` ; bascule `commandes` + dialog confirmation
+  - Arrêt à distance (AAD) → visible si admin + `supportsAad` ; `RemoteStopDialog` (désactiver / activer / forcé si supporté) puis `commandes`
+  - Paramétrage des alertes → visible si admin ; `alert_configuration` avec `initialVehicleId`
+- [ ] Helper `focusSuivieAction` : pré-sélection véhicule + dates / alertTypes + fermeture menu.
+- [ ] Hors scope MVP restant : animation trajet, export réel, multi-véhicules AAD, sync boîtier.
 
 ---
 
@@ -796,20 +811,20 @@ sequenceDiagram
 
 **Description** : Droit d'accès page Suivi au niveau compte.
 
-**Composants** : `AddAccountModal.tsx` (`ACCESS_PAGES`, `id: 'suivi'`)
+**Composants** : `features/admin` — `AccountFormStepper` / `ACCESS_PAGES` (`id: 'suivi'`). Voir **[Epic — Administration](Epic-Administration.md)** (Feature 1).
 
 ---
 
 #### US-16.1 — Activer l'accès Suivi pour un compte
 
-**En tant que** super-administrateur,  
-**je veux** activer ou désactiver l'accès à la page Suivi pour un compte,  
+**En tant que** super-administrateur,
+**je veux** activer ou désactiver l'accès à la page Suivi pour un compte,
 **afin de** contrôler qui peut surveiller la flotte.
 
 **Critères d'acceptation :**
 
-- [ ] Dans le formulaire compte, une page d'accès « Suivi » (`id: 'suivi'`) est disponible.
-- [ ] L'état est persisté avec le compte (selon modèle admin existant).
+- [ ] Dans le formulaire compte (stepper étape 4), une page d'accès « Suivi » (`id: 'suivi'`) est disponible.
+- [ ] L'état est persisté avec le compte (mock admin / modèle admin).
 - [ ] *(À brancher côté UI)* : si désactivé, l'entrée TopBar Suivi / workspace n'est pas accessible pour ce compte.
 
 ---
@@ -829,8 +844,8 @@ sequenceDiagram
 | Feature 9 | Feature 3 |
 | Feature 10 | Feature 1, Feature 2 |
 | Feature 11 | Feature 10 |
-| Feature 12 | Feature 1 |
-| Feature 13 | Feature 4 (menu), Feature 10 (carte) |
+| Feature 12 | Feature 1, Feature 2 (filtre statut) |
+| Feature 13 | Feature 4 (menu), Feature 3 (modes), Feature 10 (carte), Feature 8 (commandes) |
 | Feature 14 | Feature 2, Feature 3, Feature 9 |
 | Feature 15 | Feature 1, Feature 10, Feature 11 |
 | Feature 16 | — (autonome, admin) |
@@ -841,7 +856,9 @@ sequenceDiagram
 |-----------|-------------|
 | `VehicleListPanel` | Features 2–9, 13, 14 |
 | `useColumnPreferences` | Feature 9 (consommée par 4–8) |
-| `MapView` | Features 10, 11, 15 ; Epic 8 |
+| `fleet-reminders` / `FleetReminderCell` | Feature 4 |
+| `vehicle-row-actions` | Feature 13 |
+| `MapView` | Features 10, 11, 13, 15 ; Epic 8 |
 | `MapControls` | Feature 10 ; Epic 8 |
 | `applySuivieFilters` | Features 2, 4–8 |
 
@@ -862,14 +879,15 @@ sequenceDiagram
 |---|-----|--------|-------------------|
 | G1 | **Pas de flux GPS live** — positions mock / seed | Suivi non temps réel en prod | Haute |
 | G2 | **Export PDF/Excel stub** | Pas de reporting opérationnel depuis le panneau | Haute |
-| G3 | **Menu contextuel quasi stub** (sauf « Afficher sur la carte ») | Parcours métier incomplets | Haute |
-| G4 | **KPIs monitoring hardcodés** | Indicateurs non fiables | Moyenne |
-| G5 | **Trajectoire tabulaire sans tracé carte dédié** | Analyse parcours limitée | Haute |
+| G3 | **Menu contextuel UX branché (mocks)** — API commandes / AAD multi non réels | Parcours métier incomplets en prod | Moyenne |
+| G4 | **KPIs monitoring dérivés des mocks** — pas encore d'API flotte live | Indicateurs non temps réel | Moyenne |
+| G5 | **Trajectoire : polyligne mock MVP** — pas d'animation / export / infos générales | Analyse parcours limitée | Moyenne |
 | G6 | **Tables legacy orphelines** (`SuivieFilterBar`, `*Table`) | Dette / confusion maintenance | Basse |
 | G7 | **Feature flag compte Suivi** non branché sur l'accès UI | Droit d'accès inopérant | Moyenne |
 | G8 | **Mode Alertes Suivi vs Centre d'alertes** non unifiés | Double source de vérité alertes | Moyenne |
-| G9 | **Légende carte** compteurs statiques (En ligne 45 / Hors ligne 10) | Incohérence visuelle | Basse |
+| G9 | **Légende / couleurs statut alignées** — compteurs légende encore partiellement décoratifs | Incohérence visuelle résiduelle | Basse |
 | G10 | **Onboarding module `tracking`** marqué `available: false` | Activation produit incomplète | Basse |
+| G11 | **Rappels parc Dashboard** : dialogs placeholder, pas de branchement Parc | Actions entretien/docs/sinistre non persistées | Moyenne |
 
 ---
 
@@ -879,14 +897,15 @@ sequenceDiagram
 
 | Tâche | Features | Détail |
 |-------|----------|--------|
-| Stabiliser UX panneau | 1–3, 9 | Collapse, resize, filtres draft/applied, a11y |
-| Brancher actions menu | 13 | Bascule modes + filtres ; AAD / demande position → API commandes |
+| Stabiliser UX panneau | 1–3, 9 | Collapse, resize, auto-apply filtres, a11y |
+| Brancher API derrière menu Actions | 13, 8 | Remplacer mocks commandes / AAD / rapport par API |
+| Brancher rappels Parc | 4 | Dialogs Dashboard → modules entretien / docs / sinistres / location |
 | Export PDF/Excel | 14 | Colonnes visibles + lignes filtrées |
-| Trajectoire carte | 7, 10 | Polyligne historique + sync sélection segment |
-| KPIs live | 12 | Brancher `vehicleStats` sur agrégats flotte filtrée |
+| Trajectoire carte avancée | 7, 10 | Polyligne historique réelle + animation / métriques / export |
+| KPIs live | 12 | Brancher compteurs / filtres sur agrégats flotte API |
 | Feature flag Suivi | 16 | Masquer TopBar / workspace si accès off |
 | Nettoyage legacy | — | Supprimer ou archiver `SuivieFilterBar` / tables orphelines |
-| Tests | 2, 9 | `applySuivieFilters`, `useColumnPreferences` |
+| Tests | 2, 9, 13 | `applySuivieFilters`, `useColumnPreferences`, `vehicle-row-actions` |
 
 ### Équipe Backend
 
@@ -915,6 +934,7 @@ sequenceDiagram
 ```
 id, name, status: active|idle|offline, speed, location, coordinates [lat,lng],
 lastUpdate, driver, batteryLevel, departmentId?, groupIds?, matricule?,
+imei?, supportsCurrentPosition?, supportsAad?, supportsAadForced?,
 iconType?, heading?
 ```
 
@@ -933,7 +953,7 @@ alertTypes: Set<string>
 
 | Mode | Colonnes visibles par défaut |
 |------|------------------------------|
-| Suivi général | Véhicule, Date / heure, Vitesse, Adresse, Chauffeur, Département |
+| Suivi général | Véhicule, Date / heure, Vitesse, Adresse, Chauffeur, Département, Dashboard |
 | Alertes | Véhicule, Date, Type d'alerte, Adresse, Vitesse, Kilométrage |
 | Stop & Circulation | État, Matricule, Emplacement, Distance, Période, Date début |
 | Trajectoire | Stop/Circulation, Date début, Période, Vitesse, Distance, Emplacement |
@@ -948,4 +968,4 @@ value: { order: string[], visible: Record<string, boolean> }
 
 ---
 
-*Document généré à partir de l'analyse du code frontend FleetIQ — Epic 1 Tracking (module Suivi).*
+*Document mis à jour (v1.1) à partir de l'analyse du code frontend FleetIQ — Epic 1 Tracking (module Suivi).*

@@ -20,19 +20,30 @@ const LOCATIONS = [
 ];
 const NOTIFIED_USERS = ['Admin Flotte', 'Gestionnaire Nord', 'Responsable Sécurité', 'Conducteur'];
 
-const ALERT_TYPES: AlertType[] = [
-  'sos', 'speeding', 'fuel', 'geofence', 'geofence_exit', 'towing', 'temperature', 'maintenance',
-  'driver_door', 'gps_signal', 'route', 'stop', 'driving_time_exceeded',
-  'battery_disconnected', 'ignition', 'long_stop', 'country_border', 'handbrake', 'trunk', 'seatbelt',
-  'check_engine', 'abs', 'oil_pressure', 'battery', 'ac', 'central_lock', 'main_lights', 'maintenance_due',
-  'insurance_expired', 'technical_inspection', 'registration_expired', 'documents_expired',
-  'unauthorized_start', 'fuel_theft', 'coolant_level', 'cruise_control',
-].filter((t) => !EXCLUDED_SET.has(t));
+const ALERT_TYPES = (
+  [
+    'sos', 'speeding', 'fuel', 'geofence', 'geofence_exit', 'towing', 'temperature', 'maintenance',
+    'driver_door', 'gps_signal', 'route', 'stop', 'driving_time_exceeded',
+    'battery_disconnected', 'ignition', 'long_stop', 'country_border', 'handbrake', 'trunk', 'seatbelt',
+    'check_engine', 'abs', 'oil_pressure', 'battery', 'ac', 'central_lock', 'main_lights', 'maintenance_due',
+    'insurance_expired', 'technical_inspection', 'registration_expired', 'documents_expired',
+    'unauthorized_start', 'fuel_theft', 'coolant_level', 'cruise_control',
+    'mission_order', 'fuel_coupon', 'brake_pads', 'tires_change', 'car_document',
+    'presence_in_area', 'absence_from_area',
+    'tank_low', 'tank_very_low', 'fuel_fill', 'temperature_alert', 'engine_temperature',
+    'contact_on_off', 'remote_arming_enable_fail',
+    'tunisian_road_speed_limit', 'high_fuel_consumption',
+    'foot_brake', 'clutch', 'hood', 'pto', 'oil_level',
+  ] as AlertType[]
+).filter((t) => !EXCLUDED_SET.has(t));
 
 const DASHBOARD_TYPES: AlertType[] = [
-  'handbrake', 'trunk', 'fuel', 'seatbelt', 'ac', 'central_lock', 'driver_door', 'front_right_door',
-  'rear_left_door', 'rear_right_door', 'battery', 'oil_pressure', 'temperature', 'check_engine',
-  'airbag', 'abs', 'coolant_level', 'brake_fluid_level', 'cruise_control', 'main_lights',
+  'fuel', 'seatbelt', 'ac', 'cruise_control', 'foot_brake', 'clutch', 'handbrake', 'central_lock',
+  'reverse_lights', 'position_lights', 'low_beam', 'high_beam', 'rear_fog', 'front_fog', 'door',
+  'trunk', 'turn_signals', 'driver_door', 'front_right_door', 'rear_left_door', 'rear_right_door',
+  'hood', 'parking_heater', 'brake_fluid_level', 'coolant_level', 'battery', 'brake_system_failure',
+  'oil_pressure', 'temperature', 'abs', 'check_engine', 'airbag', 'maintenance', 'oil_level',
+  'ev_charging', 'fuel_source', 'pto', 'main_lights',
 ];
 
 const MESSAGES: Partial<Record<AlertType, string[]>> = {
@@ -78,6 +89,38 @@ const MESSAGES: Partial<Record<AlertType, string[]>> = {
   registration_expired: ['Carte grise expirée'],
   documents_expired: ['Vignette expirée'],
   unauthorized_start: ['Démarrage non autorisé détecté'],
+  mission_order: ["Durée d'ordre de mission terminée"],
+  fuel_coupon: ['Bon/carte de carburant à livrer'],
+  brake_pads: ['Patins de frein à changer'],
+  distribution_chain: ['Chaîne de distribution à changer'],
+  spark_plugs: ["Bougies d'allumage à changer"],
+  tires_change: ['Pneus à changer'],
+  fuel_filter: ['Filtre à gasoil à remplacer'],
+  ac_filter: ['Filtre climatiseur à remplacer'],
+  oil_filter: ['Filtre à huile à remplacer'],
+  air_filter: ['Filtre à air à remplacer'],
+  car_document: ['Papier de voiture à revoir'],
+  presence_in_area: ['Présence véhicule en zone pour période déterminée'],
+  absence_from_area: ['Absence véhicule en zone pour période déterminée'],
+  remote_arming_enable_ok: ["Activation arrêt à distance réussie"],
+  remote_arming_enable_fail: ["Activation arrêt à distance échouée"],
+  remote_arming_disable_ok: ["Désactivation arrêt à distance réussie"],
+  remote_arming_disable_fail: ["Désactivation arrêt à distance échouée"],
+  tank_low: ['Niveau de réservoir faible'],
+  tank_very_low: ['Niveau de réservoir très faible'],
+  fuel_fill: ['Remplissage de carburant détecté'],
+  stop_contact_on: ['Stop avec moteur en marche'],
+  stop_contact_off: ['Stop avec moteur à l\'arrêt'],
+  temperature_alert: ['Alerte de température hors plage'],
+  engine_temperature: ['Dépassement température moteur'],
+  contact_on_off: ['Contact On/Off'],
+  tunisian_road_speed_limit: ['Dépassement limite route tunisienne'],
+  high_fuel_consumption: ['Consommation carburant excessive'],
+  foot_brake: ['Frein à pied engagé'],
+  clutch: ['Pédale d\'embrayage'],
+  hood: ['Capot ouvert'],
+  pto: ['Power take-off actif'],
+  oil_level: ['Niveau d\'huile bas'],
 };
 
 function minutesAgo(min: number): string {
@@ -190,11 +233,36 @@ export function generateGeolocationDemoAlerts(vehicles: Vehicle[]): FleetAlert[]
 
 /** One active demo alert per driving quality type for dashboard examples */
 export function generateDrivingQualityDemoAlerts(vehicles: Vehicle[]): FleetAlert[] {
+  return generateCenterSectionDemoAlerts(vehicles, 'driving_quality', 6000, 'dq-demo');
+}
+
+/** One active demo alert per fleet parc type */
+export function generateFleetParcDemoAlerts(vehicles: Vehicle[]): FleetAlert[] {
+  return generateCenterSectionDemoAlerts(vehicles, 'vehicle_management', 7000, 'parc-demo');
+}
+
+/** One active demo alert per security center type */
+export function generateSecurityDemoAlerts(vehicles: Vehicle[]): FleetAlert[] {
+  return generateCenterSectionDemoAlerts(vehicles, 'security', 8000, 'sec-demo');
+}
+
+function generateCenterSectionDemoAlerts(
+  vehicles: Vehicle[],
+  sectionId: 'driving_quality' | 'vehicle_management' | 'security',
+  startId: number,
+  idPrefix: string
+): FleetAlert[] {
   if (!vehicles.length) return [];
 
-  const types = getAlertTypesForCenterSection('driving_quality');
+  const types = getAlertTypesForCenterSection(sectionId).filter((t) => !EXCLUDED_SET.has(t));
   const alerts: FleetAlert[] = [];
-  let id = 6000;
+  let id = startId;
+  const category =
+    sectionId === 'vehicle_management'
+      ? 'vehicle_management'
+      : sectionId === 'security'
+        ? 'security'
+        : 'driving_quality';
 
   types.forEach((type, index) => {
     const vehicle = vehicles[index % vehicles.length];
@@ -203,7 +271,7 @@ export function generateDrivingQualityDemoAlerts(vehicles: Vehicle[]): FleetAler
     const defaultMessage = MESSAGES[type]?.[0];
 
     alerts.push({
-      id: `dq-demo-${id++}`,
+      id: `${idPrefix}-${id++}`,
       type,
       vehicleId: vehicle.id,
       vehicleName: vehicle.name,
@@ -213,7 +281,7 @@ export function generateDrivingQualityDemoAlerts(vehicles: Vehicle[]): FleetAler
       createdAt,
       location: LOCATIONS[index % LOCATIONS.length],
       isRead: false,
-      category: 'driving_quality',
+      category: config.category ?? category,
       status: 'active',
       priority: config.defaultPriority,
       driverName: vehicle.driver,
@@ -225,7 +293,9 @@ export function generateDrivingQualityDemoAlerts(vehicles: Vehicle[]): FleetAler
       businessImpact: config.businessImpact,
       notifiedUser: NOTIFIED_USERS[index % NOTIFIED_USERS.length],
       isActive: true,
-      details: type === 'speeding' ? { detected: '142 km/h', limit: '90 km/h' } : undefined,
+      details: type === 'speeding' || type === 'tunisian_road_speed_limit'
+        ? { detected: '142 km/h', limit: '90 km/h' }
+        : undefined,
     });
   });
 

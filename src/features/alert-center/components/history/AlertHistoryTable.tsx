@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import type { AlertHistoryRow } from '../../api/alert-api';
 import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 
 function formatHistoryDateTime(iso: string): string {
   try {
@@ -17,9 +18,16 @@ interface AlertHistoryTableProps {
   rows: AlertHistoryRow[];
   isLoading?: boolean;
   footer?: ReactNode;
+  onVehicleClick?: (vehicleId: string) => void;
 }
 
-export function AlertHistoryTable({ rows, isLoading, footer }: AlertHistoryTableProps) {
+/** Webtrace history table: white thead, zebra rows, clickable vehicle. */
+export function AlertHistoryTable({
+  rows,
+  isLoading,
+  footer,
+  onVehicleClick,
+}: AlertHistoryTableProps) {
   if (isLoading) {
     return (
       <div className="space-y-2">
@@ -32,44 +40,68 @@ export function AlertHistoryTable({ rows, isLoading, footer }: AlertHistoryTable
 
   if (rows.length === 0 && !footer) {
     return (
-      <p className="text-sm text-muted-foreground text-center py-16 border border-dashed rounded-lg">
+      <p className="rounded-lg border border-dashed border-slate-200 py-16 text-center text-sm text-slate-500">
         Aucune alerte pour les filtres sélectionnés.
       </p>
     );
   }
 
   return (
-    <div className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden bg-white dark:bg-slate-900">
+    <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
       {rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground text-center py-16">
+        <p className="py-16 text-center text-sm text-slate-500">
           Aucune alerte pour les filtres sélectionnés.
         </p>
       ) : (
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-slate-50 dark:bg-slate-800/50 border-b text-left text-xs text-muted-foreground uppercase">
-              <th className="py-3 px-4 font-medium">Date / Heure</th>
-              <th className="py-3 px-4 font-medium">Véhicule</th>
-              <th className="py-3 px-4 font-medium">Chauffeur</th>
-              <th className="py-3 px-4 font-medium">Lieu ou zone</th>
-              <th className="py-3 px-4 font-medium">Type d&apos;alerte</th>
+            <tr className="border-b border-slate-200 bg-white text-left">
+              <th className="px-4 py-3 text-[0.68rem] font-semibold uppercase tracking-wider text-slate-500">
+                Date / Heure
+              </th>
+              <th className="px-4 py-3 text-[0.68rem] font-semibold uppercase tracking-wider text-slate-500">
+                Véhicule
+              </th>
+              <th className="px-4 py-3 text-[0.68rem] font-semibold uppercase tracking-wider text-slate-500">
+                Chauffeur
+              </th>
+              <th className="px-4 py-3 text-[0.68rem] font-semibold uppercase tracking-wider text-slate-500">
+                Lieu ou zone
+              </th>
+              <th className="px-4 py-3 text-[0.68rem] font-semibold uppercase tracking-wider text-slate-500">
+                Type d&apos;alerte
+              </th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
+            {rows.map((row, idx) => (
               <tr
                 key={row.id}
-                className="border-b border-slate-100 dark:border-slate-800 last:border-0 hover:bg-slate-50/50 dark:hover:bg-slate-800/30"
+                className={cn(
+                  'border-b border-slate-100 last:border-0',
+                  idx % 2 === 1 && 'bg-[#f8fafc]'
+                )}
               >
-                <td className="py-3 px-4 text-muted-foreground whitespace-nowrap">
+                <td className="whitespace-nowrap px-4 py-3 text-slate-500">
                   {formatHistoryDateTime(row.createdAt)}
                 </td>
-                <td className="py-3 px-4 font-medium text-slate-900 dark:text-slate-100">
-                  {row.vehicleName}
+                <td className="px-4 py-3">
+                  {onVehicleClick ? (
+                    <button
+                      type="button"
+                      onClick={() => onVehicleClick(row.vehicleId)}
+                      className="font-bold text-slate-900 hover:text-blue-600"
+                      style={{ color: '#0f172a' }}
+                    >
+                      {row.vehicleName}
+                    </button>
+                  ) : (
+                    <span className="font-bold text-slate-900">{row.vehicleName}</span>
+                  )}
                 </td>
-                <td className="py-3 px-4 text-slate-700 dark:text-slate-300">{row.driverName}</td>
-                <td className="py-3 px-4 text-muted-foreground">{row.locationOrZone}</td>
-                <td className="py-3 px-4 text-slate-700 dark:text-slate-300">{row.alertTypeLabel}</td>
+                <td className="px-4 py-3 text-slate-700">{row.driverName}</td>
+                <td className="px-4 py-3 text-slate-500">{row.locationOrZone}</td>
+                <td className="px-4 py-3 text-slate-700">{row.alertTypeLabel}</td>
               </tr>
             ))}
           </tbody>

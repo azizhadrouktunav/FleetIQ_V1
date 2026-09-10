@@ -4,7 +4,6 @@ import {
   getAlertTypesForCenterSection,
   type AlertCenterSectionId,
 } from './alert-config-sections';
-import { getTaxonomyEntry } from './alert-taxonomy';
 
 export interface SectionDisplayItem {
   alertType: AlertType;
@@ -48,10 +47,8 @@ export function getPoolAlertTypesForSection(sectionId: AlertCenterSectionId): Al
   return getAlertTypesForCenterSection(sectionId);
 }
 
-function isDefaultVisible(sectionId: AlertCenterSectionId, alertType: AlertType): boolean {
-  if (sectionId === 'dashboard') {
-    return getTaxonomyEntry(alertType).defaultSeverity === 'critical';
-  }
+function isDefaultVisible(_sectionId: AlertCenterSectionId, _alertType: AlertType): boolean {
+  // Match Webtrace alert center: all catalog cards visible by default
   return true;
 }
 

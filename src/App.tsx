@@ -771,7 +771,8 @@ function AppShell() {
         <AlertHistoryPage
           vehicles={MOCK_VEHICLES}
           initialVehicleIds={historyVehicleIds}
-          onBack={() => setActiveSection('alertes')} /> :
+          onBack={() => setActiveSection('alertes')}
+          onNavigateToVehicle={handleNavigateToVehicle} /> :
         activeSection === 'alert_configuration' ?
         <AlertConfigurationPage
           vehicles={MOCK_VEHICLES}

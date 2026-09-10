@@ -2,7 +2,7 @@ import type { Vehicle } from '@/types';
 import type { AlertCenterSummary, AlertFilters, AlertRule, AlertSeverity, AlertType, AlertCategory, FleetAlert, TimelineEvent, VehicleAlertItem } from '@/types/alerts';
 import { CARD_DASHBOARD_INDICATORS } from '@/design-system/dashboard-indicators';
 import { delay } from '@/lib/utils';
-import { generateMockAlerts, generateGeolocationDemoAlerts, generateDrivingQualityDemoAlerts } from '../mocks/mockAlerts';
+import { generateMockAlerts, generateGeolocationDemoAlerts, generateDrivingQualityDemoAlerts, generateFleetParcDemoAlerts, generateSecurityDemoAlerts } from '../mocks/mockAlerts';
 import { computeKpisFromAlerts } from '../mocks/mockKpis';
 import {
   buildVehicleSummaries,
@@ -32,9 +32,11 @@ export function initAlertStore(vehicles: Vehicle[]) {
   const base = generateMockAlerts(vehicles);
   const geoDemos = generateGeolocationDemoAlerts(vehicles);
   const dqDemos = generateDrivingQualityDemoAlerts(vehicles);
+  const parcDemos = generateFleetParcDemoAlerts(vehicles);
+  const secDemos = generateSecurityDemoAlerts(vehicles);
   const existingKeys = new Set(base.map((a) => `${a.vehicleId}:${a.type}`));
   const merged = [...base];
-  for (const alert of [...geoDemos, ...dqDemos]) {
+  for (const alert of [...geoDemos, ...dqDemos, ...parcDemos, ...secDemos]) {
     const key = `${alert.vehicleId}:${alert.type}`;
     if (!existingKeys.has(key)) {
       existingKeys.add(key);
@@ -487,6 +489,7 @@ export interface AlertHistoryFilters {
 
 export interface AlertHistoryRow {
   id: string;
+  vehicleId: string;
   vehicleName: string;
   driverName: string;
   locationOrZone: string;
@@ -576,6 +579,7 @@ export async function fetchAlertHistory(
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .map((alert) => ({
       id: alert.id,
+      vehicleId: alert.vehicleId,
       vehicleName: alert.vehicleName,
       driverName: alert.driverName ?? '—',
       locationOrZone: getLocationOrZone(alert),

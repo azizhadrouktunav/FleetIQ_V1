@@ -98,7 +98,7 @@ export function reorderDisplayOrders(
   items: ResolvedAlertConfig[],
   alertType: AlertType,
   direction: 'up' | 'down'
-): Record<AlertType, number> {
+): Partial<Record<AlertType, number>> {
   const sorted = [...items]
     .filter((i) => i.displayOrder != null)
     .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
@@ -109,11 +109,11 @@ export function reorderDisplayOrders(
   const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
   if (swapIdx < 0 || swapIdx >= sorted.length) return {};
 
-  const orders: Record<string, number> = {};
+  const orders: Partial<Record<AlertType, number>> = {};
   sorted.forEach((item, i) => {
     orders[item.alertType] = i + 1;
   });
   orders[sorted[idx].alertType] = swapIdx + 1;
   orders[sorted[swapIdx].alertType] = idx + 1;
-  return orders as Record<AlertType, number>;
+  return orders;
 }

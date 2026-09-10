@@ -1,75 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft } from 'lucide-react';
-import type { Vehicle } from '@/types';
-import type { AlertScopeRef } from '@/types/alert-config';
-import { ScopeSelectorPanel } from '@/features/alert-center/components/config/ScopeSelectorPanel';
-import { AlertConfigSectionsPanel } from '@/features/alert-center/components/config/AlertConfigSectionsPanel';
-import { SaveDefaultConfigButton } from '@/features/alert-center/components/config/SaveDefaultConfigButton';
-import { registerFleetVehiclesForConfigSync } from '@/features/alert-center/api/alert-config-api';
-import { Button } from '@/components/ui/button';
+import { AlertConfigAdminPage } from '@/features/admin/alert-config/AlertConfigAdminPage';
 
 interface AlertConfigurationPageProps {
-  vehicles?: Vehicle[];
+  vehicles?: unknown[];
   onBack?: () => void;
-  /** Pre-select this vehicle as alert config scope */
   initialVehicleId?: string | null;
 }
 
+/** Thin wrapper — Webtrace-parity equipment alert configuration. */
 export function AlertConfigurationPage({
-  vehicles = [],
-  onBack,
   initialVehicleId = null,
 }: AlertConfigurationPageProps) {
-  const [selectedScopes, setSelectedScopes] = useState<AlertScopeRef[]>(() => {
-    if (!initialVehicleId) return [];
-    return [{ scopeType: 'vehicle', scopeId: initialVehicleId }];
-  });
-  const vehicleIds = useMemo(() => vehicles.map((v) => v.id), [vehicles]);
-
-  useEffect(() => {
-    registerFleetVehiclesForConfigSync(vehicleIds);
-  }, [vehicleIds]);
-
-  useEffect(() => {
-    if (!initialVehicleId) return;
-    setSelectedScopes([{ scopeType: 'vehicle', scopeId: initialVehicleId }]);
-  }, [initialVehicleId]);
-
-  return (
-    <div className="h-full flex flex-col bg-slate-50 dark:bg-slate-950 overflow-hidden">
-      <div className="shrink-0 px-6 py-4 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
-            {onBack && (
-              <Button variant="ghost" size="sm" onClick={onBack}>
-                <ArrowLeft className="w-4 h-4 mr-1" /> Retour
-              </Button>
-            )}
-            <div>
-              <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">
-                Paramétrage des alertes
-              </h1>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                Configurez les alertes par véhicule, groupe ou département
-              </p>
-            </div>
-          </div>
-          <SaveDefaultConfigButton selectedScopes={selectedScopes} vehicles={vehicles} />
-        </div>
-      </div>
-
-      <div className="flex-1 min-h-0 flex">
-        <aside className="w-[280px] shrink-0 min-h-0">
-          <ScopeSelectorPanel
-            vehicles={vehicles}
-            selectedScopes={selectedScopes}
-            onSelectionChange={setSelectedScopes}
-          />
-        </aside>
-        <main className="flex-1 min-w-0 min-h-0 bg-slate-50 dark:bg-slate-950">
-          <AlertConfigSectionsPanel selectedScopes={selectedScopes} vehicles={vehicles} />
-        </main>
-      </div>
-    </div>
-  );
+  return <AlertConfigAdminPage initialVehicleId={initialVehicleId} />;
 }

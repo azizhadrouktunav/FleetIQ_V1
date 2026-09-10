@@ -7,7 +7,6 @@ import { useAlertTypeVehicleCounts } from '../../hooks/useAlertQueries';
 import { useSectionDisplayConfig } from '../../hooks/useSectionDisplayConfig';
 import { AlertTypeIndicatorTile } from './AlertTypeIndicatorTile';
 import { SectionDisplayConfigSheet } from './SectionDisplayConfigSheet';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 interface AlertSectionPanelProps {
@@ -16,6 +15,7 @@ interface AlertSectionPanelProps {
   onSelectAlertType: (alertType: AlertType, sectionId: AlertCenterSectionId) => void;
 }
 
+/** Webtrace `.alert-section` accordion with horizontal type cards grid. */
 export function AlertSectionPanel({
   section,
   defaultOpen = true,
@@ -29,63 +29,68 @@ export function AlertSectionPanel({
   const poolAlertTypes = getAlertTypesForCenterSection(section.id);
   const { data: counts = {} } = useAlertTypeVehicleCounts(poolAlertTypes);
 
-  const displayAlertTypes = visibleAlertTypes.filter((type) => (counts[type] ?? 0) > 0);
-
-  const activeCount = displayAlertTypes.reduce((sum, type) => sum + (counts[type] ?? 0), 0);
+  // Webtrace shows all visible types (including count 0)
+  const displayAlertTypes = visibleAlertTypes;
+  const vehiclesWithAlerts = displayAlertTypes.reduce(
+    (sum, type) => sum + ((counts[type] ?? 0) > 0 ? 1 : 0),
+    0
+  );
 
   return (
     <>
-      <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden bg-white dark:bg-slate-900">
-        <div className="flex items-center">
-          <button
-            type="button"
-            onClick={() => setOpen((v) => !v)}
-            className="flex-1 flex items-center justify-between p-4 text-left hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors min-w-0"
-          >
-            <div>
-              <h3 className="font-semibold text-sm text-slate-900 dark:text-slate-100">
-                {section.label}
-              </h3>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {visibleAlertTypes.length === 0
-                  ? 'Aucune alerte configurée'
-                  : displayAlertTypes.length === 0
-                    ? 'Aucune alerte active'
-                    : `${activeCount} véhicule(s) avec alerte(s) active(s)`}
-              </p>
-            </div>
+      <section
+        className="w-full overflow-hidden rounded-[0.9rem] border bg-white shadow-sm"
+        style={{ borderColor: '#e8edf3' }}
+      >
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left hover:bg-slate-50"
+        >
+          <div className="min-w-0 text-left">
+            <h2 className="text-base font-semibold text-slate-800">{section.label}</h2>
+            <p className="mt-0.5 text-sm text-slate-500">
+              {visibleAlertTypes.length === 0
+                ? 'Aucune alerte configurée'
+                : `${vehiclesWithAlerts} véhicule(s) avec alerte(s) active(s)`}
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              title="Configuration"
+              className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+              onClick={(e) => {
+                e.stopPropagation();
+                setConfigOpen(true);
+              }}
+              aria-label={`Configuration — ${section.label}`}
+            >
+              <Settings className="h-5 w-5" />
+            </button>
             <ChevronDown
               className={cn(
-                'w-5 h-5 text-slate-400 transition-transform shrink-0 ml-2',
+                'h-5 w-5 text-slate-400 transition-transform',
                 open && 'rotate-180'
               )}
+              aria-hidden
             />
-          </button>
+          </div>
+        </button>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            className="shrink-0 mr-2"
-            onClick={(e) => {
-              e.stopPropagation();
-              setConfigOpen(true);
-            }}
-            aria-label={`Configuration — ${section.label}`}
-          >
-            <Settings className="w-4 h-4" />
-          </Button>
-        </div>
-
-        {open && (
-          <div className="px-4 pb-4 border-t border-slate-100 dark:border-slate-800">
+        {open ? (
+          <div className="px-5 pb-[1.15rem]">
             {displayAlertTypes.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-6">
-                {visibleAlertTypes.length === 0
-                  ? 'Aucune alerte configurée — cliquez sur l&apos;icône configuration'
-                  : 'Aucune alerte active'}
+              <p className="py-4 text-center text-sm text-slate-500">
+                Aucune alerte à afficher.
               </p>
             ) : (
-              <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-2 pt-3">
+              <div
+                className="grid gap-3"
+                style={{
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(15.5rem, 1fr))',
+                }}
+              >
                 {displayAlertTypes.map((alertType) => (
                   <AlertTypeIndicatorTile
                     key={alertType}
@@ -97,8 +102,8 @@ export function AlertSectionPanel({
               </div>
             )}
           </div>
-        )}
-      </div>
+        ) : null}
+      </section>
 
       <SectionDisplayConfigSheet
         sectionId={section.id}

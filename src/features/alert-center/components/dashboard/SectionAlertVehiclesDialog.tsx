@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { MapPin } from 'lucide-react';
 import type { AlertType } from '@/types/alerts';
 import type { AlertCenterSectionId } from '../../constants/alert-config-sections';
 import { getTaxonomyEntry } from '../../constants/alert-taxonomy';
@@ -10,7 +9,6 @@ import {
 } from '../../constants/alert-section-vehicle-rows';
 import { useVehiclesForAlertType } from '../../hooks/useAlertQueries';
 import { TableFooter } from '@/components/TableFooter';
-import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -29,17 +27,7 @@ interface SectionAlertVehiclesDialogProps {
   onSelectVehicle?: (vehicleId: string) => void;
 }
 
-const cellPadding = (colId: string, columns: { id: string }[]) => {
-  const isFirst = columns[0]?.id === colId;
-  const isLast = columns[columns.length - 1]?.id === colId;
-  return cn(
-    isFirst && 'pl-6',
-    isLast && 'pr-6',
-    !isFirst && 'pl-3',
-    !isLast && 'pr-3'
-  );
-};
-
+/** Webtrace alert-details-modal — blue header + datagrid. */
 export function SectionAlertVehiclesDialog({
   alertType,
   sectionId,
@@ -69,12 +57,12 @@ export function SectionAlertVehiclesDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle>{label}</DialogTitle>
+      <DialogContent className="flex max-h-[85vh] max-w-4xl flex-col overflow-hidden p-0">
+        <DialogHeader className="bg-blue-500 px-6 py-4 pr-14 text-left">
+          <DialogTitle className="text-xl font-bold text-white">{label}</DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-auto flex flex-col min-h-0">
+        <div className="flex min-h-0 flex-1 flex-col overflow-auto">
           {isLoading ? (
             <div className="space-y-2 px-6 py-4">
               {Array.from({ length: 4 }).map((_, i) => (
@@ -82,72 +70,76 @@ export function SectionAlertVehiclesDialog({
               ))}
             </div>
           ) : rows.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-10">
+            <p className="py-10 text-center text-sm text-slate-500">
               Aucun véhicule avec cette alerte
             </p>
           ) : (
             <>
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b text-left text-xs text-muted-foreground uppercase">
+                  <tr className="border-b border-slate-200 bg-white text-left">
                     {columns.map((col) => (
                       <th
                         key={col.id}
                         className={cn(
-                          'py-3',
-                          cellPadding(col.id, columns),
+                          'px-5 py-3 text-[0.68rem] font-semibold uppercase tracking-wider text-slate-500',
                           col.id === 'action' && 'text-right'
                         )}
                       >
-                        {col.label}
+                        {col.id === 'action' ? '' : col.label}
                       </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedRows.map((row: SectionAlertVehicleRow) => (
-                    <tr key={row.vehicleId} className="border-b border-slate-100">
+                  {paginatedRows.map((row: SectionAlertVehicleRow, idx) => (
+                    <tr
+                      key={row.vehicleId}
+                      className={cn(
+                        'border-b border-slate-100',
+                        idx % 2 === 1 && 'bg-[#f8fafc]'
+                      )}
+                    >
                       {columns.map((col) => {
                         if (col.id === 'action') {
                           return (
-                            <td
-                              key={col.id}
-                              className={cn('py-2.5 text-right', cellPadding(col.id, columns))}
-                            >
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-7 text-xs"
+                            <td key={col.id} className="px-5 py-3 text-right">
+                              <button
+                                type="button"
+                                className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100"
                                 onClick={() => {
                                   onNavigateToVehicle?.(row.vehicleId, row.coordinates);
                                   onOpenChange(false);
                                 }}
                               >
-                                <MapPin className="w-3.5 h-3.5 mr-1" />
                                 Voir sur carte
-                              </Button>
+                              </button>
                             </td>
                           );
                         }
                         const value = getCellValue(row, col.id);
-                        const isVehicleCol = col.id === 'licensePlate' && onSelectVehicle;
+                        const isVehicleCol = col.id === 'licensePlate';
                         return (
                           <td
                             key={col.id}
                             className={cn(
-                              'py-2.5',
-                              cellPadding(col.id, columns),
-                              col.id === 'licensePlate' && 'font-medium',
-                              col.id === 'alertDateTime' && 'text-muted-foreground whitespace-nowrap',
-                              (col.id === 'location' || col.id === 'detail') && 'text-muted-foreground'
+                              'px-5 py-3',
+                              col.id === 'alertDateTime' &&
+                                'whitespace-nowrap text-slate-500',
+                              (col.id === 'location' || col.id === 'detail') &&
+                                'text-slate-500'
                             )}
                           >
                             {isVehicleCol ? (
                               <button
                                 type="button"
-                                className="text-left text-blue-600 hover:underline"
+                                className="font-bold text-blue-600 hover:text-blue-700 hover:underline"
                                 onClick={() => {
-                                  onSelectVehicle(row.vehicleId);
+                                  if (onSelectVehicle) {
+                                    onSelectVehicle(row.vehicleId);
+                                  } else {
+                                    onNavigateToVehicle?.(row.vehicleId, row.coordinates);
+                                  }
                                   onOpenChange(false);
                                 }}
                               >

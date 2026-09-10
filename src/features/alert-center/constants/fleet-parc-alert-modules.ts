@@ -10,16 +10,11 @@ export interface FleetParcAlertModule {
 
 export const FLEET_PARC_ALERT_MODULES: FleetParcAlertModule[] = [
   {
-    id: 'maintenance',
-    label: 'Gestion de maintenance',
-    description: 'Rappels entretien et vidange',
-    alertTypes: ['maintenance_due', 'oil_change'],
-  },
-  {
     id: 'documents',
     label: 'Gestion de documents',
-    description: 'Assurance, contrôle technique, vignette, carte grise',
+    description: 'Papiers véhicule, assurance, contrôle technique',
     alertTypes: [
+      'car_document',
       'technical_inspection',
       'insurance_expired',
       'registration_expired',
@@ -28,6 +23,29 @@ export const FLEET_PARC_ALERT_MODULES: FleetParcAlertModule[] = [
     typeLabels: {
       documents_expired: 'Vignette / Autre taxe expirée',
     },
+  },
+  {
+    id: 'missions_coupons',
+    label: 'Missions et carburant',
+    description: 'Ordres de mission et bons/cartes carburant',
+    alertTypes: ['mission_order', 'fuel_coupon'],
+  },
+  {
+    id: 'maintenance',
+    label: 'Gestion de maintenance',
+    description: 'Vidange, pièces et filtres à remplacer',
+    alertTypes: [
+      'oil_change',
+      'maintenance_due',
+      'brake_pads',
+      'distribution_chain',
+      'spark_plugs',
+      'tires_change',
+      'fuel_filter',
+      'ac_filter',
+      'oil_filter',
+      'air_filter',
+    ],
   },
   {
     id: 'rental',

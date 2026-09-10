@@ -27,6 +27,36 @@ export const SECURITY_ALERT_GROUPS: SecurityAlertGroup[] = [
     alertTypes: ['battery_disconnected', 'towing', 'unauthorized_start', 'fuel_theft'],
   },
   {
+    id: 'remote_arming',
+    label: 'Commandes à distance',
+    alertTypes: [
+      'remote_arming_enable_ok',
+      'remote_arming_enable_fail',
+      'remote_arming_disable_ok',
+      'remote_arming_disable_fail',
+    ],
+  },
+  {
+    id: 'fuel',
+    label: 'Carburant',
+    alertTypes: ['tank_low', 'tank_very_low', 'fuel_fill'],
+  },
+  {
+    id: 'stops',
+    label: 'Arrêts',
+    alertTypes: ['stop_contact_on', 'stop_contact_off', 'long_stop'],
+  },
+  {
+    id: 'temperature',
+    label: 'Température',
+    alertTypes: ['temperature_alert', 'engine_temperature'],
+  },
+  {
+    id: 'contact_doors',
+    label: 'Contact et portes',
+    alertTypes: ['contact_on_off', 'door'],
+  },
+  {
     id: 'driving',
     label: 'Conduite',
     alertTypes: [

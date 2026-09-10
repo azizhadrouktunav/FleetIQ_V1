@@ -1095,7 +1095,7 @@ flowchart TD
 
 **Description** : Toggle au niveau compte pour activer/désactiver la fonctionnalité geofencing.
 
-**Composants** : `AddAccountModal.tsx`
+**Composants** : `features/admin` — `AccountFormStepper` / `ACCESS_PAGES` (`id: 'geofencing'`). Voir **[Epic — Administration](Epic-Administration.md)**.
 
 ---
 

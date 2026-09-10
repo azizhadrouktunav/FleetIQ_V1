@@ -11,18 +11,20 @@ import {
   exportAlertHistoryPdf,
 } from '@/features/alert-center/lib/alert-history-export';
 import { TableFooter } from '@/components/TableFooter';
-import { Button } from '@/components/ui/button';
 
 interface AlertHistoryPageProps {
   vehicles?: Vehicle[];
   initialVehicleIds?: string[];
   onBack?: () => void;
+  onNavigateToVehicle?: (vehicleId: string, coordinates: [number, number]) => void;
 }
 
+/** Webtrace alert-history chrome. */
 export function AlertHistoryPage({
   vehicles = [],
   initialVehicleIds = [],
   onBack,
+  onNavigateToVehicle,
 }: AlertHistoryPageProps) {
   useEffect(() => {
     if (vehicles.length) initAlertStore(vehicles);
@@ -60,36 +62,50 @@ export function AlertHistoryPage({
   };
 
   return (
-    <div className="h-full flex flex-col bg-slate-50 dark:bg-slate-950 overflow-hidden">
-      <div className="shrink-0 px-4 lg:px-6 py-4 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
-        <div className="flex items-start gap-3">
-          {onBack && (
-            <Button variant="ghost" size="sm" onClick={onBack} className="shrink-0 mt-0.5">
-              <ArrowLeft className="w-4 h-4 mr-1" /> Retour
-            </Button>
-          )}
-          <div>
-            <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">
-              Historique d&apos;alerte
-            </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Consultez et filtrez l&apos;historique des alertes de la flotte
-            </p>
-          </div>
-        </div>
-      </div>
+    <div className="flex h-full flex-col overflow-hidden bg-white">
+      <div className="mx-auto w-full max-w-7xl flex-1 space-y-5 overflow-y-auto px-6 py-6">
+        {onBack ? (
+          <button
+            type="button"
+            onClick={onBack}
+            className="inline-flex items-center gap-1.5 text-sm font-medium hover:text-slate-800"
+            style={{ color: '#64748b' }}
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Retour
+          </button>
+        ) : null}
 
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 lg:px-6 py-4 space-y-4">
+        <div>
+          <h1
+            className="font-bold leading-tight"
+            style={{ fontSize: '1.75rem', color: '#0f2744' }}
+          >
+            Historique d&apos;alerte
+          </h1>
+          <p className="mt-1 text-sm" style={{ color: '#94a3b8' }}>
+            Consultez et filtrez l&apos;historique des alertes de la flotte
+          </p>
+        </div>
+
         <AlertHistoryFiltersBar filters={filters} onChange={handleFilterChange} />
-        <p className="text-xs text-muted-foreground">
+
+        <p className="text-sm text-slate-500">
           {isLoading ? 'Chargement...' : `${rows.length} alerte(s) trouvée(s)`}
           {initialVehicleIds.length > 0 && filters.vehicleIds?.length
             ? ' — filtré par véhicule sélectionné'
             : ''}
         </p>
+
         <AlertHistoryTable
           rows={paginatedRows}
           isLoading={isLoading}
+          onVehicleClick={(vehicleId) => {
+            const v = vehicles.find((x) => x.id === vehicleId);
+            if (v?.coordinates) {
+              onNavigateToVehicle?.(vehicleId, v.coordinates);
+            }
+          }}
           footer={
             !isLoading ? (
               <TableFooter
