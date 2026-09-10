@@ -599,6 +599,42 @@ function AppShell() {
     };
   }, []);
 
+  const handleVehicleSelect = useCallback((vehicle: Vehicle) => {
+    setSelectedVehicleId(vehicle.id);
+  }, []);
+
+  const handleFocusVehicleOnMap = useCallback(
+    (vehicle: Vehicle, zoom = 16) => {
+      setActiveSection('suivie');
+      setSelectedVehicleId(vehicle.id);
+      setMapCenterZoom(zoom);
+      setMapCenter(vehicle.coordinates);
+    },
+    []
+  );
+
+  const handleShowTrajectoryTrack = useCallback((path: [number, number][]) => {
+    setTrackingPath(path);
+    if (path.length >= 2) {
+      setMapCenterZoom(14);
+      setMapCenter(path[Math.floor(path.length / 2)]);
+    }
+  }, []);
+
+  const handleClearTrajectoryTrack = useCallback(() => {
+    setTrackingPath(null);
+  }, []);
+
+  const handleOpenDetailedReport = useCallback((vehicleId: string) => {
+    setReportVehicleId(vehicleId);
+    setActiveSection('rapport_detail');
+  }, []);
+
+  const handleOpenAlertConfiguration = useCallback((vehicleId: string) => {
+    setAlertConfigVehicleId(vehicleId);
+    setActiveSection('alert_configuration');
+  }, []);
+
   if (phase === 'welcome') {
     return (
       <WelcomeScreen
@@ -641,42 +677,6 @@ function AppShell() {
       />
     );
   }
-
-  const handleVehicleSelect = (vehicle: Vehicle) => {
-    setSelectedVehicleId(vehicle.id);
-  };
-
-  const handleFocusVehicleOnMap = useCallback(
-    (vehicle: Vehicle, zoom = 16) => {
-      setActiveSection('suivie');
-      setSelectedVehicleId(vehicle.id);
-      setMapCenterZoom(zoom);
-      setMapCenter(vehicle.coordinates);
-    },
-    []
-  );
-
-  const handleShowTrajectoryTrack = useCallback((path: [number, number][]) => {
-    setTrackingPath(path);
-    if (path.length >= 2) {
-      setMapCenterZoom(14);
-      setMapCenter(path[Math.floor(path.length / 2)]);
-    }
-  }, []);
-
-  const handleClearTrajectoryTrack = useCallback(() => {
-    setTrackingPath(null);
-  }, []);
-
-  const handleOpenDetailedReport = useCallback((vehicleId: string) => {
-    setReportVehicleId(vehicleId);
-    setActiveSection('rapport_detail');
-  }, []);
-
-  const handleOpenAlertConfiguration = useCallback((vehicleId: string) => {
-    setAlertConfigVehicleId(vehicleId);
-    setActiveSection('alert_configuration');
-  }, []);
 
   const handleSectionChange = (section: string) => {
     setActiveSection(section);
