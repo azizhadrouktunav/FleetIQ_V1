@@ -15,9 +15,22 @@ import {
   AlertTriangle,
   Menu,
   X,
-  Settings } from
-'lucide-react';
+  Settings,
+  Lock,
+  type LucideIcon,
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+
+interface NavMenuItem {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  badge?: number;
+  locked?: boolean;
+  hasDropdown?: boolean;
+  dropdownItems?: { id: string; label: string; icon: LucideIcon }[];
+}
+
 interface TopBarProps {
   activeSection: string;
   onSectionChange: (section: string) => void;
@@ -60,38 +73,42 @@ export function TopBar({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-  const menuItems = [
-  {
-    id: 'dashboard',
-    label: 'Dashboard',
-    icon: LayoutDashboard
-  },
-  {
-    id: 'suivie',
-    label: 'Suivi',
-    icon: MapPin
-  },
-  {
-    id: 'parc',
-    label: 'Parc',
-    icon: Truck
-  },
-  {
-    id: 'alertes',
-    label: 'Alertes',
-    icon: Shield,
-    badge: unreadAlertsCount
-  },
-  {
-    id: 'rapports',
-    label: 'Rapports',
-    icon: BarChart3
-  },
-  {
-    id: 'surveillance',
-    label: 'Surveillance',
-    icon: Shield
-  }];
+  const menuItems: NavMenuItem[] = [
+    {
+      id: 'dashboard',
+      label: 'Dashboard',
+      icon: LayoutDashboard,
+      locked: true,
+    },
+    {
+      id: 'suivie',
+      label: 'Suivi',
+      icon: MapPin,
+    },
+    {
+      id: 'parc',
+      label: 'Parc',
+      icon: Truck,
+    },
+    {
+      id: 'alertes',
+      label: 'Alertes',
+      icon: Shield,
+      badge: unreadAlertsCount,
+    },
+    {
+      id: 'rapports',
+      label: 'Rapports',
+      icon: BarChart3,
+      locked: true,
+    },
+    {
+      id: 'surveillance',
+      label: 'Surveillance',
+      icon: Shield,
+      locked: true,
+    },
+  ];
 
   const adminMenuItems = [
   {
@@ -127,7 +144,8 @@ export function TopBar({
       onSectionChange('notifications');
     }
   };
-  const handleNavClick = (item: any) => {
+  const handleNavClick = (item: NavMenuItem) => {
+    if (item.locked) return;
     if (item.hasDropdown) {
       setActiveDropdown(activeDropdown === item.id ? null : item.id);
     } else {
@@ -139,8 +157,9 @@ export function TopBar({
     onSectionChange(itemId);
     setActiveDropdown(null);
   };
-  const handleMobileNavClick = (itemId: string) => {
-    onSectionChange(itemId);
+  const handleMobileNavClick = (item: NavMenuItem) => {
+    if (item.locked) return;
+    onSectionChange(item.id);
     setShowMobileMenu(false);
   };
   return (
@@ -178,14 +197,23 @@ export function TopBar({
           {menuItems.map((item) =>
           <div key={item.id} className="relative">
               <button
+              type="button"
               onClick={() => handleNavClick(item)}
+              disabled={item.locked}
+              aria-disabled={item.locked}
+              title={item.locked ? 'Bientôt disponible' : undefined}
               className={`
                   relative flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
-                  ${activeSection === item.id || item.dropdownItems?.some((sub: any) => sub.id === activeSection) ? 'bg-white/20 text-white shadow-sm border border-white/10' : 'text-blue-100 hover:bg-white/10 hover:text-white'}
+                  ${item.locked
+                    ? 'text-blue-200/50 opacity-60 cursor-not-allowed'
+                    : activeSection === item.id || item.dropdownItems?.some((sub) => sub.id === activeSection)
+                      ? 'bg-white/20 text-white shadow-sm border border-white/10'
+                      : 'text-blue-100 hover:bg-white/10 hover:text-white'}
                 `}>
               
                 <item.icon className="w-4 h-4" />
                 <span>{item.label}</span>
+                {item.locked && <Lock className="w-3 h-3 opacity-80" aria-hidden />}
                 {item.hasDropdown &&
               <ChevronDown
                 className={`w-3 h-3 opacity-70 transition-transform ${activeDropdown === item.id ? 'rotate-180' : ''}`} />
@@ -202,11 +230,12 @@ export function TopBar({
               {item.hasDropdown && activeDropdown === item.id &&
             <div className="absolute top-full left-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-slate-200 overflow-hidden z-[60] animate-in fade-in slide-in-from-top-2 duration-200">
                   <div className="py-1">
-                    {item.dropdownItems?.map((subItem: any) => {
+                    {item.dropdownItems?.map((subItem) => {
                   const SubIcon = subItem.icon;
                   return (
                     <button
                       key={subItem.id}
+                      type="button"
                       onClick={() => handleDropdownItemClick(subItem.id)}
                       className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors text-left hover:bg-slate-50
                             ${activeSection === subItem.id ? 'text-blue-600 bg-blue-50 font-medium' : 'text-slate-700'}
@@ -248,12 +277,24 @@ export function TopBar({
               {menuItems.map((item) =>
             <button
               key={item.id}
-              onClick={() => handleMobileNavClick(item.id)}
-              className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${activeSection === item.id ? 'bg-blue-50 text-blue-600 font-medium' : 'text-slate-700 hover:bg-slate-50'}`}>
+              type="button"
+              onClick={() => handleMobileNavClick(item)}
+              disabled={item.locked}
+              aria-disabled={item.locked}
+              title={item.locked ? 'Bientôt disponible' : undefined}
+              className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${
+                item.locked
+                  ? 'text-slate-400 opacity-60 cursor-not-allowed'
+                  : activeSection === item.id
+                    ? 'bg-blue-50 text-blue-600 font-medium'
+                    : 'text-slate-700 hover:bg-slate-50'
+              }`}>
               
                   <item.icon className="w-5 h-5" />
                   <span className="text-sm">{item.label}</span>
-                  {item.badge !== undefined &&
+                  {item.locked && <Lock className="w-3.5 h-3.5 ml-auto text-slate-400" aria-hidden />}
+                  {!item.locked &&
+              item.badge !== undefined &&
               item.badge > 0 &&
               !hideBadges &&
               <span className="ml-auto w-5 h-5 bg-rose-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
