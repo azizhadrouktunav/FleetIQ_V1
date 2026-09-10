@@ -4,6 +4,11 @@ import {
   type SuivieAction,
   type SuivieDepartment,
 } from './column-defs';
+import {
+  dashboardSortLabel,
+  EMPTY_FLEET_REMINDERS,
+  type FleetReminderFlags,
+} from './fleet-reminders';
 
 /** Deterministic PRNG from string seed */
 function seededRandom(seed: string): () => number {
@@ -115,7 +120,7 @@ export interface SuivieRowBase {
   department: SuivieDepartment;
   /** ISO used for date filtering */
   filterDate: string;
-  [key: string]: string | number | boolean | undefined;
+  [key: string]: string | number | boolean | FleetReminderFlags | undefined;
 }
 
 export type TrackingRow = SuivieRowBase & {
@@ -162,6 +167,7 @@ export type TrackingRow = SuivieRowBase & {
   RapidAccelerations: string;
   SpecialityName: string;
   Dashboard: string;
+  fleetReminders: FleetReminderFlags;
 };
 
 export type AlertRow = SuivieRowBase & {
@@ -380,7 +386,22 @@ export function buildTrackingRows(vehicles: Vehicle[]): TrackingRow[] {
         vehicle.status === 'active' ? Math.floor(rand() * 15) : Math.floor(rand() * 3)
       ),
       SpecialityName: pick(rand, ['Livraison', 'Transport', 'Frigo', 'Benne']),
-      Dashboard: vehicle.status === 'offline' ? '—' : pick(rand, ['OK', 'Maint.', 'Doc.', 'OK']),
+      ...(() => {
+        const fleetReminders =
+          vehicle.status === 'offline'
+            ? { ...EMPTY_FLEET_REMINDERS }
+            : {
+                maintenance: rand() < 0.3,
+                document: rand() < 0.25,
+                damage: rand() < 0.2,
+                payment: rand() < 0.28,
+                expiredContract: rand() < 0.22,
+              };
+        return {
+          fleetReminders,
+          Dashboard: dashboardSortLabel(fleetReminders),
+        };
+      })(),
     };
   });
 }
@@ -398,7 +419,10 @@ export function buildAlertRows(vehicles: Vehicle[]): AlertRow[] {
     for (let i = 0; i < count; i++) {
       const when =
         vehicle.status === 'offline' ? hoursAgo(rand, 48) : hoursAgo(rand, 20);
-      const type = pick(rand, types);
+      const type =
+        i === 0 && vehicle.status === 'active'
+          ? 'Dépassement de vitesse'
+          : pick(rand, types);
       const speed =
         type === 'Dépassement de vitesse'
           ? Math.max(speedVal, 110 + Math.floor(rand() * 40))
@@ -441,19 +465,35 @@ export function buildRunStopRows(vehicles: Vehicle[]): RunStopRow[] {
       const periodMin = isRun
         ? 15 + Math.floor(rand() * 120)
         : 20 + Math.floor(rand() * 180);
-      const avgSpeed = isRun
-        ? Math.max(15, Math.floor(speedVal * (0.7 + rand() * 0.4)) || 20 + Math.floor(rand() * 50))
-        : 0;
+      let status: string;
+      if (i === 0 && vehicle.status === 'idle') status = 'Ralenti';
+      else if (isRun) status = 'Circulation';
+      else if (rand() < 0.15) status = 'Ralenti';
+      else status = 'Stop';
+      const avgSpeed =
+        status === 'Circulation'
+          ? Math.max(
+              15,
+              Math.floor(speedVal * (0.7 + rand() * 0.4)) ||
+                20 + Math.floor(rand() * 50)
+            )
+          : status === 'Ralenti'
+            ? 3 + Math.floor(rand() * 8)
+            : 0;
       rows.push({
         id: `rs-${vehicle.id}-${i}`,
         vehicleId: vehicle.id,
         vehicleName: vehicle.name,
         department,
         filterDate: begin.toISOString(),
-        Status: isRun ? 'Circulation' : 'Stop',
+        Status: status,
         Matricule: vehicle.matricule || vehicle.name,
         Place: vehicle.location,
-        Distance: `${isRun ? Math.floor(5 + rand() * 400) : Math.floor(rand() * 3)} km`,
+        Distance: `${
+          status === 'Circulation'
+            ? Math.floor(5 + rand() * 400)
+            : Math.floor(rand() * 3)
+        } km`,
         Period: `${periodMin} min`,
         StartDate: formatDisplay(begin),
         AvgSpeed: `${avgSpeed} km/h`,

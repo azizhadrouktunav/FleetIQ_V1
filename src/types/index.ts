@@ -15,8 +15,14 @@ export interface Vehicle {
   departmentId?: string;
   groupIds?: string[];
   matricule?: string;
-  /** Equipment IMEI */
+  /** Equipment IMEI — absent means no device assigned */
   imei?: string;
+  /** HardwareSupportCurrentPosition */
+  supportsCurrentPosition?: boolean;
+  /** Output Arming / AAD */
+  supportsAad?: boolean;
+  /** Forced AAD while moving */
+  supportsAadForced?: boolean;
   iconType?: VehicleIconType;
   /** Degrees 0–360, 0 = north, clockwise */
   heading?: number;

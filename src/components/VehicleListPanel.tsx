@@ -12,13 +12,6 @@ import {
   ChevronLeft,
   ChevronRight,
   MoreVertical,
-  MapPin,
-  Route,
-  StopCircle,
-  FileText,
-  Zap,
-  Navigation,
-  Power,
   Settings,
   Download,
   ChevronDown,
@@ -36,6 +29,24 @@ import {
 import { Vehicle, type VehicleStatus } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { DateTimePicker } from './DateTimePicker';
+import { FleetReminderCell } from './suivie/FleetReminderCell';
+import { RemoteStopDialog } from './suivie/RemoteStopDialog';
+import type { AadCommandMode } from './suivie/RemoteStopDialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { DialogBody } from '@/components/ui/dialog-body';
+import {
+  buildMockTrajectoryPath,
+  getVisibleVehicleRowActions,
+  hasAssignedEquipment,
+  type VehicleRowActionId,
+} from '@/features/suivie/vehicle-row-actions';
 import {
   DndContext,
   closestCenter,
@@ -81,6 +92,12 @@ interface VehicleListPanelProps {
   onToggleCollapse?: () => void;
   onFilteredVehicleIdsChange?: (ids: string[] | null) => void;
   statusFilter?: Set<VehicleStatus>;
+  isAdmin?: boolean;
+  onFocusVehicleOnMap?: (vehicle: Vehicle, zoom?: number) => void;
+  onShowTrajectoryTrack?: (path: [number, number][]) => void;
+  onClearTrajectoryTrack?: () => void;
+  onOpenDetailedReport?: (vehicleId: string) => void;
+  onOpenAlertConfiguration?: (vehicleId: string) => void;
 }
 
 const EMPTY_STATUS_FILTER = new Set<VehicleStatus>();
@@ -274,6 +291,9 @@ function clampMenuPosition(
 
 function cellClassFor(columnId: string, value: string): string {
   const base = 'px-3 py-2 text-xs text-slate-600';
+  if (columnId === 'Dashboard') {
+    return 'px-2 py-2 text-xs text-slate-600 whitespace-nowrap min-w-[7.5rem]';
+  }
   if (
     columnId === 'Type' ||
     (columnId === 'Status' && value === 'Échouée') ||
@@ -296,8 +316,13 @@ function cellClassFor(columnId: string, value: string): string {
 function renderCellContent(
   columnId: string,
   value: string,
-  row: SuivieRow
+  row: SuivieRow,
+  onZoomClick?: (row: SuivieRow) => void
 ): React.ReactNode {
+  if (columnId === 'Dashboard') {
+    return <FleetReminderCell row={row} />;
+  }
+
   if (columnId === 'horodatage') {
     const statusColor =
       String(value).includes('mn') && !String(value).includes('h')
@@ -318,19 +343,16 @@ function renderCellContent(
   }
 
   if (columnId === 'Status' || columnId === 'StopRun') {
-    const isGood =
-      value === 'Circulation' || value === 'Exécutée' || value === 'ON';
-    const isBad = value === 'Stop' || value === 'Échouée' || value === 'Expirée';
+    const tone =
+      value === 'Circulation' || value === 'Exécutée' || value === 'ON'
+        ? 'bg-emerald-100 text-emerald-700'
+        : value === 'Stop' || value === 'Échouée' || value === 'Expirée'
+          ? 'bg-rose-100 text-rose-700'
+          : value === 'Ralenti'
+            ? 'bg-orange-100 text-orange-700'
+            : 'bg-slate-100 text-slate-700';
     return (
-      <span
-        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-          isGood
-            ? 'bg-emerald-100 text-emerald-700'
-            : isBad
-              ? 'bg-amber-100 text-amber-700'
-              : 'bg-slate-100 text-slate-700'
-        }`}
-      >
+      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${tone}`}>
         {value}
       </span>
     );
@@ -358,11 +380,15 @@ function renderCellContent(
   }
 
   if (columnId === 'Action') {
+    const isZoom = value === 'Zoom' || value === 'Carte';
     return (
       <button
         type="button"
         className="text-[11px] font-medium text-blue-600 hover:underline"
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (isZoom && onZoomClick) onZoomClick(row);
+        }}
       >
         {value || 'Carte'}
       </button>
@@ -381,6 +407,12 @@ export function VehicleListPanel({
   onToggleCollapse,
   onFilteredVehicleIdsChange,
   statusFilter = EMPTY_STATUS_FILTER,
+  isAdmin = true,
+  onFocusVehicleOnMap,
+  onShowTrajectoryTrack,
+  onClearTrajectoryTrack,
+  onOpenDetailedReport,
+  onOpenAlertConfiguration,
 }: VehicleListPanelProps) {
   const [width, setWidth] = useState(() =>
     typeof window !== 'undefined'
@@ -392,6 +424,9 @@ export function VehicleListPanel({
   );
   const [isResizing, setIsResizing] = useState(false);
   const [openMenu, setOpenMenu] = useState<OpenActionMenu>(null);
+  const [noEquipmentOpen, setNoEquipmentOpen] = useState(false);
+  const [commandSentOpen, setCommandSentOpen] = useState<string | null>(null);
+  const [aadVehicle, setAadVehicle] = useState<Vehicle | null>(null);
   const [sort, setSort] = useState<ColumnSortState | null>(null);
   const [groupByColumnId, setGroupByColumnId] = useState<string | null>(null);
   const [groupBySortDir, setGroupBySortDir] = useState<'asc' | 'desc'>('asc');
@@ -659,6 +694,17 @@ export function VehicleListPanel({
     return tableRows.filter((row) => rowMatchesTableSearch(row, q));
   }, [tableRows, tableSearch, rowMatchesTableSearch]);
 
+  const stopCirculationDistanceTotalKm = useMemo(() => {
+    if (activeAction !== 'stop_circulation') return null;
+    let total = 0;
+    for (const row of displayTableRows) {
+      const raw = String(row.Distance ?? '');
+      const n = parseFloat(raw.replace(',', '.').replace(/[^\d.]/g, ''));
+      if (!Number.isNaN(n)) total += n;
+    }
+    return total;
+  }, [activeAction, displayTableRows]);
+
   const displayRowsByGroup = useMemo(() => {
     if (!rowsByGroup) return null;
     const q = tableSearch.trim().toLowerCase();
@@ -742,24 +788,153 @@ export function VehicleListPanel({
     });
   };
 
-  const menuItems = [
-    { icon: MapPin, label: 'Afficher sur la carte' },
-    { icon: Route, label: 'Afficher trajectoire' },
-    { icon: StopCircle, label: 'Afficher Stop/Circulation' },
-    { icon: FileText, label: 'Afficher le rapport détaillé' },
-    { icon: Zap, label: 'Afficher les excès de vitesse' },
-    { icon: Navigation, label: 'Demande position actuelle' },
-    { icon: Power, label: 'Arrêt à distance(AAD)' },
-    { icon: Settings, label: 'Paramétrage des alertes' },
-  ];
+  const formatDateTime = useCallback((date: Date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    const h = String(date.getHours()).padStart(2, '0');
+    const min = String(date.getMinutes()).padStart(2, '0');
+    const s = String(date.getSeconds()).padStart(2, '0');
+    return `${y}/${m}/${d} ${h}:${min}:${s}`;
+  }, []);
 
-  const handleMenuAction = (action: string, vehicleId: string) => {
-    const vehicle = vehicleById[vehicleId];
-    if (action === 'Afficher sur la carte' && vehicle) {
+  const focusSuivieAction = useCallback(
+    (
+      action: SuivieAction,
+      vehicleId: string,
+      extras?: {
+        startDate?: string;
+        endDate?: string;
+        alertTypes?: Set<string>;
+      }
+    ) => {
+      const vehicle = vehicleById[vehicleId];
+      const startDate = extras?.startDate ?? draftStartDate;
+      const endDate = extras?.endDate ?? draftEndDate;
+      const alertTypes = extras?.alertTypes ?? new Set<string>();
+      const vehicleIds = new Set([vehicleId]);
+      setDraftVehicles(vehicleIds);
+      setDraftAction(action);
+      setDraftStartDate(startDate);
+      setDraftEndDate(endDate);
+      setDraftAlertTypes(alertTypes);
+      setApplied({
+        action,
+        vehicleIds,
+        departments: new Set(),
+        startDate,
+        endDate,
+        alertTypes,
+      });
+      if (vehicle) onSelectVehicle(vehicle);
+      setOpenMenu(null);
+    },
+    [
+      vehicleById,
+      draftStartDate,
+      draftEndDate,
+      onSelectVehicle,
+    ]
+  );
+
+  const handleZoomRow = useCallback(
+    (row: SuivieRow) => {
+      const vehicle = vehicleById[row.vehicleId];
+      if (!vehicle) return;
+      onFocusVehicleOnMap?.(vehicle, 16);
       onSelectVehicle(vehicle);
-    }
-    setOpenMenu(null);
-  };
+    },
+    [vehicleById, onFocusVehicleOnMap, onSelectVehicle]
+  );
+
+  const handleMenuAction = useCallback(
+    (actionId: VehicleRowActionId, vehicleId: string) => {
+      const vehicle = vehicleById[vehicleId];
+      if (!vehicle) {
+        setOpenMenu(null);
+        return;
+      }
+
+      switch (actionId) {
+        case 'showOnMap': {
+          setOpenMenu(null);
+          if (!hasAssignedEquipment(vehicle)) {
+            setNoEquipmentOpen(true);
+            return;
+          }
+          onSelectVehicle(vehicle);
+          onFocusVehicleOnMap?.(vehicle, 16);
+          onClearTrajectoryTrack?.();
+          break;
+        }
+        case 'showTrajectory': {
+          focusSuivieAction('trajectoire', vehicleId);
+          onShowTrajectoryTrack?.(buildMockTrajectoryPath(vehicle));
+          break;
+        }
+        case 'showStopRun': {
+          focusSuivieAction('stop_circulation', vehicleId);
+          onClearTrajectoryTrack?.();
+          break;
+        }
+        case 'showDetailedReport': {
+          setOpenMenu(null);
+          onOpenDetailedReport?.(vehicleId);
+          break;
+        }
+        case 'showSpeedExcess': {
+          const now = new Date();
+          const start = new Date(now);
+          start.setHours(0, 0, 0, 0);
+          focusSuivieAction('alertes', vehicleId, {
+            startDate: formatDateTime(start),
+            endDate: formatDateTime(now),
+            alertTypes: new Set(['Dépassement de vitesse']),
+          });
+          onClearTrajectoryTrack?.();
+          break;
+        }
+        case 'requestPosition': {
+          focusSuivieAction('commandes', vehicleId);
+          setCommandSentOpen('Demande de position actuelle envoyée');
+          break;
+        }
+        case 'remoteStop': {
+          setOpenMenu(null);
+          setAadVehicle(vehicle);
+          break;
+        }
+        case 'alertSettings': {
+          setOpenMenu(null);
+          onOpenAlertConfiguration?.(vehicleId);
+          break;
+        }
+        default:
+          setOpenMenu(null);
+      }
+    },
+    [
+      vehicleById,
+      onSelectVehicle,
+      onFocusVehicleOnMap,
+      onClearTrajectoryTrack,
+      onShowTrajectoryTrack,
+      onOpenDetailedReport,
+      onOpenAlertConfiguration,
+      focusSuivieAction,
+      formatDateTime,
+    ]
+  );
+
+  const handleAadConfirm = useCallback(
+    (_mode: AadCommandMode) => {
+      if (!aadVehicle) return;
+      focusSuivieAction('commandes', aadVehicle.id);
+      setCommandSentOpen('Commande AAD envoyée');
+      setAadVehicle(null);
+    },
+    [aadVehicle, focusSuivieAction]
+  );
 
   const openActionMenuAt = (
     e: React.MouseEvent,
@@ -828,7 +1003,7 @@ export function VehicleListPanel({
             raw === undefined || raw === null ? '—' : String(raw);
           return (
             <td key={col.id} className={cellClassFor(col.id, value)}>
-              {renderCellContent(col.id, value, row)}
+              {renderCellContent(col.id, value, row, handleZoomRow)}
             </td>
           );
         })}
@@ -1362,6 +1537,19 @@ export function VehicleListPanel({
                       displayTableRows.map((row) => renderDataRow(row))
                     )}
                   </tbody>
+                  {stopCirculationDistanceTotalKm != null && (
+                    <tfoot>
+                      <tr className="bg-slate-50 border-t border-slate-200">
+                        <td
+                          colSpan={colCount}
+                          className="px-3 py-2 text-xs font-semibold text-slate-700"
+                        >
+                          Total distances :{' '}
+                          {stopCirculationDistanceTotalKm.toFixed(1)} km
+                        </td>
+                      </tr>
+                    </tfoot>
+                  )}
                 </table>
               </div>
             </DndContext>
@@ -1381,14 +1569,30 @@ export function VehicleListPanel({
                     onMouseDown={(e) => e.stopPropagation()}
                     onClick={(e) => e.stopPropagation()}
                   >
-                    {menuItems.map((item, idx) => {
+                    {(openMenu
+                      ? getVisibleVehicleRowActions(
+                          vehicleById[openMenu.vehicleId] ?? {
+                            id: openMenu.vehicleId,
+                            name: '',
+                            status: 'offline',
+                            speed: 0,
+                            location: '',
+                            coordinates: [0, 0],
+                            lastUpdate: '',
+                            driver: '',
+                            batteryLevel: 0,
+                          },
+                          isAdmin
+                        )
+                      : []
+                    ).map((item) => {
                       const Icon = item.icon;
                       return (
                         <button
-                          key={idx}
+                          key={item.id}
                           type="button"
                           onClick={() =>
-                            handleMenuAction(item.label, openMenu.vehicleId)
+                            handleMenuAction(item.id, openMenu!.vehicleId)
                           }
                           className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition-colors text-left group"
                         >
@@ -1413,6 +1617,65 @@ export function VehicleListPanel({
           </div>
         </>
       )}
+
+      <Dialog open={noEquipmentOpen} onOpenChange={setNoEquipmentOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Équipement manquant</DialogTitle>
+            <DialogDescription>
+              Aucun équipement n&apos;est assigné à ce véhicule.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogBody>
+            <p className="text-sm text-slate-600">
+              Impossible de centrer la carte sans boîtier GPS assigné.
+            </p>
+          </DialogBody>
+          <DialogFooter>
+            <button
+              type="button"
+              className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              onClick={() => setNoEquipmentOpen(false)}
+            >
+              OK
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={commandSentOpen != null}
+        onOpenChange={(open) => {
+          if (!open) setCommandSentOpen(null);
+        }}
+      >
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Commande</DialogTitle>
+            <DialogDescription>
+              {commandSentOpen ?? 'Commande envoyée'}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <button
+              type="button"
+              className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              onClick={() => setCommandSentOpen(null)}
+            >
+              OK
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <RemoteStopDialog
+        open={aadVehicle != null}
+        vehicle={aadVehicle}
+        onOpenChange={(open) => {
+          if (!open) setAadVehicle(null);
+        }}
+        onConfirm={handleAadConfirm}
+      />
     </div>
   );
 }

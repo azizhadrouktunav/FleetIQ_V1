@@ -11,15 +11,29 @@ import { Button } from '@/components/ui/button';
 interface AlertConfigurationPageProps {
   vehicles?: Vehicle[];
   onBack?: () => void;
+  /** Pre-select this vehicle as alert config scope */
+  initialVehicleId?: string | null;
 }
 
-export function AlertConfigurationPage({ vehicles = [], onBack }: AlertConfigurationPageProps) {
-  const [selectedScopes, setSelectedScopes] = useState<AlertScopeRef[]>([]);
+export function AlertConfigurationPage({
+  vehicles = [],
+  onBack,
+  initialVehicleId = null,
+}: AlertConfigurationPageProps) {
+  const [selectedScopes, setSelectedScopes] = useState<AlertScopeRef[]>(() => {
+    if (!initialVehicleId) return [];
+    return [{ scopeType: 'vehicle', scopeId: initialVehicleId }];
+  });
   const vehicleIds = useMemo(() => vehicles.map((v) => v.id), [vehicles]);
 
   useEffect(() => {
     registerFleetVehiclesForConfigSync(vehicleIds);
   }, [vehicleIds]);
+
+  useEffect(() => {
+    if (!initialVehicleId) return;
+    setSelectedScopes([{ scopeType: 'vehicle', scopeId: initialVehicleId }]);
+  }, [initialVehicleId]);
 
   return (
     <div className="h-full flex flex-col bg-slate-50 dark:bg-slate-950 overflow-hidden">

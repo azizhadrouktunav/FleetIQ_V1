@@ -71,7 +71,7 @@ const trackingColumns: ColumnDef[] = [
   { id: 'RapidBrackings', label: 'Freinages brusques', defaultVisible: false },
   { id: 'RapidAccelerations', label: 'Accélérations brusques', defaultVisible: false },
   { id: 'SpecialityName', label: 'Spécialité', defaultVisible: false },
-  { id: 'Dashboard', label: 'Dashboard', defaultVisible: false },
+  { id: 'Dashboard', label: 'Dashboard', defaultVisible: true },
 ];
 
 const alertColumns: ColumnDef[] = [

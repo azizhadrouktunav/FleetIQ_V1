@@ -164,6 +164,7 @@ function radiusKmFromPointer(
 function MapController({
   selectedVehicle,
   mapCenter,
+  mapCenterZoom,
   onMapCenterChange,
   flyToTarget,
   flyToZoom,
@@ -173,6 +174,7 @@ function MapController({
 }: {
   selectedVehicle: Vehicle | null;
   mapCenter: [number, number] | null;
+  mapCenterZoom?: number | null;
   onMapCenterChange: () => void;
   flyToTarget: LatLng | null;
   flyToZoom?: number | null;
@@ -198,7 +200,7 @@ function MapController({
       return;
     }
     if (mapCenter) {
-      map.flyTo(mapCenter, 15, { animate: true, duration: 1.5 });
+      map.flyTo(mapCenter, mapCenterZoom ?? 16, { animate: true, duration: 1.5 });
       onMapCenterChange();
     } else if (selectedVehicle) {
       map.flyTo(selectedVehicle.coordinates, 15, {
@@ -209,6 +211,7 @@ function MapController({
   }, [
     selectedVehicle,
     mapCenter,
+    mapCenterZoom,
     map,
     onMapCenterChange,
     flyToTarget,
@@ -922,6 +925,10 @@ interface MapViewProps {
   onFlyToDone?: () => void;
   fitBoundsPoints?: LatLng[] | null;
   onFitBoundsDone?: () => void;
+  /** Explicit zoom when using mapCenter (default 16) */
+  mapCenterZoom?: number | null;
+  /** Optional GPS track preview (trajectory) */
+  trackingPath?: LatLng[] | null;
   onOverlaySelect?: (target: {
     kind: 'geofence' | 'polygon' | 'defaultZone';
     id: string;
@@ -970,6 +977,8 @@ export function MapView({
   onFlyToDone = () => {},
   fitBoundsPoints = null,
   onFitBoundsDone = () => {},
+  mapCenterZoom = 16,
+  trackingPath = null,
   onOverlaySelect,
   selectedOverlayId = null,
   geofenceDraftInteractive = true,
@@ -1025,6 +1034,7 @@ export function MapView({
         <MapController
           selectedVehicle={selectedVehicle}
           mapCenter={mapCenter}
+          mapCenterZoom={mapCenterZoom}
           onMapCenterChange={onMapCenterChange}
           flyToTarget={flyToTarget}
           flyToZoom={flyToZoom}
@@ -1189,6 +1199,22 @@ export function MapView({
               </Polygon>
             );
           })}
+
+        {/* Vehicle trajectory preview */}
+        {trackingPath && trackingPath.length >= 2 && (
+          <Fragment>
+            <Polyline
+              positions={trackingPath}
+              pathOptions={{
+                color: '#2563eb',
+                weight: 5,
+                opacity: 0.85,
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+            />
+          </Fragment>
+        )}
 
         {/* Routes */}
         {routes
@@ -1416,10 +1442,11 @@ function VehicleClusterLayer({
     });
 
     vehicles.forEach((vehicle) => {
+      const isSelected = selectedVehicleId === vehicle.id;
       const marker = L.marker(vehicle.coordinates, {
         icon: createVehicleIcon(
           vehicle.status,
-          selectedVehicleId === vehicle.id,
+          isSelected,
           vehicle.iconType,
           vehicle.heading
         ),
@@ -1430,10 +1457,24 @@ function VehicleClusterLayer({
         offset: [0, -28],
         opacity: 0.95,
       });
+      marker.bindPopup(
+        `<div class="text-sm space-y-0.5 min-w-[140px]">
+          <div class="font-semibold text-slate-900">${vehicle.matricule || vehicle.name}</div>
+          <div class="text-slate-600">${vehicle.location}</div>
+          <div class="text-slate-600">${vehicle.speed} km/h · ${vehicle.lastUpdate}</div>
+        </div>`,
+        { offset: [0, -20] }
+      );
       marker.on('click', () => {
         if (!drawMode) onSelectVehicle(vehicle);
       });
       group.addLayer(marker);
+      if (isSelected) {
+        // Open after cluster has been added to the map
+        setTimeout(() => {
+          if (group.hasLayer(marker)) marker.openPopup();
+        }, 350);
+      }
     });
 
     map.addLayer(group);

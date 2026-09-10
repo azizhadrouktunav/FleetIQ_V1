@@ -25,7 +25,9 @@ import { AccountsManagement } from './components/AccountsManagement';
 import { DepartmentsManagement } from './components/DepartmentsManagement';
 import { AlertHistoryPage } from './pages/AlertHistoryPage';
 import { AlertConfigurationPage } from './pages/AlertConfigurationPage';
+import { GeneralReportDetailsPage } from './pages/GeneralReportDetailsPage';
 import { GestionSinistres } from './components/GestionSinistres';
+import type { LatLng } from './types/map-overlays';
 import { AlertMailSmsContent } from './components/AlertMailSmsContent';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { useMapOverlays } from './hooks/useMapOverlays';
@@ -390,7 +392,18 @@ const generateMockVehicles = (): Vehicle[] => {
       heading: Math.floor(rand() * 360),
     });
   }
-  return vehicles;
+  return vehicles.map((v) => {
+    const rand = seededRandom(`caps-${v.id}`);
+    const keepImei = Boolean(v.imei) && rand() >= 0.08;
+    const imei = keepImei ? v.imei : undefined;
+    return {
+      ...v,
+      imei,
+      supportsCurrentPosition: Boolean(imei) && rand() < 0.7,
+      supportsAad: Boolean(imei) && rand() < 0.45,
+      supportsAadForced: Boolean(imei) && rand() < 0.28,
+    };
+  });
 };
 
 const MOCK_VEHICLES = generateMockVehicles();
@@ -456,6 +469,12 @@ function AppShell() {
   const [activeSection, setActiveSection] = useState('suivie');
   const [alertUnreadCount, setAlertUnreadCount] = useState(defaultUnreadAlertsCount);
   const [historyVehicleIds, setHistoryVehicleIds] = useState<string[]>([]);
+  const [reportVehicleId, setReportVehicleId] = useState<string | null>(null);
+  const [alertConfigVehicleId, setAlertConfigVehicleId] = useState<
+    string | null
+  >(null);
+  const [mapCenterZoom, setMapCenterZoom] = useState<number | null>(16);
+  const [trackingPath, setTrackingPath] = useState<LatLng[] | null>(null);
   const [activeTab, setActiveTab] = useState('suivie');
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(
     null
@@ -626,10 +645,46 @@ function AppShell() {
   const handleVehicleSelect = (vehicle: Vehicle) => {
     setSelectedVehicleId(vehicle.id);
   };
+
+  const handleFocusVehicleOnMap = useCallback(
+    (vehicle: Vehicle, zoom = 16) => {
+      setActiveSection('suivie');
+      setSelectedVehicleId(vehicle.id);
+      setMapCenterZoom(zoom);
+      setMapCenter(vehicle.coordinates);
+    },
+    []
+  );
+
+  const handleShowTrajectoryTrack = useCallback((path: [number, number][]) => {
+    setTrackingPath(path);
+    if (path.length >= 2) {
+      setMapCenterZoom(14);
+      setMapCenter(path[Math.floor(path.length / 2)]);
+    }
+  }, []);
+
+  const handleClearTrajectoryTrack = useCallback(() => {
+    setTrackingPath(null);
+  }, []);
+
+  const handleOpenDetailedReport = useCallback((vehicleId: string) => {
+    setReportVehicleId(vehicleId);
+    setActiveSection('rapport_detail');
+  }, []);
+
+  const handleOpenAlertConfiguration = useCallback((vehicleId: string) => {
+    setAlertConfigVehicleId(vehicleId);
+    setActiveSection('alert_configuration');
+  }, []);
+
   const handleSectionChange = (section: string) => {
     setActiveSection(section);
     if (section === 'alert_history') {
       setHistoryVehicleIds([]);
+    }
+    if (section !== 'alert_configuration') {
+      setAlertConfigVehicleId(null);
     }
     // Reset activeTab when switching to rapports section
     if (section === 'rapports') {
@@ -720,7 +775,14 @@ function AppShell() {
         activeSection === 'alert_configuration' ?
         <AlertConfigurationPage
           vehicles={MOCK_VEHICLES}
-          onBack={() => setActiveSection('alertes')} /> :
+          initialVehicleId={alertConfigVehicleId}
+          onBack={() => setActiveSection('suivie')} /> :
+        activeSection === 'rapport_detail' ?
+        <GeneralReportDetailsPage
+          vehicle={
+            MOCK_VEHICLES.find((v) => v.id === reportVehicleId) ?? null
+          }
+          onBack={() => setActiveSection('suivie')} /> :
         activeSection === 'notifications' ?
         // Alert Mail/SMS Notifications View
         <AlertMailSmsContent /> :
@@ -753,6 +815,8 @@ function AppShell() {
               onSelectVehicle={handleVehicleSelect}
               onDeselectVehicle={() => setSelectedVehicleId(null)}
               mapCenter={mapCenter}
+              mapCenterZoom={mapCenterZoom}
+              trackingPath={trackingPath}
               onMapCenterChange={() => setMapCenter(null)}
               basemap={mapOverlays.basemap}
               drawMode={mapOverlays.drawMode}
@@ -1119,6 +1183,12 @@ function AppShell() {
                   onToggleCollapse={handleToggleVehicleList}
                   onFilteredVehicleIdsChange={setSuivieFilteredVehicleIds}
                   statusFilter={statusFilter}
+                  isAdmin
+                  onFocusVehicleOnMap={handleFocusVehicleOnMap}
+                  onShowTrajectoryTrack={handleShowTrajectoryTrack}
+                  onClearTrajectoryTrack={handleClearTrajectoryTrack}
+                  onOpenDetailedReport={handleOpenDetailedReport}
+                  onOpenAlertConfiguration={handleOpenAlertConfiguration}
                 />
               )}
             </div>
