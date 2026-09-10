@@ -986,15 +986,8 @@ export function VehicleListPanel({
       <tr
         key={row.id}
         className={commonClasses}
-        onMouseDown={(e) => {
-          if (isGenerale) e.stopPropagation();
-        }}
-        onClick={(e) => {
-          if (isGenerale) {
-            openActionMenuAt(e, row.id, row.vehicleId);
-          } else {
-            selectRowVehicle(row);
-          }
+        onClick={() => {
+          selectRowVehicle(row);
         }}
       >
         {tableColumns.map((col) => {

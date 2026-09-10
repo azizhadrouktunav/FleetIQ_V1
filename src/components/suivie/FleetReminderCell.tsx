@@ -38,8 +38,17 @@ export function FleetReminderCell({ row }: { row: SuivieRow }) {
     <>
       <div
         className="flex items-center gap-1 whitespace-nowrap"
-        onClick={(e) => e.stopPropagation()}
-        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          e.preventDefault();
+        }}
+        onMouseDown={(e) => {
+          e.stopPropagation();
+          e.preventDefault();
+        }}
+        onPointerDown={(e) => {
+          e.stopPropagation();
+        }}
       >
         {FLEET_REMINDER_CONFIGS.map((cfg) => {
           const active = flags[cfg.id];
@@ -53,8 +62,10 @@ export function FleetReminderCell({ row }: { row: SuivieRow }) {
               disabled={!active}
               onClick={(e) => {
                 e.stopPropagation();
+                e.preventDefault();
                 if (active) setOpenKind(cfg.id);
               }}
+              onPointerDown={(e) => e.stopPropagation()}
               className={`inline-flex items-center justify-center rounded p-0.5 transition-colors ${
                 active
                   ? `${cfg.activeClassName} cursor-pointer`
