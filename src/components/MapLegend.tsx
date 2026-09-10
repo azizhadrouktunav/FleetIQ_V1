@@ -7,12 +7,17 @@ export function MapLegend() {
       <div className="space-y-2">
         <div className="flex items-center gap-3">
           <span className="w-3 h-3 rounded-full bg-emerald-500"></span>
-          <span className="text-slate-600">En ligne (45)</span>
+          <span className="text-slate-600">Circulation</span>
         </div>
 
         <div className="flex items-center gap-3">
           <span className="w-3 h-3 rounded-full bg-rose-500"></span>
-          <span className="text-slate-600">Hors ligne (10)</span>
+          <span className="text-slate-600">Stop</span>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <span className="w-3 h-3 rounded-full bg-slate-400"></span>
+          <span className="text-slate-600">Hors connexion</span>
         </div>
 
         <div className="flex items-center gap-3">

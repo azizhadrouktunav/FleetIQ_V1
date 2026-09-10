@@ -24,15 +24,14 @@ import {
   ChevronDown,
   Clock,
   Car,
-  Calendar,
   Layers,
   AlertTriangle,
   Check,
-  GripVertical,
   RotateCcw,
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
+  X,
 } from 'lucide-react';
 import { Vehicle, type VehicleStatus } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -40,9 +39,12 @@ import { DateTimePicker } from './DateTimePicker';
 import {
   DndContext,
   closestCenter,
+  pointerWithin,
   PointerSensor,
   useSensor,
   useSensors,
+  useDroppable,
+  type CollisionDetection,
   type DragEndEvent,
 } from '@dnd-kit/core';
 import {
@@ -53,7 +55,6 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import {
   ACTIONS,
-  SUIVIE_DEPARTMENTS,
   type SuivieAction,
 } from '@/features/suivie/column-defs';
 import {
@@ -83,7 +84,79 @@ interface VehicleListPanelProps {
 }
 
 const EMPTY_STATUS_FILTER = new Set<VehicleStatus>();
+const GROUP_BY_DROP_ID = 'group-by-drop';
 
+const groupByCollisionDetection: CollisionDetection = (args) => {
+  const pointerHits = pointerWithin(args);
+  const dropHit = pointerHits.find((c) => c.id === GROUP_BY_DROP_ID);
+  if (dropHit) return [dropHit];
+  return closestCenter(args);
+};
+
+function GroupByDropZone({
+  groupByColumnId,
+  groupByLabel,
+  groupBySortDir,
+  onToggleSortDir,
+  onClear,
+}: {
+  groupByColumnId: string | null;
+  groupByLabel: string | null;
+  groupBySortDir: 'asc' | 'desc';
+  onToggleSortDir: () => void;
+  onClear: () => void;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: GROUP_BY_DROP_ID });
+  const SortIcon = groupBySortDir === 'asc' ? ArrowUp : ArrowDown;
+  const sortLabel =
+    groupBySortDir === 'asc' ? 'Ordre croissant' : 'Ordre décroissant';
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`h-8 min-w-[140px] flex-1 max-w-[280px] flex items-center gap-1.5 rounded-lg border border-dashed px-2 transition-colors ${
+        isOver
+          ? 'border-blue-500 bg-blue-50'
+          : groupByColumnId
+            ? 'border-blue-300 bg-blue-50/70'
+            : 'border-slate-200 bg-slate-50'
+      }`}
+    >
+      {groupByColumnId ? (
+        <>
+          <span className="inline-flex items-center gap-1 min-w-0 rounded-md bg-white border border-blue-200 px-1.5 py-0.5 text-[11px] font-semibold text-blue-800">
+            <span className="truncate max-w-[100px]">
+              {groupByLabel || groupByColumnId}
+            </span>
+            <button
+              type="button"
+              onClick={onClear}
+              className="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 shrink-0"
+              title="Retirer le regroupement"
+              aria-label="Retirer le regroupement"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </span>
+          <button
+            type="button"
+            onClick={onToggleSortDir}
+            title={sortLabel}
+            aria-label={sortLabel}
+            className="inline-flex items-center gap-0.5 rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-slate-700 hover:border-blue-300 hover:text-blue-800 shrink-0"
+          >
+            <SortIcon className="w-3 h-3" />
+            <span>{groupBySortDir === 'asc' ? 'A→Z' : 'Z→A'}</span>
+          </button>
+        </>
+      ) : (
+        <p className="text-[11px] text-slate-400 truncate w-full text-center">
+          Glisser une colonne ici
+        </p>
+      )}
+    </div>
+  );
+}
 function SortableHeader({
   id,
   label,
@@ -127,33 +200,25 @@ function SortableHeader({
       style={style}
       aria-sort={ariaSort}
       className="px-2 py-2.5 text-xs font-bold text-white uppercase tracking-wider border-b border-blue-700 whitespace-nowrap select-none"
-      {...attributes}
     >
-      <div className="flex items-center gap-1">
-        <button
-          type="button"
-          className="p-0.5 rounded hover:bg-blue-500/50 cursor-grab active:cursor-grabbing touch-none shrink-0"
-          aria-label={`Réordonner ${label}`}
-          {...listeners}
-        >
-          <GripVertical className="w-3.5 h-3.5 text-blue-100" />
-        </button>
-        <button
-          type="button"
-          onClick={() => onSortClick(id)}
-          className={`flex items-center gap-1 min-w-0 rounded px-1 py-0.5 cursor-pointer hover:bg-blue-500/40 transition-colors ${
-            sortDir ? 'bg-blue-500/30' : ''
+      <button
+        type="button"
+        className={`flex items-center gap-1 min-w-0 w-full rounded px-1 py-0.5 touch-none cursor-grab active:cursor-grabbing hover:bg-blue-500/40 transition-colors ${
+          sortDir ? 'bg-blue-500/30' : ''
+        }`}
+        title={`Trier ou glisser « ${label} »`}
+        aria-label={`${label} : clic pour trier, glisser pour déplacer`}
+        onClick={() => onSortClick(id)}
+        {...attributes}
+        {...listeners}
+      >
+        <span className="truncate">{label}</span>
+        <SortIcon
+          className={`w-3.5 h-3.5 shrink-0 ${
+            sortDir ? 'text-white' : 'text-blue-200/80'
           }`}
-          title={`Trier par ${label}`}
-        >
-          <span className="truncate">{label}</span>
-          <SortIcon
-            className={`w-3.5 h-3.5 shrink-0 ${
-              sortDir ? 'text-white' : 'text-blue-200/80'
-            }`}
-          />
-        </button>
-      </div>
+        />
+      </button>
     </th>
   );
 }
@@ -328,11 +393,9 @@ export function VehicleListPanel({
   const [isResizing, setIsResizing] = useState(false);
   const [openMenu, setOpenMenu] = useState<OpenActionMenu>(null);
   const [sort, setSort] = useState<ColumnSortState | null>(null);
-  const [groupByDepartment, setGroupByDepartment] = useState(true);
-  const [visibleDepartments, setVisibleDepartments] = useState<Set<string>>(
-    () => new Set(SUIVIE_DEPARTMENTS)
-  );
-  const [collapsedDepartments, setCollapsedDepartments] = useState<Set<string>>(
+  const [groupByColumnId, setGroupByColumnId] = useState<string | null>(null);
+  const [groupBySortDir, setGroupBySortDir] = useState<'asc' | 'desc'>('asc');
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
     new Set()
   );
 
@@ -361,10 +424,11 @@ export function VehicleListPanel({
   const actionDropdownRef = useRef<HTMLDivElement>(null);
   const alertDropdownRef = useRef<HTMLDivElement>(null);
   const columnSettingsRef = useRef<HTMLDivElement>(null);
+  const suppressSortClickRef = useRef(false);
 
   const activeAction: SuivieAction = applied?.action ?? draftAction;
   const {
-    visibleColumns,
+    visibleColumns: prefsVisibleColumns,
     allColumns,
     prefs,
     toggleVisible,
@@ -372,8 +436,22 @@ export function VehicleListPanel({
     resetToDefault,
   } = useColumnPreferences(activeAction);
 
+  const tableColumns = useMemo(
+    () =>
+      prefsVisibleColumns.filter((col) => col.id !== groupByColumnId),
+    [prefsVisibleColumns, groupByColumnId]
+  );
+
+  const groupByLabel = useMemo(() => {
+    if (!groupByColumnId) return null;
+    return (
+      allColumns.find((c) => c.id === groupByColumnId)?.label ??
+      groupByColumnId
+    );
+  }, [allColumns, groupByColumnId]);
+
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: 10 } })
   );
 
   useEffect(() => {
@@ -464,31 +542,38 @@ export function VehicleListPanel({
   useEffect(() => {
     setSort(null);
     setTableSearch('');
-    if (activeAction === 'suivie_generale') {
-      setVisibleDepartments(new Set(SUIVIE_DEPARTMENTS));
-      setGroupByDepartment(true);
-    }
+    setGroupByColumnId(null);
+    setGroupBySortDir('asc');
+    setCollapsedGroups(new Set());
   }, [activeAction]);
 
+  useEffect(() => {
+    if (
+      groupByColumnId &&
+      !allColumns.some((c) => c.id === groupByColumnId)
+    ) {
+      setGroupByColumnId(null);
+      setGroupBySortDir('asc');
+      setCollapsedGroups(new Set());
+    }
+  }, [allColumns, groupByColumnId]);
+
   const toggleSort = useCallback((columnId: string) => {
+    if (suppressSortClickRef.current) {
+      suppressSortClickRef.current = false;
+      return;
+    }
     setSort((prev) => nextSortState(prev, columnId));
   }, []);
 
-  const toggleVisibleDepartment = useCallback((dept: string) => {
-    setVisibleDepartments((prev) => {
-      const next = new Set(prev);
-      if (next.has(dept)) next.delete(dept);
-      else next.add(dept);
-      return next;
-    });
+  const clearGroupBy = useCallback(() => {
+    setGroupByColumnId(null);
+    setGroupBySortDir('asc');
+    setCollapsedGroups(new Set());
   }, []);
 
-  const selectAllVisibleDepartments = useCallback(() => {
-    setVisibleDepartments(new Set(SUIVIE_DEPARTMENTS));
-  }, []);
-
-  const clearVisibleDepartments = useCallback(() => {
-    setVisibleDepartments(new Set());
+  const toggleGroupBySortDir = useCallback(() => {
+    setGroupBySortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'));
   }, []);
 
   const vehicleById = useMemo(
@@ -504,26 +589,13 @@ export function VehicleListPanel({
 
   const tableRows = useMemo(() => {
     let rows = scopedRows;
-    if (
-      activeAction === 'suivie_generale' &&
-      statusFilter.size > 0
-    ) {
+    if (activeAction === 'suivie_generale' && statusFilter.size > 0) {
       rows = rows.filter((row) => {
         const status = vehicleById[row.vehicleId]?.status;
         return status != null && statusFilter.has(status);
       });
     }
-    if (
-      activeAction === 'suivie_generale' &&
-      groupByDepartment &&
-      visibleDepartments.size < SUIVIE_DEPARTMENTS.length
-    ) {
-      rows = rows.filter((row) => visibleDepartments.has(row.department));
-    }
-    // Flat list when not grouping (or non-générale): apply global sort
-    if (activeAction === 'suivie_generale' && groupByDepartment) {
-      return rows;
-    }
+    if (groupByColumnId) return rows;
     return sortSuivieRows(rows, sort);
   }, [
     scopedRows,
@@ -531,55 +603,37 @@ export function VehicleListPanel({
     statusFilter,
     vehicleById,
     sort,
-    groupByDepartment,
-    visibleDepartments,
+    groupByColumnId,
   ]);
 
   useEffect(() => {
     if (!onFilteredVehicleIdsChange || !applied) return;
     const hasScope =
       applied.vehicleIds.size > 0 || applied.departments.size > 0;
-    const hasDeptVisibility =
-      activeAction === 'suivie_generale' &&
-      groupByDepartment &&
-      visibleDepartments.size < SUIVIE_DEPARTMENTS.length;
-    if (!hasScope && !hasDeptVisibility) {
+    if (!hasScope) {
       onFilteredVehicleIdsChange(null);
       return;
     }
     onFilteredVehicleIdsChange(getFilteredVehicleIds(tableRows));
-  }, [
-    applied,
-    tableRows,
-    onFilteredVehicleIdsChange,
-    activeAction,
-    groupByDepartment,
-    visibleDepartments,
-  ]);
+  }, [applied, tableRows, onFilteredVehicleIdsChange]);
 
-  const rowsByDepartment = useMemo(() => {
-    if (activeAction !== 'suivie_generale' || !groupByDepartment) return null;
+  const rowsByGroup = useMemo(() => {
+    if (!groupByColumnId) return null;
     const grouped: Record<string, SuivieRow[]> = {};
-    for (const dept of SUIVIE_DEPARTMENTS) {
-      if (!visibleDepartments.has(dept)) continue;
-      grouped[dept] = [];
-    }
     for (const row of tableRows) {
-      if (!visibleDepartments.has(row.department)) continue;
-      if (!grouped[row.department]) grouped[row.department] = [];
-      grouped[row.department].push(row);
+      const key = String(row[groupByColumnId] ?? '—');
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(row);
     }
-    const entries = Object.entries(grouped).filter(([, rows]) => rows.length > 0);
-    return Object.fromEntries(
-      entries.map(([dept, rows]) => [dept, sortSuivieRows(rows, sort)])
+    const entries = Object.entries(grouped).sort(([a], [b]) =>
+      groupBySortDir === 'asc'
+        ? a.localeCompare(b, 'fr', { sensitivity: 'base', numeric: true })
+        : b.localeCompare(a, 'fr', { sensitivity: 'base', numeric: true })
     );
-  }, [
-    activeAction,
-    tableRows,
-    sort,
-    groupByDepartment,
-    visibleDepartments,
-  ]);
+    return Object.fromEntries(
+      entries.map(([key, rows]) => [key, sortSuivieRows(rows, sort)])
+    );
+  }, [groupByColumnId, groupBySortDir, tableRows, sort]);
 
   const rowMatchesTableSearch = useCallback(
     (row: SuivieRow, query: string) => {
@@ -590,13 +644,13 @@ export function VehicleListPanel({
         row.vehicleId,
         row.id,
       ];
-      for (const col of visibleColumns) {
+      for (const col of prefsVisibleColumns) {
         const raw = row[col.id];
         if (raw !== undefined && raw !== null) parts.push(String(raw));
       }
       return parts.join(' ').toLowerCase().includes(query);
     },
-    [visibleColumns]
+    [prefsVisibleColumns]
   );
 
   const displayTableRows = useMemo(() => {
@@ -605,17 +659,17 @@ export function VehicleListPanel({
     return tableRows.filter((row) => rowMatchesTableSearch(row, q));
   }, [tableRows, tableSearch, rowMatchesTableSearch]);
 
-  const displayRowsByDepartment = useMemo(() => {
-    if (!rowsByDepartment) return null;
+  const displayRowsByGroup = useMemo(() => {
+    if (!rowsByGroup) return null;
     const q = tableSearch.trim().toLowerCase();
-    if (!q) return rowsByDepartment;
+    if (!q) return rowsByGroup;
     const filtered: Record<string, SuivieRow[]> = {};
-    for (const [dept, rows] of Object.entries(rowsByDepartment)) {
+    for (const [key, rows] of Object.entries(rowsByGroup)) {
       const matched = rows.filter((row) => rowMatchesTableSearch(row, q));
-      if (matched.length > 0) filtered[dept] = matched;
+      if (matched.length > 0) filtered[key] = matched;
     }
     return filtered;
-  }, [rowsByDepartment, tableSearch, rowMatchesTableSearch]);
+  }, [rowsByGroup, tableSearch, rowMatchesTableSearch]);
 
   const filteredVehiclesList = useMemo(() => {
     const q = vehicleSearch.trim().toLowerCase();
@@ -679,11 +733,11 @@ export function VehicleListPanel({
     return `${vCount} véhicules`;
   };
 
-  const toggleDepartmentCollapse = (dept: string) => {
-    setCollapsedDepartments((prev) => {
+  const toggleGroupCollapse = (key: string) => {
+    setCollapsedGroups((prev) => {
       const next = new Set(prev);
-      if (next.has(dept)) next.delete(dept);
-      else next.add(dept);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       return next;
     });
   };
@@ -722,13 +776,23 @@ export function VehicleListPanel({
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
+    const { active, over, delta } = event;
+    if (Math.abs(delta.x) > 2 || Math.abs(delta.y) > 2) {
+      suppressSortClickRef.current = true;
+    }
+    if (!over) return;
+    if (over.id === GROUP_BY_DROP_ID) {
+      setGroupByColumnId(String(active.id));
+      setGroupBySortDir('asc');
+      setCollapsedGroups(new Set());
+      return;
+    }
+    if (active.id === over.id) return;
     reorder(String(active.id), String(over.id));
   };
 
   const colCount =
-    visibleColumns.length + (activeAction === 'suivie_generale' ? 1 : 0);
+    tableColumns.length + (activeAction === 'suivie_generale' ? 1 : 0);
 
   const selectRowVehicle = (row: SuivieRow) => {
     const vehicle = vehicleById[row.vehicleId];
@@ -758,7 +822,7 @@ export function VehicleListPanel({
           }
         }}
       >
-        {visibleColumns.map((col) => {
+        {tableColumns.map((col) => {
           const raw = row[col.id];
           const value =
             raw === undefined || raw === null ? '—' : String(raw);
@@ -812,558 +876,495 @@ export function VehicleListPanel({
 
       {!isCollapsed && (
         <>
-          <div className="border-b border-slate-200 bg-gradient-to-b from-white to-slate-50/50 overflow-visible relative z-20">
-            <div className="px-3 py-2 flex flex-col gap-2 overflow-visible">
-              {/* Filters */}
-              <div className="w-full min-w-0 flex flex-col gap-2">
-                <div
-                  className="relative w-full min-w-0"
-                  ref={vehicleDropdownRef}
-                >
-                  <label className="text-xs font-semibold text-slate-700 mb-1 block flex items-center gap-1.5">
-                    <Car className="w-3.5 h-3.5 text-blue-600" />
-                    Véhicules
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setIsVehicleDropdownOpen(!isVehicleDropdownOpen)
-                    }
-                    className="w-full h-8 flex items-center justify-between bg-white border border-slate-200 hover:border-blue-400 rounded-lg px-3 text-xs transition-all shadow-sm"
-                  >
-                    <span
-                      className={`truncate ${
-                        draftVehicles.size > 0
-                          ? 'text-slate-900 font-medium'
-                          : 'text-slate-500'
-                      }`}
-                    >
-                      {getVehicleButtonText()}
-                    </span>
-                    <ChevronDown
-                      className={`w-4 h-4 text-slate-400 transition-transform flex-shrink-0 ml-2 ${
-                        isVehicleDropdownOpen ? 'rotate-180' : ''
-                      }`}
-                    />
-                  </button>
-
-                  <AnimatePresence>
-                    {isVehicleDropdownOpen && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 5 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 5 }}
-                        className="absolute top-full left-0 mt-1 bg-white rounded-xl shadow-xl border border-slate-200 z-50 overflow-hidden flex flex-col max-h-[400px] w-full max-w-[min(360px,calc(100vw-2rem))]"
-                      >
-                        <div className="p-2 border-b border-slate-100">
-                          <div className="relative">
-                            <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
-                            <input
-                              type="text"
-                              placeholder="Matricule, IMEI, nom…"
-                              value={vehicleSearch}
-                              onChange={(e) =>
-                                setVehicleSearch(e.target.value)
-                              }
-                              className="w-full pl-7 pr-2 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500"
-                            />
-                          </div>
-                          <div className="flex items-center justify-between mt-1.5 px-1">
-                            <FilterBulkActions
-                              onSelectAll={() =>
-                                setDraftVehicles(
-                                  new Set(
-                                    filteredVehiclesList.map((v) => v.id)
-                                  )
-                                )
-                              }
-                              onClear={() => setDraftVehicles(new Set())}
-                            />
-                          </div>
-                          <p className="mt-1 px-1 text-[10px] text-slate-500">
-                            {draftVehicles.size} sélectionné
-                            {draftVehicles.size === 1 ? '' : 's'}
-                            {vehicleSearch.trim()
-                              ? ` · ${filteredVehiclesList.length} résultat${filteredVehiclesList.length === 1 ? '' : 's'}`
-                              : ''}
-                          </p>
-                        </div>
-                        <div className="overflow-y-auto flex-1 p-1">
-                          {filteredVehiclesList.length === 0 ? (
-                            <p className="px-3 py-6 text-center text-xs text-slate-500">
-                              Aucun véhicule trouvé
-                            </p>
-                          ) : (
-                            filteredVehiclesList.map((vehicle) => (
-                              <label
-                                key={vehicle.id}
-                                className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-50 rounded-lg cursor-pointer group transition-colors"
-                              >
-                                <div
-                                  className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-colors shrink-0 ${
-                                    draftVehicles.has(vehicle.id)
-                                      ? 'bg-blue-600 border-blue-600'
-                                      : 'border-slate-300 bg-white group-hover:border-blue-400'
-                                  }`}
-                                >
-                                  {draftVehicles.has(vehicle.id) && (
-                                    <Check className="w-2.5 h-2.5 text-white" />
-                                  )}
-                                </div>
-                                <input
-                                  type="checkbox"
-                                  className="sr-only"
-                                  checked={draftVehicles.has(vehicle.id)}
-                                  onChange={() => toggleVehicle(vehicle.id)}
-                                />
-                                <div className="flex-1 min-w-0">
-                                  <div className="text-xs font-semibold text-slate-800 truncate">
-                                    {vehicle.matricule || vehicle.name}
-                                  </div>
-                                  <div className="text-[10px] text-slate-500 truncate font-mono">
-                                    IMEI {vehicle.imei || '—'}
-                                  </div>
-                                  {vehicle.matricule && (
-                                    <div className="text-[10px] text-slate-400 truncate">
-                                      {vehicle.name}
-                                    </div>
-                                  )}
-                                </div>
-                              </label>
-                            ))
-                          )}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-
-                {draftAction !== 'suivie_generale' && (
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="min-w-0">
-                      <label className="text-xs font-semibold text-slate-700 mb-1 block flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5 text-blue-600" />
-                        Date début
-                      </label>
-                      <DateTimePicker
-                        value={draftStartDate}
-                        onChange={setDraftStartDate}
-                        placeholder="Début"
-                      />
-                    </div>
-                    <div className="min-w-0">
-                      <label className="text-xs font-semibold text-slate-700 mb-1 block flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5 text-blue-600" />
-                        Date fin
-                      </label>
-                      <DateTimePicker
-                        value={draftEndDate}
-                        onChange={setDraftEndDate}
-                        placeholder="Fin"
-                      />
-                    </div>
-                  </div>
-                )}
-
-                <div
-                  className={
-                    draftAction === 'alertes'
-                      ? 'grid grid-cols-2 gap-2'
-                      : 'w-full min-w-0'
-                  }
-                >
-                <div
-                  className="relative min-w-0"
-                  ref={actionDropdownRef}
-                >
-                  <label className="text-xs font-semibold text-slate-700 mb-1 block flex items-center gap-1.5">
-                    <Layers className="w-3.5 h-3.5 text-blue-600" />
-                    Action
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setIsActionDropdownOpen(!isActionDropdownOpen)
-                    }
-                    className="w-full h-8 flex items-center justify-between bg-white border border-slate-200 hover:border-blue-400 rounded-lg px-3 text-xs transition-all shadow-sm"
-                  >
-                    <span className="text-slate-900 font-medium truncate">
-                      {ACTIONS.find((a) => a.id === draftAction)?.label}
-                    </span>
-                    <ChevronDown
-                      className={`w-4 h-4 text-slate-400 transition-transform flex-shrink-0 ml-2 ${
-                        isActionDropdownOpen ? 'rotate-180' : ''
-                      }`}
-                    />
-                  </button>
-
-                  <AnimatePresence>
-                    {isActionDropdownOpen && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 5 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 5 }}
-                        className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-xl border border-slate-200 z-50 overflow-hidden"
-                      >
-                        <div className="p-1">
-                          {ACTIONS.map((action) => (
-                            <button
-                              key={action.id}
-                              type="button"
-                              onClick={() => {
-                                setDraftAction(action.id);
-                                setApplied((prev) =>
-                                  prev
-                                    ? { ...prev, action: action.id }
-                                    : {
-                                        action: action.id,
-                                        vehicleIds: new Set(draftVehicles),
-                                        departments: new Set(),
-                                        startDate: draftStartDate,
-                                        endDate: draftEndDate,
-                                        alertTypes: new Set(draftAlertTypes),
-                                      }
-                                );
-                                setIsActionDropdownOpen(false);
-                                setIsColumnSettingsOpen(false);
-                              }}
-                              className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-                                draftAction === action.id
-                                  ? 'bg-blue-50 text-blue-700 font-medium'
-                                  : 'text-slate-700 hover:bg-slate-50'
-                              }`}
-                            >
-                              {action.label}
-                            </button>
-                          ))}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-
-                {draftAction === 'alertes' && (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={groupByCollisionDetection}
+            onDragEnd={handleDragEnd}
+          >
+            <div className="shrink-0 border-b border-slate-200 bg-gradient-to-b from-white to-slate-50/50 overflow-visible relative z-20">
+              <div className="px-3 py-2 flex flex-col gap-1.5 overflow-visible">
+                {/* Ligne 1 — filtres */}
+                <div className="w-full flex flex-wrap items-center gap-1.5">
                   <div
-                    className="relative min-w-0"
-                    ref={alertDropdownRef}
+                    className="relative flex-1 min-w-[120px]"
+                    ref={vehicleDropdownRef}
                   >
-                    <label className="text-xs font-semibold text-slate-700 mb-1 block flex items-center gap-1.5">
-                      <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
-                      Types d'alerte
-                    </label>
                     <button
                       type="button"
                       onClick={() =>
-                        setIsAlertDropdownOpen(!isAlertDropdownOpen)
+                        setIsVehicleDropdownOpen(!isVehicleDropdownOpen)
                       }
-                      className="w-full h-8 flex items-center justify-between bg-white border border-slate-200 hover:border-blue-400 rounded-lg px-3 text-xs transition-all shadow-sm"
+                      title="Filtrer les véhicules"
+                      aria-label="Filtrer les véhicules"
+                      className="w-full h-8 flex items-center justify-between gap-1.5 bg-white border border-slate-200 hover:border-blue-400 rounded-lg px-2.5 text-xs transition-all shadow-sm"
                     >
-                      <span className="truncate text-slate-700 font-medium">
-                        {draftAlertTypes.size === 0
-                          ? 'Tous les types'
-                          : `${draftAlertTypes.size} type(s) sélectionné(s)`}
+                      <Car className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                      <span
+                        className={`truncate flex-1 text-left ${
+                          draftVehicles.size > 0
+                            ? 'text-slate-900 font-medium'
+                            : 'text-slate-500'
+                        }`}
+                      >
+                        {getVehicleButtonText()}
                       </span>
                       <ChevronDown
-                        className={`w-4 h-4 text-slate-400 transition-transform flex-shrink-0 ml-2 ${
-                          isAlertDropdownOpen ? 'rotate-180' : ''
+                        className={`w-3.5 h-3.5 text-slate-400 transition-transform shrink-0 ${
+                          isVehicleDropdownOpen ? 'rotate-180' : ''
                         }`}
                       />
                     </button>
 
                     <AnimatePresence>
-                      {isAlertDropdownOpen && (
+                      {isVehicleDropdownOpen && (
                         <motion.div
                           initial={{ opacity: 0, y: 5 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: 5 }}
-                          className="absolute top-full left-0 mt-1 bg-white rounded-xl shadow-xl border border-slate-200 z-50 overflow-hidden w-full min-w-[220px] max-h-[280px] flex flex-col"
+                          className="absolute top-full left-0 mt-1 bg-white rounded-xl shadow-xl border border-slate-200 z-50 overflow-hidden flex flex-col max-h-[400px] w-full min-w-[240px] max-w-[min(360px,calc(100vw-2rem))]"
                         >
-                          <div className="p-1.5 border-b border-slate-100 flex justify-between gap-1.5">
-                            <FilterBulkActions
-                              onSelectAll={() =>
-                                setDraftAlertTypes(new Set([...ALERT_TYPES]))
-                              }
-                              onClear={() => setDraftAlertTypes(new Set())}
-                            />
+                          <div className="p-2 border-b border-slate-100">
+                            <div className="relative">
+                              <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400" />
+                              <input
+                                type="text"
+                                placeholder="Matricule, IMEI, nom…"
+                                value={vehicleSearch}
+                                onChange={(e) =>
+                                  setVehicleSearch(e.target.value)
+                                }
+                                className="w-full pl-7 pr-2 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500"
+                              />
+                            </div>
+                            <div className="flex items-center justify-between mt-1.5 px-1">
+                              <FilterBulkActions
+                                onSelectAll={() =>
+                                  setDraftVehicles(
+                                    new Set(
+                                      filteredVehiclesList.map((v) => v.id)
+                                    )
+                                  )
+                                }
+                                onClear={() => setDraftVehicles(new Set())}
+                              />
+                            </div>
+                            <p className="mt-1 px-1 text-[10px] text-slate-500">
+                              {draftVehicles.size} sélectionné
+                              {draftVehicles.size === 1 ? '' : 's'}
+                              {vehicleSearch.trim()
+                                ? ` · ${filteredVehiclesList.length} résultat${filteredVehiclesList.length === 1 ? '' : 's'}`
+                                : ''}
+                            </p>
                           </div>
-                          <div className="overflow-y-auto p-1">
-                            {ALERT_TYPES.map((type) => (
-                              <label
-                                key={type}
-                                className="flex items-center gap-1.5 px-1.5 py-1 hover:bg-slate-50 rounded cursor-pointer"
+                          <div className="overflow-y-auto flex-1 p-1">
+                            {filteredVehiclesList.length === 0 ? (
+                              <p className="px-3 py-6 text-center text-xs text-slate-500">
+                                Aucun véhicule trouvé
+                              </p>
+                            ) : (
+                              filteredVehiclesList.map((vehicle) => (
+                                <label
+                                  key={vehicle.id}
+                                  className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-50 rounded-lg cursor-pointer group transition-colors"
+                                >
+                                  <div
+                                    className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-colors shrink-0 ${
+                                      draftVehicles.has(vehicle.id)
+                                        ? 'bg-blue-600 border-blue-600'
+                                        : 'border-slate-300 bg-white group-hover:border-blue-400'
+                                    }`}
+                                  >
+                                    {draftVehicles.has(vehicle.id) && (
+                                      <Check className="w-2.5 h-2.5 text-white" />
+                                    )}
+                                  </div>
+                                  <input
+                                    type="checkbox"
+                                    className="sr-only"
+                                    checked={draftVehicles.has(vehicle.id)}
+                                    onChange={() => toggleVehicle(vehicle.id)}
+                                  />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-xs font-semibold text-slate-800 truncate">
+                                      {vehicle.matricule || vehicle.name}
+                                    </div>
+                                    <div className="text-[10px] text-slate-500 truncate font-mono">
+                                      IMEI {vehicle.imei || '—'}
+                                    </div>
+                                    {vehicle.matricule && (
+                                      <div className="text-[10px] text-slate-400 truncate">
+                                        {vehicle.name}
+                                      </div>
+                                    )}
+                                  </div>
+                                </label>
+                              ))
+                            )}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  {draftAction !== 'suivie_generale' && (
+                    <>
+                      <div
+                        className="w-[130px] min-w-[110px] shrink-0"
+                        title="Date début"
+                      >
+                        <DateTimePicker
+                          value={draftStartDate}
+                          onChange={setDraftStartDate}
+                          placeholder="Début"
+                        />
+                      </div>
+                      <div
+                        className="w-[130px] min-w-[110px] shrink-0"
+                        title="Date fin"
+                      >
+                        <DateTimePicker
+                          value={draftEndDate}
+                          onChange={setDraftEndDate}
+                          placeholder="Fin"
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  <div
+                    className="relative w-[150px] min-w-[120px] shrink-0"
+                    ref={actionDropdownRef}
+                  >
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setIsActionDropdownOpen(!isActionDropdownOpen)
+                      }
+                      title="Action Suivi"
+                      aria-label="Action Suivi"
+                      className="w-full h-8 flex items-center justify-between gap-1.5 bg-white border border-slate-200 hover:border-blue-400 rounded-lg px-2.5 text-xs transition-all shadow-sm"
+                    >
+                      <Layers className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                      <span className="text-slate-900 font-medium truncate flex-1 text-left">
+                        {ACTIONS.find((a) => a.id === draftAction)?.label}
+                      </span>
+                      <ChevronDown
+                        className={`w-3.5 h-3.5 text-slate-400 transition-transform shrink-0 ${
+                          isActionDropdownOpen ? 'rotate-180' : ''
+                        }`}
+                      />
+                    </button>
+
+                    <AnimatePresence>
+                      {isActionDropdownOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 5 }}
+                          className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-xl border border-slate-200 z-50 overflow-hidden min-w-[180px]"
+                        >
+                          <div className="p-1">
+                            {ACTIONS.map((action) => (
+                              <button
+                                key={action.id}
+                                type="button"
+                                onClick={() => {
+                                  setDraftAction(action.id);
+                                  setApplied((prev) =>
+                                    prev
+                                      ? { ...prev, action: action.id }
+                                      : {
+                                          action: action.id,
+                                          vehicleIds: new Set(draftVehicles),
+                                          departments: new Set(),
+                                          startDate: draftStartDate,
+                                          endDate: draftEndDate,
+                                          alertTypes: new Set(draftAlertTypes),
+                                        }
+                                  );
+                                  setIsActionDropdownOpen(false);
+                                  setIsColumnSettingsOpen(false);
+                                }}
+                                className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                                  draftAction === action.id
+                                    ? 'bg-blue-50 text-blue-700 font-medium'
+                                    : 'text-slate-700 hover:bg-slate-50'
+                                }`}
                               >
-                                <input
-                                  type="checkbox"
-                                  checked={draftAlertTypes.has(type)}
-                                  onChange={() => toggleAlertType(type)}
-                                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3 h-3"
-                                />
-                                <span className="text-[11px] text-slate-700">
-                                  {type}
-                                </span>
-                              </label>
+                                {action.label}
+                              </button>
                             ))}
                           </div>
                         </motion.div>
                       )}
                     </AnimatePresence>
                   </div>
-                )}
-                </div>
-              </div>
-            </div>
-          </div>
 
-          {activeAction === 'suivie_generale' && (
-            <div className="shrink-0 border-b border-slate-200 bg-white px-3 py-2 space-y-2">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <label className="inline-flex items-center gap-2 cursor-pointer select-none">
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={groupByDepartment}
-                    onClick={() => setGroupByDepartment((v) => !v)}
-                    className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
-                      groupByDepartment ? 'bg-blue-600' : 'bg-slate-300'
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                        groupByDepartment ? 'translate-x-4' : 'translate-x-0.5'
-                      }`}
-                    />
-                  </button>
-                  <span className="text-xs font-semibold text-slate-700">
-                    Classer par département
-                  </span>
-                </label>
-                {groupByDepartment && (
-                  <FilterBulkActions
-                    onSelectAll={selectAllVisibleDepartments}
-                    onClear={clearVisibleDepartments}
-                  />
-                )}
-              </div>
-              {groupByDepartment && (
-                <div className="flex flex-wrap gap-1.5">
-                  {SUIVIE_DEPARTMENTS.map((dept) => {
-                    const selected = visibleDepartments.has(dept);
-                    return (
+                  {draftAction === 'alertes' && (
+                    <div
+                      className="relative w-[150px] min-w-[120px] shrink-0"
+                      ref={alertDropdownRef}
+                    >
                       <button
-                        key={dept}
                         type="button"
-                        onClick={() => toggleVisibleDepartment(dept)}
-                        aria-pressed={selected}
-                        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                          selected
-                            ? 'bg-blue-50 border-blue-300 text-blue-800'
-                            : 'bg-slate-50 border-slate-200 text-slate-400 hover:border-slate-300'
-                        }`}
+                        onClick={() =>
+                          setIsAlertDropdownOpen(!isAlertDropdownOpen)
+                        }
+                        title="Types d'alerte"
+                        aria-label="Types d'alerte"
+                        className="w-full h-8 flex items-center justify-between gap-1.5 bg-white border border-slate-200 hover:border-blue-400 rounded-lg px-2.5 text-xs transition-all shadow-sm"
                       >
-                        <span
-                          className={`h-1.5 w-1.5 rounded-full ${
-                            selected ? 'bg-blue-500' : 'bg-slate-300'
+                        <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                        <span className="truncate text-slate-700 font-medium flex-1 text-left">
+                          {draftAlertTypes.size === 0
+                            ? 'Tous les types'
+                            : `${draftAlertTypes.size} type(s)`}
+                        </span>
+                        <ChevronDown
+                          className={`w-3.5 h-3.5 text-slate-400 transition-transform shrink-0 ${
+                            isAlertDropdownOpen ? 'rotate-180' : ''
                           }`}
                         />
-                        {dept}
                       </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
 
-          <div className="shrink-0 border-b border-slate-200 bg-white px-3 py-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="relative flex-1 min-w-[160px]">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-                <input
-                  type="text"
-                  value={tableSearch}
-                  onChange={(e) => setTableSearch(e.target.value)}
-                  placeholder="Rechercher dans le tableau…"
-                  className="w-full h-8 pl-8 pr-3 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 focus:bg-white transition-colors"
-                />
-              </div>
-
-              <div className="flex flex-wrap items-center gap-1.5 shrink-0">
-                <div className="relative shrink-0" ref={columnSettingsRef}>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setIsColumnSettingsOpen(!isColumnSettingsOpen)
-                    }
-                    title="Paramétrer les colonnes"
-                    className="flex items-center justify-center w-8 h-8 text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-lg transition-all shadow-sm"
-                  >
-                    <Settings className="w-4 h-4" />
-                  </button>
-
-                  <AnimatePresence>
-                    {isColumnSettingsOpen && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -4 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -4 }}
-                        className="absolute top-full mt-2 right-0 w-72 max-h-80 bg-white rounded-xl shadow-xl border border-slate-200 z-[100] flex flex-col overflow-hidden"
-                      >
-                        <div className="px-3 py-2 border-b border-slate-100 flex items-center justify-between">
-                          <span className="text-xs font-semibold text-slate-800">
-                            Colonnes affichées
-                          </span>
-                          <button
-                            type="button"
-                            onClick={resetToDefault}
-                            className="flex items-center gap-1 text-[10px] text-blue-600 hover:underline font-medium"
+                      <AnimatePresence>
+                        {isAlertDropdownOpen && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 5 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 5 }}
+                            className="absolute top-full left-0 mt-1 bg-white rounded-xl shadow-xl border border-slate-200 z-50 overflow-hidden w-full min-w-[220px] max-h-[280px] flex flex-col"
                           >
-                            <RotateCcw className="w-3 h-3" />
-                            Réinitialiser
-                          </button>
-                        </div>
-                        <div className="overflow-y-auto p-1.5 flex-1">
-                          {allColumns.map((col) => {
-                            const checked = !!prefs.visible[col.id];
-                            const visibleCount = Object.values(
-                              prefs.visible
-                            ).filter(Boolean).length;
-                            const disableOff = checked && visibleCount <= 1;
-                            return (
-                              <label
-                                key={col.id}
-                                className={`flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer hover:bg-slate-50 ${
-                                  disableOff ? 'opacity-60' : ''
-                                }`}
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={checked}
-                                  disabled={disableOff}
-                                  onChange={() => toggleVisible(col.id)}
-                                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
-                                />
-                                <span className="text-xs text-slate-700">
-                                  {col.label}
-                                </span>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                            <div className="p-1.5 border-b border-slate-100 flex justify-between gap-1.5">
+                              <FilterBulkActions
+                                onSelectAll={() =>
+                                  setDraftAlertTypes(new Set([...ALERT_TYPES]))
+                                }
+                                onClear={() => setDraftAlertTypes(new Set())}
+                              />
+                            </div>
+                            <div className="overflow-y-auto p-1">
+                              {ALERT_TYPES.map((type) => (
+                                <label
+                                  key={type}
+                                  className="flex items-center gap-1.5 px-1.5 py-1 hover:bg-slate-50 rounded cursor-pointer"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={draftAlertTypes.has(type)}
+                                    onChange={() => toggleAlertType(type)}
+                                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3 h-3"
+                                  />
+                                  <span className="text-[11px] text-slate-700">
+                                    {type}
+                                  </span>
+                                </label>
+                              ))}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  )}
                 </div>
 
-                <button
-                  type="button"
-                  className="h-8 flex items-center justify-center gap-1.5 px-2.5 text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-lg text-xs font-medium transition-all shadow-sm"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>PDF</span>
-                </button>
-                <button
-                  type="button"
-                  className="h-8 flex items-center justify-center gap-1.5 px-2.5 text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-lg text-xs font-medium transition-all shadow-sm"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Excel</span>
-                </button>
+                {/* Ligne 2 — recherche, regroupement, exports */}
+                <div className="w-full flex flex-wrap items-center gap-1.5">
+                  <div className="relative flex-1 min-w-[140px]">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                    <input
+                      type="text"
+                      value={tableSearch}
+                      onChange={(e) => setTableSearch(e.target.value)}
+                      placeholder="Rechercher dans le tableau…"
+                      className="w-full h-8 pl-8 pr-3 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 focus:bg-white transition-colors"
+                    />
+                  </div>
+
+                  <GroupByDropZone
+                    groupByColumnId={groupByColumnId}
+                    groupByLabel={groupByLabel}
+                    groupBySortDir={groupBySortDir}
+                    onToggleSortDir={toggleGroupBySortDir}
+                    onClear={clearGroupBy}
+                  />
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="relative shrink-0" ref={columnSettingsRef}>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setIsColumnSettingsOpen(!isColumnSettingsOpen)
+                        }
+                        title="Paramétrer les colonnes"
+                        className="flex items-center justify-center w-8 h-8 text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-lg transition-all shadow-sm"
+                      >
+                        <Settings className="w-4 h-4" />
+                      </button>
+
+                      <AnimatePresence>
+                        {isColumnSettingsOpen && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -4 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -4 }}
+                            className="absolute top-full mt-2 right-0 w-72 max-h-80 bg-white rounded-xl shadow-xl border border-slate-200 z-[100] flex flex-col overflow-hidden"
+                          >
+                            <div className="px-3 py-2 border-b border-slate-100 flex items-center justify-between">
+                              <span className="text-xs font-semibold text-slate-800">
+                                Colonnes affichées
+                              </span>
+                              <button
+                                type="button"
+                                onClick={resetToDefault}
+                                className="flex items-center gap-1 text-[10px] text-blue-600 hover:underline font-medium"
+                              >
+                                <RotateCcw className="w-3 h-3" />
+                                Réinitialiser
+                              </button>
+                            </div>
+                            <div className="overflow-y-auto p-1.5 flex-1">
+                              {allColumns.map((col) => {
+                                const checked = !!prefs.visible[col.id];
+                                const visibleCount = Object.values(
+                                  prefs.visible
+                                ).filter(Boolean).length;
+                                const disableOff = checked && visibleCount <= 1;
+                                return (
+                                  <label
+                                    key={col.id}
+                                    className={`flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer hover:bg-slate-50 ${
+                                      disableOff ? 'opacity-60' : ''
+                                    }`}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={checked}
+                                      disabled={disableOff}
+                                      onChange={() => toggleVisible(col.id)}
+                                      className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+                                    />
+                                    <span className="text-xs text-slate-700">
+                                      {col.label}
+                                    </span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="h-8 flex items-center justify-center gap-1.5 px-2.5 text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-lg text-xs font-medium transition-all shadow-sm"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>PDF</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="h-8 flex items-center justify-center gap-1.5 px-2.5 text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-lg text-xs font-medium transition-all shadow-sm"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Excel</span>
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div
-            className="flex-1 overflow-x-auto overflow-y-auto bg-white min-w-0"
-            onScroll={() => {
-              if (openMenu) setOpenMenu(null);
-            }}
-          >
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
+            <div
+              className="flex-1 overflow-x-auto overflow-y-auto bg-white min-w-0"
+              onScroll={() => {
+                if (openMenu) setOpenMenu(null);
+              }}
             >
-            <table className="w-full text-left border-collapse">
-              <thead className="bg-blue-600 sticky top-0 z-10">
-                <tr>
-                  <SortableContext
-                    items={visibleColumns.map((c) => c.id)}
-                    strategy={horizontalListSortingStrategy}
-                  >
-                    {visibleColumns.map((col) => (
-                      <SortableHeader
-                        key={col.id}
-                        id={col.id}
-                        label={col.label}
-                        sortDir={
-                          sort?.columnId === col.id ? sort.dir : null
+
+                <table className="w-full text-left border-collapse">
+                  <thead className="bg-blue-600 sticky top-0 z-10">
+                    <tr>
+                      <SortableContext
+                        items={tableColumns.map((c) => c.id)}
+                        strategy={horizontalListSortingStrategy}
+                      >
+                        {tableColumns.map((col) => (
+                          <SortableHeader
+                            key={col.id}
+                            id={col.id}
+                            label={col.label}
+                            sortDir={
+                              sort?.columnId === col.id ? sort.dir : null
+                            }
+                            onSortClick={toggleSort}
+                          />
+                        ))}
+                      </SortableContext>
+                      {activeAction === 'suivie_generale' && (
+                        <th className="px-3 py-2.5 text-xs font-bold text-white uppercase tracking-wider border-b border-blue-700 whitespace-nowrap">
+                          Actions
+                        </th>
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {displayTableRows.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={Math.max(colCount, 1)}
+                          className="px-4 py-12 text-center text-sm text-slate-500"
+                        >
+                          {tableSearch.trim()
+                            ? 'Aucun résultat pour cette recherche dans le tableau.'
+                            : 'Aucun résultat pour ces filtres.'}
+                        </td>
+                      </tr>
+                    ) : groupByColumnId && displayRowsByGroup ? (
+                      Object.entries(displayRowsByGroup).map(
+                        ([groupKey, rows]) => {
+                          const isCollapsed = collapsedGroups.has(groupKey);
+                          return (
+                            <Fragment key={groupKey}>
+                              <tr className="bg-blue-100">
+                                <td
+                                  colSpan={colCount}
+                                  className="px-3 py-2"
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      toggleGroupCollapse(groupKey)
+                                    }
+                                    className="w-full flex items-center justify-between hover:bg-blue-150 transition-colors"
+                                  >
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      {isCollapsed ? (
+                                        <ChevronRight className="w-4 h-4 text-blue-700 shrink-0" />
+                                      ) : (
+                                        <ChevronDown className="w-4 h-4 text-blue-700 shrink-0" />
+                                      )}
+                                      <span className="text-sm font-semibold text-blue-700 truncate">
+                                        {groupByLabel}: {groupKey} (
+                                        {rows.length})
+                                      </span>
+                                    </div>
+                                  </button>
+                                </td>
+                              </tr>
+                              {!isCollapsed &&
+                                rows.map((row) => renderDataRow(row))}
+                            </Fragment>
+                          );
                         }
-                        onSortClick={toggleSort}
-                      />
-                    ))}
-                  </SortableContext>
-                  {activeAction === 'suivie_generale' && (
-                    <th className="px-3 py-2.5 text-xs font-bold text-white uppercase tracking-wider border-b border-blue-700 whitespace-nowrap">
-                      Actions
-                    </th>
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {displayTableRows.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={Math.max(colCount, 1)}
-                      className="px-4 py-12 text-center text-sm text-slate-500"
-                    >
-                      {tableSearch.trim()
-                        ? 'Aucun résultat pour cette recherche dans le tableau.'
-                        : activeAction === 'suivie_generale' &&
-                            groupByDepartment &&
-                            visibleDepartments.size === 0
-                          ? 'Aucun département sélectionné. Activez au moins un département ci-dessus.'
-                          : 'Aucun résultat pour ces filtres.'}
-                    </td>
-                  </tr>
-                ) : activeAction === 'suivie_generale' &&
-                  groupByDepartment &&
-                  displayRowsByDepartment ? (
-                  Object.entries(displayRowsByDepartment).map(([dept, rows]) => {
-                    const isCollapsedDept = collapsedDepartments.has(dept);
-                    return (
-                      <Fragment key={dept}>
-                        <tr className="bg-blue-100">
-                          <td colSpan={colCount} className="px-3 py-2">
-                            <button
-                              type="button"
-                              onClick={() => toggleDepartmentCollapse(dept)}
-                              className="w-full flex items-center justify-between hover:bg-blue-150 transition-colors"
-                            >
-                              <div className="flex items-center gap-2">
-                                {isCollapsedDept ? (
-                                  <ChevronRight className="w-4 h-4 text-blue-700" />
-                                ) : (
-                                  <ChevronDown className="w-4 h-4 text-blue-700" />
-                                )}
-                                <span className="text-sm font-semibold text-blue-700">
-                                  Département: {dept} ({rows.length})
-                                </span>
-                              </div>
-                            </button>
-                          </td>
-                        </tr>
-                        {!isCollapsedDept &&
-                          rows.map((row) => renderDataRow(row))}
-                      </Fragment>
-                    );
-                  })
-                ) : (
-                  displayTableRows.map((row) => renderDataRow(row))
-                )}
-              </tbody>
-            </table>
+                      )
+                    ) : (
+                      displayTableRows.map((row) => renderDataRow(row))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </DndContext>
-          </div>
 
           {typeof document !== 'undefined' &&
             createPortal(

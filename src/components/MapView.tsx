@@ -643,8 +643,8 @@ function createVehicleIcon(
     status === 'active'
       ? '#10b981'
       : status === 'idle'
-        ? '#f59e0b'
-        : '#f43f5e';
+        ? '#f43f5e'
+        : '#94a3b8';
   const size = isSelected ? 52 : 44;
   const glyphSize = isSelected ? 40 : 34;
   const glyph = vehicleIcon3dMarkup(iconType, glyphSize);

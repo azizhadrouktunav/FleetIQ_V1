@@ -18,10 +18,10 @@ export const Default: Story = {
 
 export const CssCheck: Story = {
   play: async ({ canvas }) => {
-    const row = canvas.getByText('En ligne (45)').closest('div');
+    const row = canvas.getByText('Circulation').closest('div');
     const dot = row?.querySelector('span');
     if (!dot) throw new Error('Legend status dot not found');
-    // MapLegend uses bg-emerald-500 for online vehicles.
+    // MapLegend uses bg-emerald-500 for vehicles in circulation.
     await expect(getComputedStyle(dot).backgroundColor).toBe('rgb(16, 185, 129)');
   },
 };

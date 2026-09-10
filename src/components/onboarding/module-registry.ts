@@ -69,7 +69,7 @@ export const MODULE_REGISTRY: ModuleConfig[] = [
     title: 'Module Geofencing',
     description: 'Zones géographiques et géopérages',
     icon: CircleDot,
-    available: true,
+    available: false,
     accentClass: 'bg-blue-50 text-blue-600',
   },
   {

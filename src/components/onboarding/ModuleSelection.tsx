@@ -1,4 +1,4 @@
-import { ArrowLeft, CircleDot, Lock, Play } from 'lucide-react';
+import { ArrowLeft, Lock, Play } from 'lucide-react';
 import { MODULE_REGISTRY } from './module-registry';
 import type { OnboardingModuleId } from './module-registry';
 import { OnboardingLayout } from './OnboardingLayout';
@@ -9,6 +9,8 @@ interface ModuleSelectionProps {
 }
 
 export function ModuleSelection({ onBack, onSelectModule }: ModuleSelectionProps) {
+  const hasAvailableModule = MODULE_REGISTRY.some((m) => m.available);
+
   return (
     <OnboardingLayout
       title="Choisir un module"
@@ -84,9 +86,10 @@ export function ModuleSelection({ onBack, onSelectModule }: ModuleSelectionProps
         })}
       </div>
 
-      <p className="mt-6 text-center text-xs text-slate-500 flex items-center justify-center gap-1.5">
-        <CircleDot className="w-3.5 h-3.5 text-blue-400" />
-        Seul le module Geofencing est disponible pour le moment
+      <p className="mt-6 text-center text-xs text-slate-500">
+        {hasAvailableModule
+          ? 'Sélectionnez un module disponible pour commencer'
+          : 'Les tutoriels interactifs seront bientôt disponibles'}
       </p>
     </OnboardingLayout>
   );
