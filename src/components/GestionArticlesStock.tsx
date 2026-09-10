@@ -256,7 +256,7 @@ export function GestionArticlesStock() {
   return (
     <div className="h-full overflow-y-auto bg-slate-50">
       {/* Header */}
-      <div className="bg-white border-b border-slate-200 px-6 py-4 sticky top-0 z-10">
+      <div className="bg-white border-b border-slate-200 px-4 py-4 sticky top-0 z-10">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">

@@ -63,7 +63,7 @@ export function AlertHistoryPage({
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-white">
-      <div className="mx-auto w-full max-w-7xl flex-1 space-y-5 overflow-y-auto px-6 py-6">
+      <div className="w-full flex-1 space-y-5 overflow-y-auto px-4 py-4">
         {onBack ? (
           <button
             type="button"

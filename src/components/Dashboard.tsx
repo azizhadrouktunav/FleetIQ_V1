@@ -849,8 +849,8 @@ export function Dashboard({ vehicles, onNavigateToVehicle }: DashboardProps) {
   };
   return (
     <div className="h-full overflow-y-auto bg-slate-50 relative">
-      <div className="bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-6 shadow-lg">
-        <div className="max-w-7xl mx-auto">
+      <div className="bg-gradient-to-r from-blue-500 to-blue-600 px-4 py-4 shadow-lg">
+        <div className="w-full">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <h1 className="text-3xl font-bold text-white">Dashboard</h1>
@@ -1053,9 +1053,9 @@ export function Dashboard({ vehicles, onNavigateToVehicle }: DashboardProps) {
           transition={{
             duration: 0.4
           }}
-          className="p-6 pb-24">
+          className="p-4 pb-24">
           
-          <div className="max-w-[1800px] mx-auto space-y-6">
+          <div className="w-full space-y-6">
             {selectedVehicles.length > 0 &&
             <motion.div
               initial={{

@@ -2918,7 +2918,7 @@ export function GestionCoupons() {
       </div>
 
       {/* Tabs */}
-      <div className="bg-white border-b border-slate-200 px-6 flex-shrink-0">
+      <div className="bg-white border-b border-slate-200 px-4 flex-shrink-0">
         <div className="w-full flex gap-8">
           <button
             onClick={() => setActiveTab('carte_bon')}
@@ -2936,7 +2936,7 @@ export function GestionCoupons() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-4">
         <div className="w-full space-y-6">
           {activeTab === 'carte_bon' ?
           <>

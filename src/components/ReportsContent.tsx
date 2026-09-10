@@ -57,7 +57,7 @@ export function ReportsContent({ activeTab }: ReportsContentProps) {
         className="h-full">
         
         {/* Report header */}
-        <div className="bg-white border-b border-slate-200 px-6 py-4">
+        <div className="bg-white border-b border-slate-200 px-4 py-4">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold text-slate-800">
               {getReportTitle(activeTab)}
@@ -273,8 +273,8 @@ function ReportsOverview() {
   }];
 
   return (
-    <div className="flex-1 overflow-y-auto bg-slate-50 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="flex-1 overflow-y-auto bg-slate-50 p-4">
+      <div className="w-full space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -635,8 +635,8 @@ function RapportDetailleContent() {
     }];
 
     return (
-      <div className="h-full overflow-y-auto bg-slate-50 p-6">
-        <div className="max-w-7xl mx-auto space-y-6">
+      <div className="h-full overflow-y-auto bg-slate-50 p-4">
+        <div className="w-full space-y-6">
           {/* Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -1039,8 +1039,8 @@ function RapportDetailleContent() {
 
   }
   return (
-    <div className="h-full overflow-y-auto bg-slate-50 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="h-full overflow-y-auto bg-slate-50 p-4">
+      <div className="w-full space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -1650,8 +1650,8 @@ function RapportPoidsContent() {
 // Reusable Components
 function ReportTemplate({ title, description, icon: Icon, children }: any) {
   return (
-    <div className="h-full overflow-y-auto bg-slate-50 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="h-full overflow-y-auto bg-slate-50 p-4">
+      <div className="w-full space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">

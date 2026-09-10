@@ -605,7 +605,7 @@ export function GestionDocuments() {
   return (
     <div className="h-full flex flex-col bg-slate-50 overflow-hidden">
       {/* Header */}
-      <div className="bg-white border-b border-slate-200 p-6 flex-shrink-0">
+      <div className="bg-white border-b border-slate-200 p-4 flex-shrink-0">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">
             Gestion de documents
@@ -616,7 +616,7 @@ export function GestionDocuments() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-4">
         <div className="space-y-6">
           {/* Vehicle Selector */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">

@@ -67,8 +67,8 @@ export function RecentAlerts({
 
   }
   return (
-    <div className="h-full overflow-y-auto p-6">
-      <div className="max-w-7xl mx-auto space-y-4">
+    <div className="h-full overflow-y-auto p-4">
+      <div className="w-full space-y-4">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold text-slate-800">

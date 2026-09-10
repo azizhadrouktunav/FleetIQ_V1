@@ -714,7 +714,7 @@ function DriversContent() {
     }
   };
   return (
-    <div className="h-full overflow-y-auto p-6">
+    <div className="h-full overflow-y-auto p-4">
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
@@ -1089,7 +1089,7 @@ function VehiclesContent() {
   };
 
   return (
-    <div className="h-full overflow-y-auto p-6">
+    <div className="h-full overflow-y-auto p-4">
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
@@ -1337,7 +1337,7 @@ function MaintenanceContent() {
     startIndex + itemsPerPage
   );
   return (
-    <div className="h-full overflow-y-auto p-6">
+    <div className="h-full overflow-y-auto p-4">
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>

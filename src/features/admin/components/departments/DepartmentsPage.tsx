@@ -85,7 +85,7 @@ export function DepartmentsPage() {
 
   return (
     <div className="h-full overflow-y-auto bg-slate-50 dark:bg-slate-950">
-      <div className="mx-auto w-full max-w-7xl space-y-5 p-6">
+      <div className="w-full space-y-5 p-4">
         <AdminPageHeader
           title="Gestion des Départements"
           subtitle="Gérez les départements et leurs véhicules associés"

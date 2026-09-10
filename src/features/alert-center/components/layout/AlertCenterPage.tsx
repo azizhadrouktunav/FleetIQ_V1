@@ -35,7 +35,7 @@ export function AlertCenterPage({
 
   return (
     <div className="h-full w-full overflow-y-auto" style={{ background: '#f4f6f8' }}>
-      <div className="box-border flex w-full flex-col gap-[1.15rem] px-6 pb-9 pt-5">
+      <div className="box-border flex w-full flex-col gap-[1.15rem] px-4 pb-6 pt-4">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1

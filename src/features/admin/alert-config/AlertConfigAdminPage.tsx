@@ -141,7 +141,7 @@ export function AlertConfigAdminPage({
       <div className="flex flex-1 flex-col bg-slate-50">
         {selected ? (
           <>
-            <div className="border-b border-slate-200 bg-white px-6 py-4 shadow-sm">
+            <div className="border-b border-slate-200 bg-white px-4 py-4 shadow-sm">
               <h1 className="text-xl font-bold text-slate-800">
                 Paramétrage des alertes
               </h1>
@@ -150,8 +150,8 @@ export function AlertConfigAdminPage({
               </p>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6">
-              <div className="mx-auto max-w-5xl space-y-4">
+            <div className="flex-1 overflow-y-auto p-4">
+              <div className="w-full space-y-4">
                 {isLoading ? (
                   <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
                     Chargement de la configuration en cours...

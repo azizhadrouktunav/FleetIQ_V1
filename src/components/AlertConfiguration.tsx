@@ -252,7 +252,7 @@ export function AlertConfiguration({
       <div className="flex-1 flex flex-col bg-slate-50">
         {selectedVehicle ?
         <>
-            <div className="bg-white border-b border-slate-200 px-6 py-4">
+            <div className="bg-white border-b border-slate-200 px-4 py-4">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-bold text-slate-800">
@@ -274,8 +274,8 @@ export function AlertConfiguration({
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6">
-              <div className="max-w-4xl mx-auto space-y-3">
+            <div className="flex-1 overflow-y-auto p-4">
+              <div className="w-full space-y-3">
                 {alertTypes.map((alertType, index) => {
                 const isEnabled = localConfig.enabledAlerts.has(alertType.id);
                 const settings = localConfig.alertSettings[alertType.id];

@@ -1797,7 +1797,7 @@ export function GestionMissions({
     setCurrentPage(1);
   };
   return (
-    <div className="h-full overflow-y-auto p-6 bg-slate-50">
+    <div className="h-full overflow-y-auto p-4 bg-slate-50">
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">

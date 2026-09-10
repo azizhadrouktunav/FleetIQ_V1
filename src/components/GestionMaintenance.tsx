@@ -1332,7 +1332,7 @@ export function GestionMaintenance() {
   return (
     <div className="h-full flex flex-col bg-slate-50 overflow-hidden">
       {/* Header & Tabs */}
-      <div className="bg-white border-b border-slate-200 pt-6 px-6 flex-shrink-0">
+      <div className="bg-white border-b border-slate-200 pt-4 px-4 flex-shrink-0">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold text-slate-800">
@@ -1399,7 +1399,7 @@ export function GestionMaintenance() {
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 overflow-hidden flex flex-col p-6">
+      <div className="flex-1 overflow-hidden flex flex-col p-4">
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex-1 flex flex-col overflow-hidden">
           {activeTab === 'reparations' &&
           <div className="p-4 border-b border-slate-200 flex items-end gap-4 bg-white">

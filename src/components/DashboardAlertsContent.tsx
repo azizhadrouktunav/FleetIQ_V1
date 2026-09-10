@@ -295,7 +295,7 @@ export function DashboardAlertsContent({
   return (
     <div className="h-full flex flex-col overflow-hidden bg-slate-50">
       {/* Header */}
-      <div className="p-6 pb-4 bg-white border-b border-slate-200 z-20 relative">
+      <div className="p-4 pb-4 bg-white border-b border-slate-200 z-20 relative">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             {selectedIndicator &&
@@ -554,7 +554,7 @@ export function DashboardAlertsContent({
       </AnimatePresence>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 overflow-auto p-4">
         {!selectedIndicator ?
         <div className="space-y-8">
             {/* Indicator Cards Grid */}

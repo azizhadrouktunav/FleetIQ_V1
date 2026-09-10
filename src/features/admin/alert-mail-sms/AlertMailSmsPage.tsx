@@ -170,7 +170,7 @@ export function AlertMailSmsPage() {
 
   return (
     <div className="h-full overflow-y-auto bg-slate-50">
-      <div className="mx-auto w-full max-w-7xl space-y-5 p-6">
+      <div className="w-full space-y-5 p-4">
         <AdminPageHeader
           title="Envoi des alertes par Mail/SMS"
           subtitle="Gérez les adresses mail et numéros pour la réception des alertes"

@@ -2278,7 +2278,7 @@ export function GestionFactures() {
   return (
     <div className="h-full flex flex-col bg-slate-50">
       {/* Header & Tabs */}
-      <div className="bg-white border-b border-slate-200 px-6 py-4 flex-shrink-0">
+      <div className="bg-white border-b border-slate-200 px-4 py-4 flex-shrink-0">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold text-slate-800">
@@ -2323,7 +2323,7 @@ export function GestionFactures() {
       </div>
 
       {/* Filter Bar */}
-      <div className="px-6 py-4 flex-shrink-0">
+      <div className="px-4 py-4 flex-shrink-0">
         <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
             <Filter className="w-4 h-4 text-slate-400" /> Filtres :
