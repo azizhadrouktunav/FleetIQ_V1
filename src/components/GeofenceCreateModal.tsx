@@ -1,18 +1,20 @@
 import { useEffect, useState } from 'react';
-import type { Vehicle } from '@/types';
 import type { GeofenceDraft, LatLng } from '@/types/map-overlays';
+import { defaultGeoVisibility } from '@/types/map-overlays';
+import {
+  GeoVisibilityFields,
+  validateGeoVisibility,
+} from '@/components/GeoVisibilityFields';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ArrowLeft, CircleDot, Pencil } from 'lucide-react';
-import { GeoAssignmentFields } from '@/components/GeoAssignmentFields';
 import { MapSidePanel } from '@/components/MapSidePanel';
 import { getTunisiaProvince } from '@/data/tunisia-provinces';
 
 interface GeofenceCreateModalProps {
   open: boolean;
   draft: GeofenceDraft | null;
-  vehicles: Vehicle[];
   onDraftChange: (draft: GeofenceDraft) => void;
   onSave: () => void;
   onCancel: () => void;
@@ -30,7 +32,6 @@ interface GeofenceCreateModalProps {
 export function GeofenceCreateModal({
   open,
   draft,
-  vehicles,
   onDraftChange,
   onSave,
   onCancel,
@@ -42,8 +43,8 @@ export function GeofenceCreateModal({
 }: GeofenceCreateModalProps) {
   const [errors, setErrors] = useState<{
     name?: string;
-    assignment?: string;
     radiusKm?: string;
+    visibility?: string;
   }>({});
 
   useEffect(() => {
@@ -90,6 +91,10 @@ export function GeofenceCreateModal({
     if (!isLegacyGouvernorat && (!draft.radiusKm || draft.radiusKm <= 0)) {
       next.radiusKm = 'Rayon invalide.';
     }
+    const visibilityError = validateGeoVisibility(
+      draft.visibility ?? defaultGeoVisibility()
+    );
+    if (visibilityError) next.visibility = visibilityError;
     setErrors(next);
     if (Object.keys(next).length > 0) return;
     onSave();
@@ -151,17 +156,6 @@ export function GeofenceCreateModal({
           )}
         </div>
 
-        <GeoAssignmentFields
-          assignment={draft.assignment}
-          onAssignmentChange={(a) => update('assignment', a)}
-          alertType={draft.alertType}
-          onAlertTypeChange={(t) => update('alertType', t)}
-          vehicles={vehicles}
-          assignmentError={errors.assignment}
-          showAlertType={false}
-          disabled={readOnly}
-        />
-
         {!isLegacyGouvernorat && (
           <div className="space-y-1.5">
             <Label htmlFor="gf-shape">Type de géopérage</Label>
@@ -181,26 +175,6 @@ export function GeofenceCreateModal({
             </select>
           </div>
         )}
-
-        <div className="space-y-1.5">
-          <Label htmlFor="gf-alert">Type d&apos;alerte</Label>
-          <select
-            id="gf-alert"
-            value={draft.alertType}
-            onChange={(e) =>
-              update(
-                'alertType',
-                e.target.value as GeofenceDraft['alertType']
-              )
-            }
-            disabled={readOnly}
-            className="w-full h-9 rounded-md border border-slate-200 px-2 text-sm bg-white disabled:bg-slate-50 disabled:text-slate-600"
-          >
-            <option value="hors_zone">Sortie</option>
-            <option value="dans_zone">Entrée</option>
-            <option value="les_deux">Entrée et sortie</option>
-          </select>
-        </div>
 
         {!isLegacyGouvernorat && (
           <>
@@ -258,6 +232,13 @@ export function GeofenceCreateModal({
             </div>
           </>
         )}
+
+        <GeoVisibilityFields
+          visibility={draft.visibility ?? defaultGeoVisibility()}
+          onChange={(visibility) => update('visibility', visibility)}
+          error={errors.visibility}
+          disabled={readOnly}
+        />
       </div>
 
       <div className="px-4 py-3 border-t border-slate-100 bg-slate-50 flex gap-2">

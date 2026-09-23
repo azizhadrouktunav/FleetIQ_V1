@@ -3,7 +3,6 @@ import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
 import { MapView } from './components/MapView';
 import { MapControls } from './components/MapControls';
-import { BulkZoneAssignPanel } from './components/BulkZoneAssignPanel';
 import { GeofenceCreateModal } from './components/GeofenceCreateModal';
 import { MapOverlayManagePanel } from './components/MapOverlayManagerDialog';
 import { LocationCreateModal } from './components/LocationCreateModal';
@@ -536,14 +535,22 @@ function AppShell() {
       mapOverlays.overlayFormKind === 'route' ||
       mapOverlays.editTarget?.kind === 'defaultZone');
 
+  /** Place-only draw: map free, no vehicle list until creation form opens */
+  const placingGeoOnly =
+    (mapOverlays.drawMode === 'geofence' ||
+      mapOverlays.drawMode === 'location' ||
+      mapOverlays.drawMode === 'polygon') &&
+    !mapOverlays.geofenceModalOpen &&
+    !mapOverlays.locationFormOpen &&
+    !hasOverlayPanel;
+
   const leftPanelOpen =
-    mapOverlays.bulkAssignOpen ||
     mapOverlays.geofenceModalOpen ||
     mapOverlays.locationFormOpen ||
     !!hasOverlayPanel ||
     mapOverlays.routeCreateOpen ||
     !!mapOverlays.manageDialog ||
-    !isVehicleListCollapsed;
+    (!isVehicleListCollapsed && !placingGeoOnly);
 
   const [isMobileViewport, setIsMobileViewport] = useState(false);
 
@@ -559,10 +566,6 @@ function AppShell() {
   }, []);
 
   const handleCloseLeftPanel = useCallback(() => {
-    if (mapOverlays.bulkAssignOpen) {
-      mapOverlays.closeBulkAssign();
-      return;
-    }
     if (mapOverlays.geofenceModalOpen) {
       mapOverlays.closeEditForms();
       mapOverlays.cancelDrawing();
@@ -824,7 +827,9 @@ function AppShell() {
               onMapClick={mapOverlays.handleMapClick}
               mapClickEnabled={
                 mapOverlays.locationFormOpen ||
-                !!mapOverlays.geometryEditKind
+                !!mapOverlays.geometryEditKind ||
+                (mapOverlays.routeCreateOpen &&
+                  mapOverlays.routeCreateMode === 'locations')
               }
               activeGeometryMode={mapOverlays.activeGeometryMode}
               editingOverlayId={mapOverlays.editingOverlayId}
@@ -900,9 +905,7 @@ function AppShell() {
               onClusterLocationsChange={mapOverlays.setClusterLocations}
               drawMode={mapOverlays.drawMode}
               geometryEditKind={mapOverlays.geometryEditKind}
-              onStartDraw={mapOverlays.startDraw}
               onOpenManage={mapOverlays.setManageDialog}
-              onOpenRouteCreate={() => mapOverlays.openRouteCreate()}
               overlays={mapOverlays.allOverlays}
               onSetOverlayVisible={mapOverlays.setOverlayVisible}
               pendingPointsCount={mapOverlays.pendingPoints.length}
@@ -911,6 +914,7 @@ function AppShell() {
               onUndoPoint={mapOverlays.undoMapEdit}
               onRedoPoint={mapOverlays.redoMapEdit}
               routeCreateOpen={mapOverlays.routeCreateOpen}
+              routeCreateMode={mapOverlays.routeCreateMode}
               geofenceModalOpen={mapOverlays.geofenceModalOpen}
               geofenceGeometryActive={mapOverlays.geofenceGeometryActive}
               canUndoMapEdit={mapOverlays.canUndoMapEdit}
@@ -935,20 +939,11 @@ function AppShell() {
 
             {/* Left: Forms | Route via | Gestion | Vehicle List */}
             <div className="fixed inset-y-0 left-0 z-40 w-full lg:absolute lg:z-30 lg:w-auto">
-              {mapOverlays.bulkAssignOpen ? (
-                <BulkZoneAssignPanel
-                  open={mapOverlays.bulkAssignOpen}
-                  zoneCount={mapOverlays.bulkAssignIds.length}
-                  vehicles={MOCK_VEHICLES}
-                  onApply={mapOverlays.applyBulkAssignment}
-                  onCancel={mapOverlays.closeBulkAssign}
-                />
-              ) : mapOverlays.routeCreateOpen ? (
+              {mapOverlays.routeCreateOpen ? (
                 <RouteCreatePanel
                   open={mapOverlays.routeCreateOpen}
                   mode={mapOverlays.routeCreateMode}
                   locations={mapOverlays.locations}
-                  vehicles={MOCK_VEHICLES}
                   pendingPoints={mapOverlays.pendingPoints}
                   onModeChange={mapOverlays.setRouteCreateMode}
                   onClose={() => {
@@ -956,11 +951,13 @@ function AppShell() {
                   }}
                   onFinishMapRoute={mapOverlays.finishMultiPointDraw}
                   onUndoPoint={mapOverlays.undoPendingPoint}
-                  onPreviewChange={(geometry, metrics) => {
+                  onPreviewChange={(geometry, metrics, waypoints) => {
+                    const stops = waypoints ?? [];
                     mapOverlays.setRoutePreview(
-                      geometry.length
+                      geometry.length > 0 || stops.length > 0
                         ? {
                             geometry,
+                            waypoints: stops,
                             distanceMeters: metrics?.distanceMeters,
                             durationSeconds: metrics?.durationSeconds,
                           }
@@ -971,6 +968,8 @@ function AppShell() {
                     mapOverlays.closeRouteCreate();
                     mapOverlays.startDraw('location');
                   }}
+                  mapPointToAdd={mapOverlays.routeViaMapPoint}
+                  onMapPointConsumed={mapOverlays.consumeRouteViaMapPoint}
                   onSave={(draft) => {
                     mapOverlays.addRouteFromDraft(draft);
                     mapOverlays.setManageDialog('route');
@@ -980,7 +979,6 @@ function AppShell() {
                 <GeofenceCreateModal
                   open={mapOverlays.geofenceModalOpen}
                   draft={mapOverlays.geofenceDraft}
-                  vehicles={MOCK_VEHICLES}
                   readOnly={mapOverlays.overlayPanelMode === 'view'}
                   onStartEdit={mapOverlays.startOverlayEdit}
                   title={
@@ -1053,7 +1051,7 @@ function AppShell() {
                   }
                   title={
                     mapOverlays.editTarget?.kind === 'defaultZone'
-                      ? 'Affecter la zone province'
+                      ? 'Modifier la zone province'
                       : mapOverlays.editTarget?.kind === 'polygon'
                         ? 'Modifier le polygone'
                         : mapOverlays.editTarget?.kind === 'route'
@@ -1063,7 +1061,6 @@ function AppShell() {
                             : 'Enregistrer la route'
                   }
                   draft={mapOverlays.overlayForm}
-                  vehicles={MOCK_VEHICLES}
                   nameEditable={mapOverlays.editTarget?.kind !== 'defaultZone'}
                   geometryEditable={
                     mapOverlays.geometryEditKind === 'polygon' ||
@@ -1142,9 +1139,25 @@ function AppShell() {
                   }}
                   onToggleVisible={mapOverlays.setOverlayVisible}
                   onHighlightZone={mapOverlays.setHighlightedZoneId}
+                  onCreate={() => {
+                    const kind = mapOverlays.manageDialog;
+                    if (kind === 'geofence') {
+                      mapOverlays.setManageDialog(null);
+                      mapOverlays.startDraw('geofence');
+                    } else if (kind === 'location') {
+                      mapOverlays.setManageDialog(null);
+                      mapOverlays.startDraw('location');
+                    } else if (kind === 'polygon') {
+                      mapOverlays.setManageDialog(null);
+                      mapOverlays.startDraw('polygon');
+                    } else if (kind === 'route') {
+                      mapOverlays.setManageDialog(null);
+                      mapOverlays.openRouteCreate();
+                    }
+                  }}
                   onCreateRoute={() => {
-                    mapOverlays.setManageDialog('route');
-                    mapOverlays.openRouteCreate('locations');
+                    mapOverlays.setManageDialog(null);
+                    mapOverlays.openRouteCreate();
                   }}
                   onEdit={(kind, id) => {
                     if (
@@ -1157,25 +1170,8 @@ function AppShell() {
                       mapOverlays.openEdit({ kind, id });
                     }
                   }}
-                  selectedIds={mapOverlays.manageSelectedIds}
-                  onToggleSelect={mapOverlays.toggleManageSelect}
-                  onSelectAll={mapOverlays.selectAllManage}
-                  onClearSelection={mapOverlays.clearManageSelection}
-                  onBulkAssign={() => {
-                    const kind = mapOverlays.manageDialog;
-                    if (
-                      kind === 'geofence' ||
-                      kind === 'polygon' ||
-                      kind === 'defaultZone'
-                    ) {
-                      mapOverlays.openBulkAssign(
-                        mapOverlays.manageSelectedIds,
-                        kind
-                      );
-                    }
-                  }}
                 />
-              ) : (
+              ) : placingGeoOnly ? null : (
                 <VehicleListPanel
                   vehicles={MOCK_VEHICLES}
                   selectedVehicleId={selectedVehicleId}

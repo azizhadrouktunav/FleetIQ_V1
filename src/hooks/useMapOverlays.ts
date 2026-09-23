@@ -27,6 +27,7 @@ import type {
 } from '../types/map-overlays';
 import {
   createId,
+  defaultGeoVisibility,
   emptyAssignment,
   getGeofenceFitPoints,
 } from '../types/map-overlays';
@@ -145,14 +146,20 @@ export interface MapControlsState {
   openRouteCreate: (initialMode?: RouteCreateMode) => void;
   closeRouteCreate: () => void;
   setRouteCreateMode: (mode: RouteCreateMode) => void;
+  /** Queued map click while building a route from locations */
+  routeViaMapPoint: LatLng | null;
+  consumeRouteViaMapPoint: () => void;
   routePreview: {
     geometry: LatLng[];
+    /** Stop pins while building route from locations */
+    waypoints?: LatLng[];
     distanceMeters?: number;
     durationSeconds?: number;
   } | null;
   setRoutePreview: (
     p: {
       geometry: LatLng[];
+      waypoints?: LatLng[];
       distanceMeters?: number;
       durationSeconds?: number;
     } | null
@@ -225,6 +232,7 @@ const defaultGeofenceDraft = (
   alertType: 'hors_zone',
   radiusKm,
   center,
+  visibility: defaultGeoVisibility(),
 });
 
 export function useMapOverlays(): MapControlsState {
@@ -337,8 +345,10 @@ export function useMapOverlays(): MapControlsState {
   const [routeCreateOpen, setRouteCreateOpen] = useState(false);
   const [routeCreateMode, setRouteCreateModeState] =
     useState<RouteCreateMode>(null);
+  const [routeViaMapPoint, setRouteViaMapPoint] = useState<LatLng | null>(null);
   const [routePreview, setRoutePreview] = useState<{
     geometry: LatLng[];
+    waypoints?: LatLng[];
     distanceMeters?: number;
     durationSeconds?: number;
   } | null>(null);
@@ -466,11 +476,16 @@ export function useMapOverlays(): MapControlsState {
     clearPointHistory();
     setRouteCreateOpen(false);
     setRouteCreateModeState(null);
+    setRouteViaMapPoint(null);
     setDrawMode(null);
     setPendingPoints([]);
     setRoutePreview(null);
     setPolygonDrawError(null);
   }, [clearPointHistory]);
+
+  const consumeRouteViaMapPoint = useCallback(() => {
+    setRouteViaMapPoint(null);
+  }, []);
 
   const openRouteCreate = useCallback((initialMode?: RouteCreateMode) => {
     setEditTarget(null);
@@ -483,6 +498,7 @@ export function useMapOverlays(): MapControlsState {
     setLocationFormOpen(false);
     setPolygonDrawError(null);
     setRoutePreview(null);
+    setRouteViaMapPoint(null);
     setRouteCreateOpen(true);
     setRouteCreateModeState(initialMode ?? null);
     if (initialMode === 'map') {
@@ -498,6 +514,7 @@ export function useMapOverlays(): MapControlsState {
     setRouteCreateModeState(mode);
     setPolygonDrawError(null);
     setRoutePreview(null);
+    setRouteViaMapPoint(null);
     if (mode === 'map') {
       setPendingPoints([]);
       setDrawMode('route');
@@ -613,6 +630,7 @@ export function useMapOverlays(): MapControlsState {
         radiusKm: draft.radiusKm,
         center: draft.center,
         provinceId: draft.provinceId,
+        visibility: draft.visibility ?? defaultGeoVisibility(),
         visible: true,
       },
     ]);
@@ -641,6 +659,7 @@ export function useMapOverlays(): MapControlsState {
               radiusKm: draft.radiusKm,
               center: draft.center,
               provinceId: draft.provinceId,
+              visibility: draft.visibility ?? defaultGeoVisibility(),
             }
           : o
       )
@@ -659,6 +678,7 @@ export function useMapOverlays(): MapControlsState {
         kind: 'location',
         name: form.name || 'Emplacement',
         position: form.position,
+        visibility: form.visibility ?? defaultGeoVisibility(),
         visible: true,
       },
     ]);
@@ -677,6 +697,7 @@ export function useMapOverlays(): MapControlsState {
               ...o,
               name: form.name || o.name,
               position: form.position,
+              visibility: form.visibility ?? defaultGeoVisibility(),
               assignment: undefined,
               alertType: undefined,
             }
@@ -703,6 +724,7 @@ export function useMapOverlays(): MapControlsState {
         durationSeconds: draft.durationSeconds,
         assignment: draft.assignment,
         alertType: draft.alertType,
+        visibility: draft.visibility ?? defaultGeoVisibility(),
         visible: true,
       },
     ]);
@@ -726,6 +748,7 @@ export function useMapOverlays(): MapControlsState {
               name: draft.name || o.name,
               assignment: draft.assignment,
               alertType: draft.alertType,
+              visibility: draft.visibility ?? defaultGeoVisibility(),
               ...(draft.points.length
                 ? {
                     points: draft.points,
@@ -757,6 +780,7 @@ export function useMapOverlays(): MapControlsState {
         points: draft.points,
         assignment: draft.assignment,
         alertType: draft.alertType,
+        visibility: draft.visibility ?? defaultGeoVisibility(),
         visible: true,
       },
     ]);
@@ -777,6 +801,7 @@ export function useMapOverlays(): MapControlsState {
               name: draft.name || o.name,
               assignment: draft.assignment,
               alertType: draft.alertType,
+              visibility: draft.visibility ?? defaultGeoVisibility(),
               ...(draft.points.length ? { points: draft.points } : {}),
             }
           : o
@@ -849,6 +874,7 @@ export function useMapOverlays(): MapControlsState {
         name: '',
         assignment: emptyAssignment(),
         alertType: 'les_deux',
+        visibility: defaultGeoVisibility(),
         points: result.geometry,
         waypoints,
         distanceMeters: result.distanceMeters,
@@ -874,6 +900,7 @@ export function useMapOverlays(): MapControlsState {
         name: '',
         assignment: emptyAssignment(),
         alertType: 'les_deux',
+        visibility: defaultGeoVisibility(),
         points: [...pendingPoints],
       });
       setOverlayFormKind('polygon');
@@ -959,6 +986,12 @@ export function useMapOverlays(): MapControlsState {
         return;
       }
 
+      // Route via locations: free map points without creating a LocationOverlay
+      if (routeCreateOpen && routeCreateMode === 'locations') {
+        setRouteViaMapPoint(latlng);
+        return;
+      }
+
       if (!drawMode) return;
 
       if (drawMode === 'geofence') return;
@@ -967,6 +1000,7 @@ export function useMapOverlays(): MapControlsState {
         setLocationForm({
           name: '',
           position: latlng,
+          visibility: defaultGeoVisibility(),
         });
         setLocationFormOpen(true);
         setDrawMode(null);
@@ -988,6 +1022,8 @@ export function useMapOverlays(): MapControlsState {
       geometryEditKind,
       locationForm,
       locationFormOpen,
+      routeCreateMode,
+      routeCreateOpen,
       tryAddPolygonPoint,
     ]
   );
@@ -1038,6 +1074,7 @@ export function useMapOverlays(): MapControlsState {
           radiusKm: g.radiusKm,
           center: g.center,
           provinceId: g.provinceId,
+          visibility: g.visibility ?? defaultGeoVisibility(),
         });
         setGeofenceModalOpen(true);
         setFitBoundsPoints(
@@ -1056,6 +1093,7 @@ export function useMapOverlays(): MapControlsState {
         setLocationForm({
           name: loc.name,
           position: loc.position,
+          visibility: loc.visibility ?? defaultGeoVisibility(),
         });
         setLocationFormOpen(true);
         setFlyToTarget(loc.position, 15);
@@ -1069,6 +1107,7 @@ export function useMapOverlays(): MapControlsState {
           name: p.name,
           assignment: p.assignment ?? emptyAssignment(),
           alertType: p.alertType ?? 'les_deux',
+          visibility: p.visibility ?? defaultGeoVisibility(),
           points: p.points,
         });
         setOverlayFormKind('polygon');
@@ -1089,6 +1128,7 @@ export function useMapOverlays(): MapControlsState {
           name: r.name,
           assignment: r.assignment ?? emptyAssignment(),
           alertType: r.alertType ?? 'les_deux',
+          visibility: r.visibility ?? defaultGeoVisibility(),
           points: r.points,
           waypoints,
           waypointLocationIds: r.waypointLocationIds,
@@ -1109,6 +1149,7 @@ export function useMapOverlays(): MapControlsState {
           name: z.name,
           assignment: z.assignment ?? emptyAssignment(),
           alertType: z.alertType ?? 'les_deux',
+          visibility: defaultGeoVisibility(),
           points: z.points,
         });
         setOverlayFormKind(null);
@@ -1323,6 +1364,8 @@ export function useMapOverlays(): MapControlsState {
     openRouteCreate,
     closeRouteCreate,
     setRouteCreateMode,
+    routeViaMapPoint,
+    consumeRouteViaMapPoint,
     routePreview,
     setRoutePreview,
     geofences,

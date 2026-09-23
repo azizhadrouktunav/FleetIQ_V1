@@ -911,6 +911,7 @@ interface MapViewProps {
   draftLocationPosition?: LatLng | null;
   routePreview?: {
     geometry: LatLng[];
+    waypoints?: LatLng[];
     distanceMeters?: number;
     durationSeconds?: number;
   } | null;
@@ -1284,6 +1285,28 @@ export function MapView({
             pathOptions={ROUTE_DRAFT}
           />
         )}
+        {(routePreview?.waypoints ?? []).map((pt, i) => (
+          <Marker
+            key={`route-preview-wp-${i}-${pt[0]}-${pt[1]}`}
+            position={pt}
+            interactive={false}
+            icon={L.divIcon({
+              className: 'route-preview-wp',
+              html: `<div style="width:22px;height:22px;background:${ROUTE_DRAFT.color};color:white;border:2px solid white;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;font:700 11px/1 system-ui,sans-serif">${i + 1}</div>`,
+              iconSize: [22, 22],
+              iconAnchor: [11, 11],
+            })}
+          />
+        ))}
+        {routePreview &&
+          routePreview.geometry.length >= 2 &&
+          routePreview.distanceMeters != null && (
+            <RouteMetricsBadge
+              geometry={routePreview.geometry}
+              distanceMeters={routePreview.distanceMeters}
+              durationSeconds={routePreview.durationSeconds}
+            />
+          )}
 
         {/* Overlay form draft (after finish, before save) */}
         {overlayFormDraft?.kind === 'route' &&

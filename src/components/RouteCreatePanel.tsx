@@ -1,4 +1,3 @@
-import type { Vehicle } from '@/types';
 import type {
   LatLng,
   LocationOverlay,
@@ -17,7 +16,6 @@ interface RouteCreatePanelProps {
   open: boolean;
   mode: RouteCreateMode;
   locations: LocationOverlay[];
-  vehicles: Vehicle[];
   pendingPoints: LatLng[];
   onModeChange: (mode: RouteCreateMode) => void;
   onClose: () => void;
@@ -25,9 +23,12 @@ interface RouteCreatePanelProps {
   onUndoPoint: () => void;
   onSave: (draft: OverlayFormDraft) => void;
   onRequestAddLocation: () => void;
+  mapPointToAdd?: LatLng | null;
+  onMapPointConsumed?: () => void;
   onPreviewChange?: (
-    waypoints: LatLng[],
-    metrics: { distanceMeters: number; durationSeconds: number } | null
+    geometry: LatLng[],
+    metrics: { distanceMeters: number; durationSeconds: number } | null,
+    waypoints?: LatLng[]
   ) => void;
 }
 
@@ -68,7 +69,6 @@ export function RouteCreatePanel({
   open,
   mode,
   locations,
-  vehicles,
   pendingPoints,
   onModeChange,
   onClose,
@@ -76,6 +76,8 @@ export function RouteCreatePanel({
   onUndoPoint,
   onSave,
   onRequestAddLocation,
+  mapPointToAdd = null,
+  onMapPointConsumed,
   onPreviewChange,
 }: RouteCreatePanelProps) {
   const { metrics, routing } = useRouteMetrics(
@@ -142,10 +144,11 @@ export function RouteCreatePanel({
         <RouteViaLocationsForm
           active
           locations={locations}
-          vehicles={vehicles}
           onSave={onSave}
           onCancel={onClose}
           onRequestAddLocation={onRequestAddLocation}
+          mapPointToAdd={mapPointToAdd}
+          onMapPointConsumed={onMapPointConsumed}
           onPreviewChange={onPreviewChange}
         />
       )}

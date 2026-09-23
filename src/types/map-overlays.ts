@@ -32,6 +32,15 @@ export function emptyAssignment(
   return { mode, ids: [] };
 }
 
+/** Who can see a geo overlay on the map */
+export type GeoVisibility =
+  | { mode: 'all' }
+  | { mode: 'accounts'; accountIds: string[] };
+
+export function defaultGeoVisibility(): GeoVisibility {
+  return { mode: 'all' };
+}
+
 export const GEOFENCE_ALERT_LABELS: Record<GeofenceAlertType, string> = {
   hors_zone: 'Sortie',
   dans_zone: 'Entrée',
@@ -53,6 +62,7 @@ export interface GeofenceOverlay {
   center: LatLng;
   /** Set when shapeType is gouvernorat */
   provinceId?: string;
+  visibility: GeoVisibility;
   visible: boolean;
 }
 
@@ -63,6 +73,7 @@ export interface LocationOverlay {
   position: LatLng;
   assignment?: AssignmentScope;
   alertType?: GeofenceAlertType;
+  visibility?: GeoVisibility;
   visible: boolean;
 }
 
@@ -79,6 +90,7 @@ export interface RouteOverlay {
   durationSeconds?: number;
   assignment?: AssignmentScope;
   alertType?: GeofenceAlertType;
+  visibility?: GeoVisibility;
   visible: boolean;
 }
 
@@ -89,6 +101,7 @@ export interface PolygonOverlay {
   points: LatLng[];
   assignment?: AssignmentScope;
   alertType?: GeofenceAlertType;
+  visibility?: GeoVisibility;
   visible: boolean;
 }
 
@@ -120,12 +133,14 @@ export interface GeofenceDraft {
   center: LatLng;
   /** Set when shapeType is gouvernorat */
   provinceId?: string;
+  visibility: GeoVisibility;
 }
 
 export interface OverlayFormDraft {
   name: string;
   assignment: AssignmentScope;
   alertType: GeofenceAlertType;
+  visibility: GeoVisibility;
   points: LatLng[];
   /** For location edit/create */
   position?: LatLng;
@@ -139,6 +154,7 @@ export interface OverlayFormDraft {
 export interface LocationFormState {
   name: string;
   position: LatLng;
+  visibility: GeoVisibility;
 }
 
 export const ACCOUNT_COUNTRY_CODE = 'TN';

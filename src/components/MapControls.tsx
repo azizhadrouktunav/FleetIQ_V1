@@ -10,7 +10,6 @@ import {
   MapPinned,
   Pentagon,
   PanelRightClose,
-  Landmark,
   Undo2,
 } from 'lucide-react';
 import type {
@@ -74,9 +73,7 @@ interface MapControlsProps {
   drawMode: DrawMode;
   /** Edit geometry from Manage (polygon/route) without create drawMode */
   geometryEditKind?: 'polygon' | 'route' | null;
-  onStartDraw: (mode: Exclude<DrawMode, null>) => void;
   onOpenManage: (kind: ManageOverlayKind) => void;
-  onOpenRouteCreate?: () => void;
   overlays: MapOverlay[];
   onSetOverlayVisible: (id: string, visible: boolean) => void;
   pendingPointsCount: number;
@@ -85,6 +82,8 @@ interface MapControlsProps {
   onUndoPoint?: () => void;
   onRedoPoint?: () => void;
   routeCreateOpen?: boolean;
+  /** When creating a route from locations, show map-pick hint */
+  routeCreateMode?: 'locations' | 'map' | null;
   geofenceModalOpen?: boolean;
   geofenceGeometryActive?: boolean;
   canUndoMapEdit?: boolean;
@@ -104,9 +103,7 @@ export function MapControls({
   onClusterLocationsChange,
   drawMode,
   geometryEditKind = null,
-  onStartDraw,
   onOpenManage,
-  onOpenRouteCreate,
   overlays,
   onSetOverlayVisible,
   pendingPointsCount,
@@ -115,6 +112,7 @@ export function MapControls({
   onUndoPoint,
   onRedoPoint,
   routeCreateOpen = false,
+  routeCreateMode = null,
   geofenceModalOpen = false,
   geofenceGeometryActive = false,
   canUndoMapEdit = false,
@@ -247,11 +245,6 @@ export function MapControls({
     setOpenMenu((prev) => (prev === menu ? null : menu));
   };
 
-  const startAndClose = (mode: Exclude<DrawMode, null>) => {
-    onStartDraw(mode);
-    setOpenMenu(null);
-  };
-
   const setAllOverlaysVisible = (visible: boolean) => {
     overlays.forEach((o) => onSetOverlayVisible(o.id, visible));
   };
@@ -260,6 +253,8 @@ export function MapControls({
   const canFinishPolygon = drawMode === 'polygon' && pendingPointsCount >= 3;
   const showCreateBanner = !!drawMode;
   const showEditBanner = !!geometryEditKind && !drawMode;
+  const showLocationsRouteBanner =
+    routeCreateOpen && routeCreateMode === 'locations' && !drawMode;
   const shortcutHints =
     'Échap annuler · Ctrl+Z annuler point · Ctrl+Y rétablir';
 
@@ -268,6 +263,12 @@ export function MapControls({
       ref={toolbarRef}
       className="absolute top-2 right-2 sm:top-4 sm:right-4 z-40 flex flex-col items-end gap-1 sm:gap-2"
     >
+      {showLocationsRouteBanner && (
+        <div className="bg-slate-900/90 text-white text-xs font-medium px-3 py-2 rounded-xl shadow-lg max-w-[calc(100vw-1rem)] sm:max-w-sm">
+          Cliquez pour ajouter un point à l&apos;itinéraire
+        </div>
+      )}
+
       {showEditBanner && (
         <div className="bg-slate-900/90 text-white text-xs font-medium px-3 py-2 rounded-xl shadow-lg max-w-[calc(100vw-1rem)] sm:max-w-sm flex flex-col gap-1.5">
           <div className="flex items-center gap-2">
@@ -376,54 +377,28 @@ export function MapControls({
                   </h3>
                 </div>
                 <div className="p-2">
-                  <p className="px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                    Créer
-                  </p>
                   <MenuRow
                     icon={CircleDot}
                     chip="bg-blue-50 text-blue-600"
-                    label="Ajouter géopérage"
-                    onClick={() => startAndClose('geofence')}
-                  />
-                  <MenuRow
-                    icon={Route}
-                    chip="bg-sky-50 text-sky-600"
-                    label="Ajouter un itinéraire"
-                    onClick={() => {
-                      onOpenRouteCreate?.();
-                      setOpenMenu(null);
-                    }}
-                  />
-                  <MenuRow
-                    icon={MapPinned}
-                    chip="bg-emerald-50 text-emerald-600"
-                    label="Ajouter emplacement"
-                    onClick={() => startAndClose('location')}
-                  />
-                  <MenuRow
-                    icon={Pentagon}
-                    chip="bg-violet-50 text-violet-600"
-                    label="Ajouter polygone"
-                    onClick={() => startAndClose('polygon')}
-                  />
-
-                  <div className="my-2 border-t border-slate-100" />
-                  <p className="px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                    Gérer
-                  </p>
-                  <MenuRow
-                    icon={CircleDot}
-                    chip="bg-blue-50 text-blue-600"
-                    label="Gestion géopérage"
+                    label="Géopérages"
                     onClick={() => {
                       onOpenManage('geofence');
                       setOpenMenu(null);
                     }}
                   />
                   <MenuRow
+                    icon={Route}
+                    chip="bg-sky-50 text-sky-600"
+                    label="Itinéraires"
+                    onClick={() => {
+                      onOpenManage('route');
+                      setOpenMenu(null);
+                    }}
+                  />
+                  <MenuRow
                     icon={MapPinned}
                     chip="bg-emerald-50 text-emerald-600"
-                    label="Gestion des emplacements"
+                    label="Emplacements"
                     onClick={() => {
                       onOpenManage('location');
                       setOpenMenu(null);
@@ -432,27 +407,9 @@ export function MapControls({
                   <MenuRow
                     icon={Pentagon}
                     chip="bg-violet-50 text-violet-600"
-                    label="Gestion des polygones"
+                    label="Polygones"
                     onClick={() => {
                       onOpenManage('polygon');
-                      setOpenMenu(null);
-                    }}
-                  />
-                  <MenuRow
-                    icon={Route}
-                    chip="bg-sky-50 text-sky-600"
-                    label="Gestion des routes"
-                    onClick={() => {
-                      onOpenManage('route');
-                      setOpenMenu(null);
-                    }}
-                  />
-                  <MenuRow
-                    icon={Landmark}
-                    chip="bg-amber-50 text-amber-600"
-                    label="Gestion des zones par défaut"
-                    onClick={() => {
-                      onOpenManage('defaultZone');
                       setOpenMenu(null);
                     }}
                   />

@@ -1,4 +1,3 @@
-import type { Vehicle } from '@/types';
 import type { LatLng, LocationOverlay, OverlayFormDraft } from '@/types/map-overlays';
 import { MapSidePanel } from '@/components/MapSidePanel';
 import { RouteViaLocationsForm } from '@/components/RouteViaLocationsForm';
@@ -7,13 +6,13 @@ import { ArrowLeft, Route } from 'lucide-react';
 interface RouteViaLocationsPanelProps {
   open: boolean;
   locations: LocationOverlay[];
-  vehicles: Vehicle[];
   onClose: () => void;
   onSave: (draft: OverlayFormDraft) => void;
   onRequestAddLocation: () => void;
   onPreviewChange?: (
-    waypoints: LatLng[],
-    metrics: { distanceMeters: number; durationSeconds: number } | null
+    geometry: LatLng[],
+    metrics: { distanceMeters: number; durationSeconds: number } | null,
+    waypoints?: LatLng[]
   ) => void;
 }
 
@@ -21,7 +20,6 @@ interface RouteViaLocationsPanelProps {
 export function RouteViaLocationsPanel({
   open,
   locations,
-  vehicles,
   onClose,
   onSave,
   onRequestAddLocation,
@@ -52,7 +50,6 @@ export function RouteViaLocationsPanel({
       <RouteViaLocationsForm
         active={open}
         locations={locations}
-        vehicles={vehicles}
         onSave={onSave}
         onCancel={onClose}
         onRequestAddLocation={onRequestAddLocation}

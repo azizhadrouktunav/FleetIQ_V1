@@ -6,15 +6,12 @@ import type {
   PolygonOverlay,
   RouteOverlay,
   LatLng,
-  GeofenceAlertType,
 } from '@/types/map-overlays';
 import {
   formatRouteDistance,
   formatRouteDuration,
-  GEOFENCE_ALERT_LABELS,
 } from '@/types/map-overlays';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { MapSidePanel } from '@/components/MapSidePanel';
 import {
   ArrowLeft,
@@ -32,11 +29,11 @@ import {
 import type { ComponentType } from 'react';
 
 const TITLES: Record<ManageOverlayKind, string> = {
-  location: 'Gestion des emplacements',
-  route: 'Gestion des routes',
-  polygon: 'Gestion des polygones',
-  geofence: 'Gestion géopérage',
-  defaultZone: 'Gestion des zones par défaut',
+  location: 'Emplacements',
+  route: 'Itinéraires',
+  polygon: 'Polygones',
+  geofence: 'Géopérages',
+  defaultZone: 'Zones par défaut',
 };
 
 const KIND_VISUAL: Record<
@@ -71,31 +68,9 @@ interface MapOverlayManagePanelProps {
   onToggleVisible: (id: string, visible: boolean) => void;
   onEdit: (kind: ManageOverlayKind, id: string) => void;
   onHighlightZone?: (id: string | null) => void;
+  /** Start create flow for the current kind (geofence / location / polygon / route) */
+  onCreate?: () => void;
   onCreateRoute?: () => void;
-  selectedIds?: string[];
-  onToggleSelect?: (id: string) => void;
-  onSelectAll?: (ids: string[]) => void;
-  onClearSelection?: () => void;
-  onBulkAssign?: () => void;
-}
-
-function assignmentSummary(item: ManageItem): string | null {
-  const assignment =
-    'assignment' in item ? item.assignment : undefined;
-  if (!assignment || assignment.ids.length === 0) return null;
-  const label =
-    assignment.mode === 'vehicle' ? 'véhicule' : 'département';
-  const plural = assignment.ids.length > 1 ? 's' : '';
-  return `${assignment.ids.length} ${label}${plural}`;
-}
-
-function alertSummary(item: ManageItem): string | null {
-  const alertType =
-    'alertType' in item
-      ? (item.alertType as GeofenceAlertType | undefined)
-      : undefined;
-  if (!alertType) return null;
-  return GEOFENCE_ALERT_LABELS[alertType];
 }
 
 export function MapOverlayManagePanel({
@@ -112,12 +87,8 @@ export function MapOverlayManagePanel({
   onToggleVisible,
   onEdit,
   onHighlightZone,
+  onCreate,
   onCreateRoute,
-  selectedIds = [],
-  onToggleSelect,
-  onSelectAll,
-  onClearSelection,
-  onBulkAssign,
 }: MapOverlayManagePanelProps) {
   const items: ManageItem[] =
     kind === 'location'
@@ -147,14 +118,6 @@ export function MapOverlayManagePanel({
 
   const KindIcon = KIND_VISUAL[kind].icon;
   const readonly = kind === 'defaultZone';
-  const bulkSelectable =
-    kind === 'geofence' || kind === 'polygon' || kind === 'defaultZone';
-  const allItemIds = items.map((item) => item.id);
-  const allSelected =
-    bulkSelectable &&
-    allItemIds.length > 0 &&
-    allItemIds.every((id) => selectedIds.includes(id));
-  const someSelected = bulkSelectable && selectedIds.length > 0;
 
   return (
     <MapSidePanel>
@@ -185,59 +148,32 @@ export function MapOverlayManagePanel({
         </div>
       </div>
 
-      {bulkSelectable && items.length > 0 && onSelectAll && onClearSelection && (
-        <div className="flex items-center justify-between gap-2 px-4 py-2 border-b border-slate-100 bg-slate-50/80 text-[11px]">
-          <label className="flex items-center gap-2 cursor-pointer text-slate-600">
-            <Checkbox
-              checked={allSelected}
-              onCheckedChange={() => {
-                if (allSelected) {
-                  onClearSelection();
-                } else {
-                  onSelectAll(allItemIds);
-                }
-              }}
-            />
-            <span>Tout sélectionner</span>
-          </label>
-          {someSelected && (
-            <button
+      {(() => {
+        const createHandler =
+          kind === 'route' ? onCreate ?? onCreateRoute : onCreate;
+        if (!createHandler || kind === 'defaultZone') return null;
+        const createLabel =
+          kind === 'geofence'
+            ? 'Ajouter un géopérage'
+            : kind === 'location'
+              ? 'Ajouter un emplacement'
+              : kind === 'polygon'
+                ? 'Ajouter un polygone'
+                : 'Ajouter un itinéraire';
+        return (
+          <div className="px-4 pt-3">
+            <Button
               type="button"
-              onClick={onClearSelection}
-              className="text-slate-500 hover:text-slate-700 hover:underline"
+              variant="outline"
+              className="w-full justify-start gap-2"
+              onClick={createHandler}
             >
-              Effacer
-            </button>
-          )}
-        </div>
-      )}
-
-      {someSelected && onBulkAssign && (
-        <div className="sticky top-0 z-10 px-4 py-2 border-b border-indigo-100 bg-indigo-50/95 backdrop-blur-sm">
-          <Button
-            type="button"
-            size="sm"
-            className="w-full"
-            onClick={onBulkAssign}
-          >
-            Affecter ({selectedIds.length})
-          </Button>
-        </div>
-      )}
-
-      {kind === 'route' && onCreateRoute && (
-        <div className="px-4 pt-3">
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full justify-start gap-2"
-            onClick={onCreateRoute}
-          >
-            <Plus className="w-4 h-4" />
-            Ajouter un itinéraire
-          </Button>
-        </div>
-      )}
+              <Plus className="w-4 h-4" />
+              {createLabel}
+            </Button>
+          </div>
+        );
+      })()}
 
       <div className="flex-1 overflow-y-auto p-4">
         {items.length === 0 ? (
@@ -247,8 +183,6 @@ export function MapOverlayManagePanel({
         ) : (
           <ul className="space-y-2">
             {items.map((item) => {
-              const assign = assignmentSummary(item);
-              const alert = alertSummary(item);
               const routeMetrics =
                 item.kind === 'route'
                   ? `${formatRouteDistance(item.distanceMeters)} · ${formatRouteDuration(item.durationSeconds)}`
@@ -259,13 +193,6 @@ export function MapOverlayManagePanel({
                   key={item.id}
                   className="flex items-start gap-2 px-2 py-2 rounded-xl border border-slate-100 bg-slate-50/50"
                 >
-                  {bulkSelectable && onToggleSelect && (
-                    <Checkbox
-                      className="mt-2 shrink-0"
-                      checked={selectedIds.includes(item.id)}
-                      onCheckedChange={() => onToggleSelect(item.id)}
-                    />
-                  )}
                   <span
                     className={`h-8 w-8 mt-0.5 rounded-lg inline-flex items-center justify-center shrink-0 ${KIND_VISUAL[kind].chip}`}
                   >
@@ -285,11 +212,9 @@ export function MapOverlayManagePanel({
                     >
                       {item.name}
                     </button>
-                    {(assign || alert || routeMetrics) && (
+                    {routeMetrics && (
                       <p className="text-[11px] text-slate-500 truncate mt-0.5">
-                        {[assign, alert, routeMetrics]
-                          .filter(Boolean)
-                          .join(' · ')}
+                        {routeMetrics}
                       </p>
                     )}
                   </div>
@@ -357,7 +282,7 @@ export function MapOverlayManagePanel({
           className="w-full"
           onClick={onBack}
         >
-          Retour aux véhicules
+          Fermer
         </Button>
       </div>
     </MapSidePanel>

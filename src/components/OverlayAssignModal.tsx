@@ -1,19 +1,20 @@
 import { useEffect, useState } from 'react';
-import type { Vehicle } from '@/types';
 import type {
-  AssignmentScope,
   DefaultZoneOverlay,
-  GeofenceAlertType,
   OverlayFormDraft,
   PolygonOverlay,
   RouteOverlay,
 } from '@/types/map-overlays';
 import {
+  defaultGeoVisibility,
   emptyAssignment,
   formatRouteDistance,
   formatRouteDuration,
 } from '@/types/map-overlays';
-import { GeoAssignmentFields } from '@/components/GeoAssignmentFields';
+import {
+  GeoVisibilityFields,
+  validateGeoVisibility,
+} from '@/components/GeoVisibilityFields';
 import { MapSidePanel } from '@/components/MapSidePanel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,9 +37,7 @@ interface OverlayAssignModalProps {
   kind: EditKind | null;
   title: string;
   draft: OverlayFormDraft | null;
-  vehicles: Vehicle[];
   nameEditable?: boolean;
-  requireAssignment?: boolean;
   /** Show map-geometry edit hint */
   geometryEditable?: boolean;
   readOnly?: boolean;
@@ -53,6 +52,7 @@ export function draftFromPolygon(p: PolygonOverlay): OverlayFormDraft {
     name: p.name,
     assignment: p.assignment ?? emptyAssignment(),
     alertType: p.alertType ?? 'les_deux',
+    visibility: p.visibility ?? defaultGeoVisibility(),
     points: p.points,
   };
 }
@@ -62,6 +62,7 @@ export function draftFromRoute(r: RouteOverlay): OverlayFormDraft {
     name: r.name,
     assignment: r.assignment ?? emptyAssignment(),
     alertType: r.alertType ?? 'les_deux',
+    visibility: r.visibility ?? defaultGeoVisibility(),
     points: r.points,
     waypoints: r.waypoints,
     waypointLocationIds: r.waypointLocationIds,
@@ -75,6 +76,7 @@ export function draftFromDefaultZone(z: DefaultZoneOverlay): OverlayFormDraft {
     name: z.name,
     assignment: z.assignment ?? emptyAssignment(),
     alertType: z.alertType ?? 'les_deux',
+    visibility: defaultGeoVisibility(),
     points: z.points,
   };
 }
@@ -84,9 +86,7 @@ export function OverlayAssignModal({
   kind,
   title,
   draft,
-  vehicles,
   nameEditable = true,
-  requireAssignment = false,
   geometryEditable = false,
   readOnly = false,
   onStartEdit,
@@ -94,7 +94,7 @@ export function OverlayAssignModal({
   onSave,
   onCancel,
 }: OverlayAssignModalProps) {
-  const [errors, setErrors] = useState<{ name?: string; assignment?: string }>(
+  const [errors, setErrors] = useState<{ name?: string; visibility?: string }>(
     {}
   );
 
@@ -125,11 +125,11 @@ export function OverlayAssignModal({
   const handleSave = () => {
     const next: typeof errors = {};
     if (nameEditable && !draft.name.trim()) next.name = 'Le nom est requis.';
-    if (requireAssignment && draft.assignment.ids.length === 0) {
-      next.assignment =
-        draft.assignment.mode === 'vehicle'
-          ? 'Sélectionnez au moins un véhicule.'
-          : 'Sélectionnez au moins un département.';
+    if (kind !== 'defaultZone') {
+      const visibilityError = validateGeoVisibility(
+        draft.visibility ?? defaultGeoVisibility()
+      );
+      if (visibilityError) next.visibility = visibilityError;
     }
     setErrors(next);
     if (Object.keys(next).length > 0) return;
@@ -200,15 +200,14 @@ export function OverlayAssignModal({
             </p>
           )}
 
-        <GeoAssignmentFields
-          assignment={draft.assignment}
-          onAssignmentChange={(a: AssignmentScope) => update('assignment', a)}
-          alertType={draft.alertType}
-          onAlertTypeChange={(t: GeofenceAlertType) => update('alertType', t)}
-          vehicles={vehicles}
-          assignmentError={errors.assignment}
-          disabled={readOnly}
-        />
+        {kind !== 'defaultZone' && (
+          <GeoVisibilityFields
+            visibility={draft.visibility ?? defaultGeoVisibility()}
+            onChange={(visibility) => update('visibility', visibility)}
+            error={errors.visibility}
+            disabled={readOnly}
+          />
+        )}
       </div>
 
       <div className="px-4 py-3 border-t border-slate-100 bg-slate-50 flex gap-2">

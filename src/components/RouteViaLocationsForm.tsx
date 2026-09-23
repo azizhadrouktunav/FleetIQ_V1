@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { Vehicle } from '@/types';
 import type {
-  AssignmentScope,
   GeofenceAlertType,
+  GeoVisibility,
   LatLng,
   LocationOverlay,
   OverlayFormDraft,
 } from '@/types/map-overlays';
-import { emptyAssignment } from '@/types/map-overlays';
+import { defaultGeoVisibility, emptyAssignment } from '@/types/map-overlays';
+import {
+  GeoVisibilityFields,
+  validateGeoVisibility,
+} from '@/components/GeoVisibilityFields';
 import { RouteMetricsSummary } from '@/components/RouteMetricsSummary';
 import { fetchDrivingRoute } from '@/lib/osrm-routing';
-import { GeoAssignmentFields } from '@/components/GeoAssignmentFields';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -36,7 +38,7 @@ import { CSS } from '@dnd-kit/utilities';
 import {
   ArrowDown,
   GripVertical,
-  MapPinned,
+  MapPin,
   Plus,
   Search,
   Trash2,
@@ -45,14 +47,35 @@ import { cn } from '@/lib/utils';
 
 interface WaypointStop {
   instanceId: string;
-  locationId: string;
+  /** Set when the stop comes from a saved location */
+  locationId?: string;
+  position: LatLng;
 }
 
-function createStop(locationId: string): WaypointStop {
+function newInstanceId() {
+  return `wp-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function createLocationStop(
+  locationId: string,
+  position: LatLng
+): WaypointStop {
   return {
-    instanceId: `wp-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+    instanceId: newInstanceId(),
     locationId,
+    position,
   };
+}
+
+function createMapStop(position: LatLng): WaypointStop {
+  return {
+    instanceId: newInstanceId(),
+    position,
+  };
+}
+
+function formatMapPointLabel(position: LatLng): string {
+  return `Point carte (${position[0].toFixed(5)}, ${position[1].toFixed(5)})`;
 }
 
 function SortableStopRow({
@@ -144,33 +167,36 @@ function SortableStopRow({
 export interface RouteViaLocationsFormProps {
   active: boolean;
   locations: LocationOverlay[];
-  vehicles: Vehicle[];
   onSave: (draft: OverlayFormDraft) => void;
   onCancel: () => void;
   onRequestAddLocation: () => void;
+  /** Map click queued by parent while in locations mode */
+  mapPointToAdd?: LatLng | null;
+  onMapPointConsumed?: () => void;
   onPreviewChange?: (
-    waypoints: LatLng[],
-    metrics: { distanceMeters: number; durationSeconds: number } | null
+    geometry: LatLng[],
+    metrics: { distanceMeters: number; durationSeconds: number } | null,
+    waypoints?: LatLng[]
   ) => void;
 }
 
 export function RouteViaLocationsForm({
   active,
   locations,
-  vehicles,
   onSave,
   onCancel,
   onRequestAddLocation,
+  mapPointToAdd = null,
+  onMapPointConsumed,
   onPreviewChange,
 }: RouteViaLocationsFormProps) {
   const [name, setName] = useState('');
   const [stops, setStops] = useState<WaypointStop[]>([]);
   const [stagingIds, setStagingIds] = useState<string[]>([]);
   const [search, setSearch] = useState('');
-  const [assignment, setAssignment] = useState<AssignmentScope>(
-    emptyAssignment()
+  const [visibility, setVisibility] = useState<GeoVisibility>(
+    defaultGeoVisibility()
   );
-  const [alertType, setAlertType] = useState<GeofenceAlertType>('les_deux');
   const [metrics, setMetrics] = useState<{
     distanceMeters: number;
     durationSeconds: number;
@@ -179,7 +205,7 @@ export function RouteViaLocationsForm({
   const [errors, setErrors] = useState<{
     name?: string;
     waypoints?: string;
-    assignment?: string;
+    visibility?: string;
   }>({});
   const [routing, setRouting] = useState(false);
 
@@ -209,16 +235,15 @@ export function RouteViaLocationsForm({
     );
   }, [visibleLocations, search]);
 
-  const locationIds = useMemo(
-    () => stops.map((s) => s.locationId),
+  const waypoints = useMemo(
+    () => stops.map((s) => s.position),
     [stops]
   );
 
-  const waypoints = useMemo(() => {
-    return locationIds
-      .map((id) => locById.get(id)?.position)
-      .filter((p): p is LatLng => !!p);
-  }, [locationIds, locById]);
+  const waypointLocationIds = useMemo(
+    () => stops.map((s) => s.locationId ?? ''),
+    [stops]
+  );
 
   useEffect(() => {
     if (!active) return;
@@ -226,16 +251,22 @@ export function RouteViaLocationsForm({
     setStops([]);
     setStagingIds([]);
     setSearch('');
-    setAssignment(emptyAssignment());
-    setAlertType('les_deux');
+    setVisibility(defaultGeoVisibility());
     setMetrics(null);
     setGeometry([]);
     setErrors({});
   }, [active]);
 
   useEffect(() => {
+    if (!active || !mapPointToAdd) return;
+    setStops((prev) => [...prev, createMapStop(mapPointToAdd)]);
+    setErrors((prev) => ({ ...prev, waypoints: undefined }));
+    onMapPointConsumed?.();
+  }, [active, mapPointToAdd, onMapPointConsumed]);
+
+  useEffect(() => {
     if (!active) {
-      onPreviewChange?.([], null);
+      onPreviewChange?.([], null, []);
     }
   }, [active, onPreviewChange]);
 
@@ -243,23 +274,33 @@ export function RouteViaLocationsForm({
     if (!active || waypoints.length < 2) {
       setMetrics(null);
       setGeometry(waypoints);
-      onPreviewChange?.(waypoints, null);
+      setRouting(false);
+      onPreviewChange?.(waypoints, null, waypoints);
       return;
     }
     let cancelled = false;
     setRouting(true);
     const timer = window.setTimeout(() => {
-      void fetchDrivingRoute(waypoints).then((result) => {
-        if (cancelled) return;
-        setGeometry(result.geometry);
-        const m = {
-          distanceMeters: result.distanceMeters,
-          durationSeconds: result.durationSeconds,
-        };
-        setMetrics(m);
-        setRouting(false);
-        onPreviewChange?.(result.geometry, m);
-      });
+      void fetchDrivingRoute(waypoints)
+        .then((result) => {
+          if (cancelled) return;
+          setGeometry(result.geometry);
+          const m = {
+            distanceMeters: result.distanceMeters,
+            durationSeconds: result.durationSeconds,
+          };
+          setMetrics(m);
+          onPreviewChange?.(result.geometry, m, waypoints);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setMetrics(null);
+          setGeometry(waypoints);
+          onPreviewChange?.(waypoints, null, waypoints);
+        })
+        .finally(() => {
+          if (!cancelled) setRouting(false);
+        });
     }, 280);
     return () => {
       cancelled = true;
@@ -289,7 +330,14 @@ export function RouteViaLocationsForm({
 
   const addStagingToRoute = () => {
     if (stagingIds.length === 0) return;
-    setStops((prev) => [...prev, ...stagingIds.map((id) => createStop(id))]);
+    setStops((prev) => [
+      ...prev,
+      ...stagingIds.flatMap((id) => {
+        const loc = locById.get(id);
+        if (!loc) return [];
+        return [createLocationStop(id, loc.position)];
+      }),
+    ]);
     setStagingIds([]);
     setErrors((prev) => ({ ...prev, waypoints: undefined }));
   };
@@ -321,16 +369,19 @@ export function RouteViaLocationsForm({
     if (stops.length < 2) {
       next.waypoints = 'Ajoutez au moins un départ et une arrivée.';
     }
+    const visibilityError = validateGeoVisibility(visibility);
+    if (visibilityError) next.visibility = visibilityError;
     setErrors(next);
     if (Object.keys(next).length > 0) return;
 
     onSave({
       name: name.trim(),
-      assignment,
-      alertType,
+      assignment: emptyAssignment(),
+      alertType: 'les_deux' satisfies GeofenceAlertType,
+      visibility,
       points: geometry.length >= 2 ? geometry : waypoints,
       waypoints,
-      waypointLocationIds: locationIds,
+      waypointLocationIds,
       distanceMeters: metrics?.distanceMeters,
       durationSeconds: metrics?.durationSeconds,
     });
@@ -341,204 +392,204 @@ export function RouteViaLocationsForm({
   return (
     <>
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {locations.length < 2 ? (
-          <div className="rounded-lg border border-dashed border-slate-200 p-4 text-center space-y-2">
-            <MapPinned className="w-8 h-8 text-slate-300 mx-auto" />
-            <p className="text-sm text-slate-600">
-              Créez au moins deux emplacements pour construire une route.
-            </p>
-            <Button type="button" size="sm" onClick={onRequestAddLocation}>
-              Ajouter un emplacement
-            </Button>
-          </div>
-        ) : (
-          <>
-            {(metrics || routing) && (
-              <RouteMetricsSummary
-                distanceMeters={metrics?.distanceMeters}
-                durationSeconds={metrics?.durationSeconds}
-                loading={routing}
-              />
-            )}
+        {stops.length >= 2 && (
+          <RouteMetricsSummary
+            distanceMeters={metrics?.distanceMeters}
+            durationSeconds={metrics?.durationSeconds}
+            loading={routing}
+          />
+        )}
 
-            <div className="space-y-1.5">
-              <Label htmlFor="route-via-name">Nom de la route</Label>
-              <Input
-                id="route-via-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Ex: Tunis → Sousse"
-              />
-              {errors.name && (
-                <p className="text-xs text-rose-600">{errors.name}</p>
+        <p className="text-xs text-slate-500 leading-relaxed rounded-lg border border-sky-100 bg-sky-50/60 px-3 py-2 flex gap-2">
+          <MapPin className="w-3.5 h-3.5 text-sky-600 shrink-0 mt-0.5" />
+          Cliquez sur la carte pour ajouter un point, ou sélectionnez des
+          emplacements ci-dessous.
+        </p>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="route-via-name">Nom de la route</Label>
+          <Input
+            id="route-via-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Ex: Tunis → Sousse"
+          />
+          {errors.name && (
+            <p className="text-xs text-rose-600">{errors.name}</p>
+          )}
+        </div>
+
+        <div className="space-y-1.5">
+          <Label>Itinéraire (départ → étapes → arrivée)</Label>
+          {stops.length === 0 ? (
+            <p className="text-xs text-slate-500 py-2">
+              Aucun point — cliquez sur la carte ou sélectionnez des
+              emplacements.
+            </p>
+          ) : (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={stops.map((s) => s.instanceId)}
+                strategy={verticalListSortingStrategy}
+              >
+                <ul className="space-y-1.5">
+                  {stops.map((stop, index) => {
+                    const loc = stop.locationId
+                      ? locById.get(stop.locationId)
+                      : undefined;
+                    const role =
+                      index === 0
+                        ? 'Départ'
+                        : index === stops.length - 1
+                          ? 'Arrivée'
+                          : `Étape ${index}`;
+                    const displayName = loc
+                      ? loc.name
+                      : formatMapPointLabel(stop.position);
+                    return (
+                      <SortableStopRow
+                        key={stop.instanceId}
+                        stop={stop}
+                        index={index}
+                        total={stops.length}
+                        name={displayName}
+                        role={role}
+                        onMove={move}
+                        onRemove={removeAt}
+                      />
+                    );
+                  })}
+                </ul>
+              </SortableContext>
+            </DndContext>
+          )}
+
+          <div className="space-y-2 rounded-lg border border-slate-200 p-2.5 bg-white">
+            <div className="flex items-center justify-between gap-2">
+              <Label className="text-xs text-slate-600">
+                Ajouter des emplacements
+              </Label>
+              {stagingIds.length > 0 && (
+                <Badge variant="info" className="text-[10px] h-5">
+                  {stagingIds.length} sélectionné
+                  {stagingIds.length > 1 ? 's' : ''}
+                </Badge>
               )}
             </div>
 
-            <div className="space-y-1.5">
-              <Label>Itinéraire (départ → étapes → arrivée)</Label>
-              {stops.length === 0 ? (
-                <p className="text-xs text-slate-500 py-2">
-                  Aucun point — sélectionnez des emplacements ci-dessous.
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Rechercher un emplacement…"
+                className="pl-8 h-9 text-sm"
+                autoComplete="off"
+              />
+            </div>
+
+            <div className="flex gap-2 flex-wrap items-center">
+              <button
+                type="button"
+                onClick={selectAllFiltered}
+                disabled={filteredLocations.length === 0}
+                className="text-[10px] text-blue-600 hover:underline disabled:text-slate-300 disabled:no-underline"
+              >
+                Tout sélectionner
+              </button>
+              <button
+                type="button"
+                onClick={clearStaging}
+                disabled={stagingIds.length === 0}
+                className="text-[10px] text-slate-500 hover:underline disabled:text-slate-300 disabled:no-underline"
+              >
+                Effacer
+              </button>
+              <button
+                type="button"
+                onClick={onRequestAddLocation}
+                className="text-[10px] text-emerald-600 hover:underline ml-auto"
+              >
+                Créer un emplacement…
+              </button>
+            </div>
+
+            <div className="max-h-36 overflow-y-auto rounded-md border border-slate-200 divide-y divide-slate-100">
+              {filteredLocations.length === 0 ? (
+                <p className="px-3 py-2 text-sm text-slate-500">
+                  Aucun emplacement — cliquez la carte ou créez-en un.
                 </p>
               ) : (
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={closestCenter}
-                  onDragEnd={handleDragEnd}
-                >
-                  <SortableContext
-                    items={stops.map((s) => s.instanceId)}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    <ul className="space-y-1.5">
-                      {stops.map((stop, index) => {
-                        const loc = locById.get(stop.locationId);
-                        const role =
-                          index === 0
-                            ? 'Départ'
-                            : index === stops.length - 1
-                              ? 'Arrivée'
-                              : `Étape ${index}`;
-                        return (
-                          <SortableStopRow
-                            key={stop.instanceId}
-                            stop={stop}
-                            index={index}
-                            total={stops.length}
-                            name={loc?.name ?? stop.locationId}
-                            role={role}
-                            onMove={move}
-                            onRemove={removeAt}
-                          />
-                        );
-                      })}
-                    </ul>
-                  </SortableContext>
-                </DndContext>
-              )}
-
-              <div className="space-y-2 rounded-lg border border-slate-200 p-2.5 bg-white">
-                <div className="flex items-center justify-between gap-2">
-                  <Label className="text-xs text-slate-600">
-                    Ajouter des emplacements
-                  </Label>
-                  {stagingIds.length > 0 && (
-                    <Badge variant="info" className="text-[10px] h-5">
-                      {stagingIds.length} sélectionné
-                      {stagingIds.length > 1 ? 's' : ''}
-                    </Badge>
-                  )}
-                </div>
-
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-                  <Input
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Rechercher un emplacement…"
-                    className="pl-8 h-9 text-sm"
-                    autoComplete="off"
-                  />
-                </div>
-
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={selectAllFiltered}
-                    disabled={filteredLocations.length === 0}
-                    className="text-[10px] text-blue-600 hover:underline disabled:text-slate-300 disabled:no-underline"
-                  >
-                    Tout sélectionner
-                  </button>
-                  <button
-                    type="button"
-                    onClick={clearStaging}
-                    disabled={stagingIds.length === 0}
-                    className="text-[10px] text-slate-500 hover:underline disabled:text-slate-300 disabled:no-underline"
-                  >
-                    Effacer
-                  </button>
-                </div>
-
-                <div className="max-h-36 overflow-y-auto rounded-md border border-slate-200 divide-y divide-slate-100">
-                  {filteredLocations.length === 0 ? (
-                    <p className="px-3 py-2 text-sm text-slate-500">
-                      Aucun emplacement trouvé
-                    </p>
-                  ) : (
-                    filteredLocations.map((loc) => {
-                      const checked = stagingIds.includes(loc.id);
-                      return (
-                        <label
-                          key={loc.id}
-                          className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 cursor-pointer"
-                        >
-                          <Checkbox
-                            checked={checked}
-                            onCheckedChange={() => toggleStaging(loc.id)}
-                          />
-                          <span className="truncate text-slate-800">
-                            {loc.name}
-                          </span>
-                        </label>
-                      );
-                    })
-                  )}
-                </div>
-
-                <Button
-                  type="button"
-                  className="w-full gap-1.5"
-                  size="sm"
-                  onClick={addStagingToRoute}
-                  disabled={stagingIds.length === 0}
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  Ajouter à l&apos;itinéraire
-                  {stagingIds.length > 0 ? ` (${stagingIds.length})` : ''}
-                </Button>
-                <p className="text-[10px] text-slate-400">
-                  Glissez l&apos;icône ⋮⋮ pour réordonner. Doublons autorisés.
-                </p>
-              </div>
-
-              {errors.waypoints && (
-                <p className="text-xs text-rose-600">{errors.waypoints}</p>
+                filteredLocations.map((loc) => {
+                  const checked = stagingIds.includes(loc.id);
+                  return (
+                    <label
+                      key={loc.id}
+                      className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-50 cursor-pointer"
+                    >
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={() => toggleStaging(loc.id)}
+                      />
+                      <span className="truncate text-slate-800">
+                        {loc.name}
+                      </span>
+                    </label>
+                  );
+                })
               )}
             </div>
 
-            <GeoAssignmentFields
-              assignment={assignment}
-              onAssignmentChange={setAssignment}
-              alertType={alertType}
-              onAlertTypeChange={setAlertType}
-              vehicles={vehicles}
-              assignmentError={errors.assignment}
-            />
-          </>
-        )}
+            <Button
+              type="button"
+              className="w-full gap-1.5"
+              size="sm"
+              onClick={addStagingToRoute}
+              disabled={stagingIds.length === 0}
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Ajouter à l&apos;itinéraire
+              {stagingIds.length > 0 ? ` (${stagingIds.length})` : ''}
+            </Button>
+            <p className="text-[10px] text-slate-400">
+              Glissez l&apos;icône ⋮⋮ pour réordonner. Doublons autorisés.
+            </p>
+          </div>
+
+          {errors.waypoints && (
+            <p className="text-xs text-rose-600">{errors.waypoints}</p>
+          )}
+        </div>
+
+        <GeoVisibilityFields
+          visibility={visibility}
+          onChange={setVisibility}
+          error={errors.visibility}
+        />
       </div>
 
-      {locations.length >= 2 && (
-        <div className="px-4 py-3 border-t border-slate-100 bg-slate-50 flex gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            className="flex-1"
-            onClick={onCancel}
-          >
-            Annuler
-          </Button>
-          <Button
-            type="button"
-            className="flex-1"
-            onClick={handleSave}
-            disabled={routing}
-          >
-            Enregistrer
-          </Button>
-        </div>
-      )}
+      <div className="px-4 py-3 border-t border-slate-100 bg-slate-50 flex gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          className="flex-1"
+          onClick={onCancel}
+        >
+          Annuler
+        </Button>
+        <Button
+          type="button"
+          className="flex-1"
+          onClick={handleSave}
+          disabled={routing}
+        >
+          Enregistrer
+        </Button>
+      </div>
     </>
   );
 }

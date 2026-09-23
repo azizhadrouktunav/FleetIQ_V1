@@ -3,6 +3,11 @@ import type {
   LocationFormState,
   LocationOverlay,
 } from '@/types/map-overlays';
+import { defaultGeoVisibility } from '@/types/map-overlays';
+import {
+  GeoVisibilityFields,
+  validateGeoVisibility,
+} from '@/components/GeoVisibilityFields';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,6 +29,7 @@ export function locationFormFromOverlay(loc: LocationOverlay): LocationFormState
   return {
     name: loc.name,
     position: loc.position,
+    visibility: loc.visibility ?? defaultGeoVisibility(),
   };
 }
 
@@ -35,7 +41,9 @@ export function LocationCreateModal({
   onSave,
   onCancel,
 }: LocationCreateModalProps) {
-  const [errors, setErrors] = useState<{ name?: string }>({});
+  const [errors, setErrors] = useState<{ name?: string; visibility?: string }>(
+    {}
+  );
 
   useEffect(() => {
     if (open) setErrors({});
@@ -53,6 +61,10 @@ export function LocationCreateModal({
   const handleSave = () => {
     const next: typeof errors = {};
     if (!initial.name.trim()) next.name = 'La description est requise.';
+    const visibilityError = validateGeoVisibility(
+      initial.visibility ?? defaultGeoVisibility()
+    );
+    if (visibilityError) next.visibility = visibilityError;
     setErrors(next);
     if (Object.keys(next).length > 0) return;
     onSave();
@@ -135,6 +147,12 @@ export function LocationCreateModal({
             />
           </div>
         </div>
+
+        <GeoVisibilityFields
+          visibility={initial.visibility ?? defaultGeoVisibility()}
+          onChange={(visibility) => update('visibility', visibility)}
+          error={errors.visibility}
+        />
       </div>
 
       <div className="px-4 py-3 border-t border-slate-100 bg-slate-50 flex gap-2">
