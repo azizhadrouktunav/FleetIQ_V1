@@ -306,7 +306,7 @@ export function MapControls({
               {drawMode === 'route' &&
                 `Itinéraire : ${pendingPointsCount} point(s) — min. 2 · Entrée pour terminer · ${shortcutHints}`}
               {drawMode === 'polygon' &&
-                `Polygone : ${pendingPointsCount} point(s) — min. 3 · Entrée ou clic sur le 1er point · ${shortcutHints}`}
+                `Polygone : ${pendingPointsCount} point(s) — min. 3 · Clic droit pour fermer · ${shortcutHints}`}
             </span>
             {pendingPointsCount > 0 && onUndoPoint && (
               <button

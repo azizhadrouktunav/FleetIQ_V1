@@ -26,7 +26,7 @@ import { AlertHistoryPage } from './pages/AlertHistoryPage';
 import { AlertConfigurationPage } from './pages/AlertConfigurationPage';
 import { GeneralReportDetailsPage } from './pages/GeneralReportDetailsPage';
 import { GestionSinistres } from './components/GestionSinistres';
-import type { LatLng } from './types/map-overlays';
+import type { LatLng, ManageOverlayKind } from './types/map-overlays';
 import { AlertMailSmsContent } from './components/AlertMailSmsContent';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { useMapOverlays } from './hooks/useMapOverlays';
@@ -591,6 +591,16 @@ function AppShell() {
     setIsVehicleListCollapsed(true);
   }, [hasOverlayPanel, mapOverlays]);
 
+  const openGeoManage = useCallback(
+    (kind: ManageOverlayKind) => {
+      mapOverlays.closeRouteCreate();
+      mapOverlays.closeEditForms();
+      mapOverlays.cancelDrawing();
+      mapOverlays.setManageDialog(kind);
+    },
+    [mapOverlays]
+  );
+
   // Inject Leaflet CSS
   useEffect(() => {
     const link = document.createElement('link');
@@ -905,7 +915,7 @@ function AppShell() {
               onClusterLocationsChange={mapOverlays.setClusterLocations}
               drawMode={mapOverlays.drawMode}
               geometryEditKind={mapOverlays.geometryEditKind}
-              onOpenManage={mapOverlays.setManageDialog}
+              onOpenManage={openGeoManage}
               overlays={mapOverlays.allOverlays}
               onSetOverlayVisible={mapOverlays.setOverlayVisible}
               pendingPointsCount={mapOverlays.pendingPoints.length}
@@ -1142,21 +1152,16 @@ function AppShell() {
                   onCreate={() => {
                     const kind = mapOverlays.manageDialog;
                     if (kind === 'geofence') {
-                      mapOverlays.setManageDialog(null);
                       mapOverlays.startDraw('geofence');
                     } else if (kind === 'location') {
-                      mapOverlays.setManageDialog(null);
                       mapOverlays.startDraw('location');
                     } else if (kind === 'polygon') {
-                      mapOverlays.setManageDialog(null);
                       mapOverlays.startDraw('polygon');
                     } else if (kind === 'route') {
-                      mapOverlays.setManageDialog(null);
                       mapOverlays.openRouteCreate();
                     }
                   }}
                   onCreateRoute={() => {
-                    mapOverlays.setManageDialog(null);
                     mapOverlays.openRouteCreate();
                   }}
                   onEdit={(kind, id) => {

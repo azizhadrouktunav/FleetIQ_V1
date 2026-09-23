@@ -361,6 +361,19 @@ function MapClickHandler({
 
       onMapClick(latlng);
     },
+    contextmenu(e) {
+      // Close polygon on right-click (min. 3 points)
+      if (
+        !enabled ||
+        drawMode !== 'polygon' ||
+        pendingPoints.length < 3 ||
+        !onFinishPolygon
+      ) {
+        return;
+      }
+      e.originalEvent.preventDefault();
+      onFinishPolygon();
+    },
   });
   return null;
 }
