@@ -245,8 +245,10 @@ export function MapControls({
     setOpenMenu((prev) => (prev === menu ? null : menu));
   };
 
+  const manageableOverlays = overlays.filter((o) => o.kind !== 'defaultZone');
+
   const setAllOverlaysVisible = (visible: boolean) => {
-    overlays.forEach((o) => onSetOverlayVisible(o.id, visible));
+    manageableOverlays.forEach((o) => onSetOverlayVisible(o.id, visible));
   };
 
   const canFinishRoute = drawMode === 'route' && pendingPointsCount >= 2;
@@ -542,14 +544,14 @@ export function MapControls({
                     Masquer / afficher les couches
                   </h3>
                 </div>
-                {overlays.length === 0 ? (
+                {manageableOverlays.length === 0 ? (
                   <div className="p-4 text-sm text-slate-500 text-center">
                     Aucune couche à masquer
                   </div>
                 ) : (
                   <>
                     <div className="p-2 max-h-48 overflow-y-auto">
-                      {overlays.map((o) => (
+                      {manageableOverlays.map((o) => (
                         <div
                           key={o.id}
                           className="flex items-center gap-3 px-3 py-2 hover:bg-slate-50 rounded-lg"
